@@ -5,11 +5,10 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-$preset = if ($Configuration -eq 'Release') { 'windows-release' } else { 'windows-debug' }
 $repoRoot = Split-Path -Parent $PSScriptRoot
 Push-Location $repoRoot
 try {
-    & cmake --build --preset $preset --parallel
+    & cmake --build build --config $Configuration --parallel
     if ($LASTEXITCODE -ne 0) {
         throw "Build failed with exit code $LASTEXITCODE."
     }
