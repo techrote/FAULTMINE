@@ -32,6 +32,14 @@ jobs:
         shell: pwsh
         run: .\scripts\test.ps1 -Configuration Debug
 
+      - name: Smoke Debug window lifecycle
+        shell: pwsh
+        run: |
+          $process = Start-Process -FilePath ".\build\Debug\FAULTMINE.exe" -ArgumentList "--smoke-test" -Wait -PassThru
+          if ($process.ExitCode -ne 0) {
+            throw "Debug FAULTMINE smoke test failed with exit code $($process.ExitCode)."
+          }
+
       - name: Build Release
         shell: pwsh
         run: .\scripts\build.ps1 -Configuration Release
@@ -39,3 +47,11 @@ jobs:
       - name: Test Release
         shell: pwsh
         run: .\scripts\test.ps1 -Configuration Release
+
+      - name: Smoke Release window lifecycle
+        shell: pwsh
+        run: |
+          $process = Start-Process -FilePath ".\build\Release\FAULTMINE.exe" -ArgumentList "--smoke-test" -Wait -PassThru
+          if ($process.ExitCode -ne 0) {
+            throw "Release FAULTMINE smoke test failed with exit code $($process.ExitCode)."
+          }
