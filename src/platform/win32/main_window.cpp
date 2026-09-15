@@ -35,7 +35,10 @@ LRESULT CALLBACK window_proc(
 
 }  // namespace
 
-int run_application(const HINSTANCE instance, const int show_command) {
+int run_application(
+    const HINSTANCE instance,
+    const int show_command,
+    const bool smoke_test) {
     WNDCLASSEXW window_class{};
     window_class.cbSize = static_cast<UINT>(sizeof(window_class));
     window_class.style = CS_HREDRAW | CS_VREDRAW;
@@ -73,8 +76,18 @@ int run_application(const HINSTANCE instance, const int show_command) {
         return EXIT_FAILURE;
     }
 
-    ShowWindow(window, show_command);
-    UpdateWindow(window);
+    if (smoke_test) {
+        if (PostMessageW(window, WM_CLOSE, 0, 0) == 0) {
+            const DWORD error_code = GetLastError();
+            DestroyWindow(window);
+            UnregisterClassW(kWindowClassName, instance);
+            show_win32_error(L"PostMessageW", error_code);
+            return EXIT_FAILURE;
+        }
+    } else {
+        ShowWindow(window, show_command);
+        UpdateWindow(window);
+    }
 
     MSG message{};
     while (true) {
