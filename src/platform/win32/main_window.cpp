@@ -37,7 +37,7 @@ LRESULT CALLBACK window_proc(
 
 int run_application(const HINSTANCE instance, const int show_command) {
     WNDCLASSEXW window_class{};
-    window_class.cbSize = sizeof(window_class);
+    window_class.cbSize = static_cast<UINT>(sizeof(window_class));
     window_class.style = CS_HREDRAW | CS_VREDRAW;
     window_class.lpfnWndProc = window_proc;
     window_class.hInstance = instance;
