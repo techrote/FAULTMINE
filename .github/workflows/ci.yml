@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-msvc-x64:
+    name: Windows x64 MSVC — Debug + Release
+    runs-on: windows-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure
+        shell: pwsh
+        run: .\scripts\configure.ps1
+
+      - name: Build Debug
+        shell: pwsh
+        run: .\scripts\build.ps1 -Configuration Debug
+
+      - name: Test Debug
+        shell: pwsh
+        run: .\scripts\test.ps1 -Configuration Debug
+
+      - name: Smoke Debug window lifecycle
+        shell: pwsh
+        run: |
+          $process = Start-Process -FilePath ".\build\Debug\FAULTMINE.exe" -ArgumentList "--smoke-test" -Wait -PassThru
+          if ($process.ExitCode -ne 0) {
+            throw "Debug FAULTMINE smoke test failed with exit code $($process.ExitCode)."
+          }
+
+      - name: Build Release
+        shell: pwsh
+        run: .\scripts\build.ps1 -Configuration Release
+
+      - name: Test Release
+        shell: pwsh
+        run: .\scripts\test.ps1 -Configuration Release
+
+      - name: Smoke Release window lifecycle
+        shell: pwsh
+        run: |
+          $process = Start-Process -FilePath ".\build\Release\FAULTMINE.exe" -ArgumentList "--smoke-test" -Wait -PassThru
+          if ($process.ExitCode -ne 0) {
+            throw "Release FAULTMINE smoke test failed with exit code $($process.ExitCode)."
+          }
