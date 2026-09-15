@@ -5,11 +5,10 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-$preset = if ($Configuration -eq 'Release') { 'windows-release' } else { 'windows-debug' }
 $repoRoot = Split-Path -Parent $PSScriptRoot
 Push-Location $repoRoot
 try {
-    & ctest --preset $preset
+    & ctest --test-dir build -C $Configuration --output-on-failure
     if ($LASTEXITCODE -ne 0) {
         throw "Tests failed with exit code $LASTEXITCODE."
     }
