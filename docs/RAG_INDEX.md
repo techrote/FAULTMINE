@@ -10,6 +10,7 @@ This is the retrieval entry point for agents and maintainers. Read the documents
 - [`RAG_ARCHITECTURE.md`](RAG_ARCHITECTURE.md) — system decomposition, deterministic engine contract, data model and safety boundaries.
 - [`RAG_DETERMINISM.md`](RAG_DETERMINISM.md) — accepted genome v1, seed/instance IDs, named entropy, canonical JSON and identity byte-level contract.
 - [`RAG_IMAGE_PIPELINE.md`](RAG_IMAGE_PIPELINE.md) — canonical RGBA8/source identity, serial CPU pipeline, starter fault semantics, WIC I/O and visual golden contract.
+- [`RAG_SESSION_PRESENTATION.md`](RAG_SESSION_PRESENTATION.md) — application/session model, deterministic proxy preview, D3D11 presentation, render scheduling and first native interaction contract.
 - [`RAG_EXTERNAL_DECODERS.md`](RAG_EXTERNAL_DECODERS.md) — external-decoder isolation, non-canonical decoder behaviour, freeze/materialize rules and laboratory provenance.
 - [`RAG_ROADMAP.md`](RAG_ROADMAP.md) — initial plan, review findings, improved dependency-ordered implementation plan and milestones.
 - [`RAG_VERIFICATION.md`](RAG_VERIFICATION.md) — deterministic testing, CI, performance and release verification strategy.
@@ -33,6 +34,8 @@ This is the retrieval entry point for agents and maintainers. Read the documents
 - **genome** — complete serializable description of pipeline topology and parameters, excluding incidental UI state.
 - **seed** — explicit 64-bit root deterministic entropy used to derive named random streams under `RAG_DETERMINISM.md`.
 - **operator instance ID** — stable persisted 128-bit identity independent of list position.
+- **session** — non-canonical application state connecting one normalized source, a genome, preview cache, proxy state and view state; defined in `RAG_SESSION_PRESENTATION.md`.
+- **proxy preview** — deterministic nearest-neighbour preprocessing used only for interactive responsiveness; visibly non-canonical as a final-resolution result and never substituted for export.
 - **specimen** — rendered result from source + genome + seed + engine version (+ explicit tick for temporal work).
 - **gene** — mutable unit of genome state used by exploration controls.
 - **lock** — mutation protection applied to one or more genes/operators.

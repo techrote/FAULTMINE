@@ -10,7 +10,7 @@ The core interaction is evolutionary exploration: generate a tray of related gli
 
 - **Reproducibility is a contract.** A saved genome is evidence sufficient to reconstruct the same canonical result.
 - **Faults are simulated safely.** Artistic memory corruption must never rely on C/C++ undefined behaviour or unsafe host memory access.
-- **The CPU reference engine is authoritative.** GPU rendering may accelerate presentation, but must not silently change canonical output.
+- **The CPU reference engine is authoritative.** GPU rendering accelerates presentation, but does not silently change canonical output.
 - **Standalone means standalone.** v1 targets Windows x64 using C++20, Win32, D3D11/DXGI and WIC, with no required package manager, web runtime or external application framework.
 - **Exploration beats presets.** Seeds, mutation, locks, crossover and lineage are first-class concepts.
 - **Projects stay inspectable.** State is stored in versioned human-readable files with explicit source/provenance metadata.
@@ -18,36 +18,25 @@ The core interaction is evolutionary exploration: generate a tray of related gli
 
 ## Development status
 
-FM-001 established the native project substrate:
+FM-001 established the native C++20/CMake/MSVC substrate, strict warning policy, Win32 shell and Debug/Release CI.
 
-- C++20/CMake project targeting Windows x64 with MSVC;
-- dependency-free `faultmine_core` static library separated from Win32 code;
-- minimal Unicode Win32 `FAULTMINE.exe` shell;
-- zero-dependency CTest target;
-- strict project warning/conformance policy (`/W4 /WX /permissive-`);
-- Debug and Release Windows CI with real Win32 window-lifecycle smoke checks.
+FM-002 established versioned genomes, stable operator identities, named deterministic entropy, canonical JSON and pure-core SHA-256 identities.
 
-FM-002 established the deterministic substrate:
+FM-003 established the canonical straight-RGBA8 visual CPU path, content-based source identity, WIC still I/O, the serial canonical pipeline, starter deterministic faults, visual goldens and `FAULTMINE-render.exe`.
 
-- versioned genome and operator-descriptor model;
-- fixed-width 64-bit root seeds and stable 128-bit operator instance IDs;
-- named deterministic SplitMix64 streams derived independently from semantic identity;
-- unbiased bounded-integer mapping;
-- strict UTF-8 JSON parsing and canonical genome serialization;
-- pure-core SHA-256 genome identity;
-- exact known-answer tests for entropy, serialization and hashes.
+FM-004 establishes the first interactively useful desktop shell:
 
-FM-003 establishes the first complete visual CPU path:
+- D3D11/DXGI presentation of already-rendered CPU pixels, with hardware device + WARP fallback;
+- native WIC file-open and canonical PNG export;
+- explicit application/session state separate from canonical genome state;
+- fit, 1:1, zoom, pan and before/after canvas interaction;
+- deterministic nearest-neighbour proxy previews for large sources, visibly marked `PROXY`;
+- full-resolution canonical export even while a proxy is displayed;
+- compact starter-fault controls without requiring JSON editing;
+- semantic render scheduling outside `WM_PAINT`;
+- D3D device-recreation handling that does not mutate canonical state.
 
-- canonical straight RGBA8 image buffers with checked allocation/stride rules;
-- normalized source identity independent of pathname;
-- WIC still-image decode and PNG export adapters;
-- serial canonical CPU pipeline execution over FM-002 genomes;
-- starter row/stride/address/channel/bit/random-scanline fault operators;
-- exact per-operator and multi-stack golden tests;
-- `FAULTMINE-render.exe` for non-GUI source + genome -> canonical PNG execution.
-
-The byte-level deterministic rules are documented in [`docs/RAG_DETERMINISM.md`](docs/RAG_DETERMINISM.md); visual/source/operator semantics are documented in [`docs/RAG_IMAGE_PIPELINE.md`](docs/RAG_IMAGE_PIPELINE.md). D3D11 presentation begins with FM-004.
+The byte-level deterministic rules are documented in [`docs/RAG_DETERMINISM.md`](docs/RAG_DETERMINISM.md), canonical image/operator semantics in [`docs/RAG_IMAGE_PIPELINE.md`](docs/RAG_IMAGE_PIPELINE.md), and interactive session/presentation boundaries in [`docs/RAG_SESSION_PRESENTATION.md`](docs/RAG_SESSION_PRESENTATION.md).
 
 ## Prerequisites
 
@@ -69,7 +58,7 @@ From PowerShell at the repository root:
 .\scripts\run.ps1 -Configuration Debug
 ```
 
-`configure.ps1` uses Visual Studio Installer's `vswhere.exe` to locate an MSVC x64 toolchain and currently selects either the Visual Studio 2026 or Visual Studio 2022 CMake generator. This keeps `windows-latest` CI and normal VS 2022 development machines on the same source/build contract without pinning the repository to one runner image.
+`configure.ps1` uses Visual Studio Installer's `vswhere.exe` to locate an MSVC x64 toolchain and currently selects either the Visual Studio 2026 or Visual Studio 2022 CMake generator.
 
 Release uses the same configured build tree:
 
@@ -79,7 +68,7 @@ Release uses the same configured build tree:
 .\scripts\run.ps1 -Configuration Release
 ```
 
-The wrappers are deliberately thin. After configuration, their direct equivalents are:
+Equivalent direct build/test commands after configuration are:
 
 ```powershell
 cmake --build build --config Debug --parallel
@@ -88,29 +77,42 @@ cmake --build build --config Release --parallel
 ctest --test-dir build -C Release --output-on-failure
 ```
 
-A direct configure command is also possible when choosing the generator manually, for example:
+Build outputs are generated under `build/`; the desktop executable is `build/Debug/FAULTMINE.exe` or `build/Release/FAULTMINE.exe`.
 
-```powershell
-cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DBUILD_TESTING=ON
-```
+## Interactive controls
 
-Use `Visual Studio 18 2026` instead when building with Visual Studio 2026 and a compatible CMake version.
+After launching `FAULTMINE.exe`:
 
-Build outputs are generated under `build/`; with a Visual Studio multi-configuration generator the desktop executable is `build/Debug/FAULTMINE.exe` or `build/Release/FAULTMINE.exe`.
+- `Ctrl+O` — open a WIC-supported image;
+- `Ctrl+E` — export the current genome against the **full-resolution canonical source** as PNG;
+- `F` — fit image to the canvas;
+- `1` — 1:1 display;
+- mouse wheel — zoom relative to fit;
+- left-button drag or arrow keys — pan;
+- `B` — before/after;
+- `P` — toggle deterministic proxy preview;
+- `Space` — enable/disable the starter fault stack;
+- `[` / `]` — row-offset -1 / +1;
+- `-` / `=` — jitter magnitude -1 / +1;
+- `R` — deterministically reroll the explicit root seed.
+
+The bottom status line identifies full versus proxy preview, source/preview dimensions, before/result state, starter parameters, seed prefix and D3D11 hardware/WARP mode.
+
+FM-004 intentionally keeps these controls compact. The generic data-driven stack editor is FM-008 work.
 
 ## Non-GUI canonical render hook
 
-FM-003 adds a deliberately narrow developer CLI:
+FM-003's narrow developer CLI remains available:
 
 ```powershell
 .\build\Debug\FAULTMINE-render.exe input.png genome.json output.png
 ```
 
-It validates the genome against the starter registry, normalizes the input through WIC, executes the canonical CPU stack, writes a PNG, and prints normalized source/output identities. This is not the later batch miner; it exists so the visual engine can be exercised without the GUI.
+It validates the genome against the starter registry, normalizes the input through WIC, executes the canonical CPU stack, writes a PNG, and prints normalized source/output identities.
 
 ## Authoritative development documentation
 
-Start with [`docs/RAG_INDEX.md`](docs/RAG_INDEX.md). It indexes the product, architecture, deterministic byte-level rules, canonical image/pipeline rules, roadmap, verification and autonomous-issue execution contracts.
+Start with [`docs/RAG_INDEX.md`](docs/RAG_INDEX.md). It indexes the product, architecture, deterministic contracts, image/pipeline contracts, session/presentation boundaries, roadmap, verification and autonomous-issue execution rules.
 
 Implementation work is tracked as GitHub issues prefixed `FM-###`. Each implementation issue is intended to be executable autonomously: inspect current `main`, implement the stated scope, test it, reconcile documentation, open a PR, repair CI, merge after required checks pass, verify the merge landed on `main`, and only then close the issue when its acceptance criteria are satisfied.
 
@@ -121,6 +123,7 @@ Implementation work is tracked as GitHub issues prefixed `FM-###`. Each implemen
 - Win32 desktop shell
 - pure-core deterministic genome/entropy/SHA-256 substrate
 - canonical RGBA8 CPU fault pipeline
+- application/session model and deterministic proxy preprocessing
 - D3D11 / DXGI presentation
 - Windows Imaging Component (WIC) image I/O
 - GitHub Actions on `windows-latest`

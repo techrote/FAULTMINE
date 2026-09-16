@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.25)
 
-project(FAULTMINE VERSION 0.3.0 LANGUAGES CXX)
+project(FAULTMINE VERSION 0.4.0 LANGUAGES CXX)
 
 if(NOT WIN32)
     message(FATAL_ERROR "FAULTMINE supports Windows x64 only.")
@@ -47,6 +47,7 @@ add_library(faultmine_core STATIC
     src/core/json.cpp
     src/core/json.hpp
     src/core/pipeline.cpp
+    src/core/proxy.cpp
     src/core/sha256.cpp
     src/core/starter_operators.cpp
 )
@@ -77,6 +78,46 @@ target_link_libraries(faultmine_wic
 
 faultmine_project_defaults(faultmine_wic)
 
+add_library(faultmine_session STATIC
+    src/app/session.cpp
+)
+
+target_include_directories(faultmine_session
+    PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
+target_link_libraries(faultmine_session
+    PUBLIC
+        faultmine_core
+)
+
+faultmine_project_defaults(faultmine_session)
+
+add_library(faultmine_d3d11 STATIC
+    src/render/d3d11/canvas_renderer.cpp
+    src/render/d3d11/canvas_renderer.hpp
+)
+
+target_include_directories(faultmine_d3d11
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+    PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
+target_link_libraries(faultmine_d3d11
+    PUBLIC
+        faultmine_core
+        faultmine_session
+    PRIVATE
+        d3d11
+        dxgi
+        d3dcompiler
+)
+
+faultmine_project_defaults(faultmine_d3d11)
+
 add_executable(faultmine WIN32
     src/app/main.cpp
     src/platform/win32/main_window.cpp
@@ -92,7 +133,11 @@ target_include_directories(faultmine
 target_link_libraries(faultmine
     PRIVATE
         faultmine_core
+        faultmine_wic
+        faultmine_session
+        faultmine_d3d11
         user32
+        comdlg32
 )
 
 faultmine_project_defaults(faultmine)
@@ -132,4 +177,16 @@ if(BUILD_TESTING)
     )
     faultmine_project_defaults(faultmine_image_tests)
     add_test(NAME canonical_image_pipeline_contracts COMMAND faultmine_image_tests)
+
+    add_executable(faultmine_session_tests
+        tests/session_model_tests.cpp
+    )
+
+    target_link_libraries(faultmine_session_tests
+        PRIVATE
+            faultmine_core
+            faultmine_session
+    )
+    faultmine_project_defaults(faultmine_session_tests)
+    add_test(NAME session_proxy_contracts COMMAND faultmine_session_tests)
 endif()
