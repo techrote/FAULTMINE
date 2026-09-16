@@ -58,9 +58,9 @@ Malformed-codec experiments remain governed by `RAG_EXTERNAL_DECODERS.md` and ar
 
 ## WIC PNG export
 
-Canonical still export currently writes PNG through WIC using `GUID_WICPixelFormat32bppRGBA` and one-row writes.
+Canonical still export writes PNG through WIC one row at a time. Canonical FAULTMINE pixels remain straight `R,G,B,A` bytes; immediately before each WIC encoder write the adapter explicitly swaps red/blue into `GUID_WICPixelFormat32bppBGRA`, the native 32-bit unassociated-alpha input accepted by the Windows PNG encoder. This BGRA representation is platform-I/O state only and never enters the canonical core, genome, source identity or fault semantics.
 
-The semantic contract is the decoded canonical pixel result, not byte-for-byte PNG container identity. WIC encoder implementation details or metadata may change encoded PNG bytes without changing the canonical pixels. Tests therefore export and decode again and compare canonical pixels/identity.
+The semantic contract is the decoded canonical pixel result, not byte-for-byte PNG container identity. WIC encoder implementation details or metadata may change encoded PNG bytes without changing the canonical pixels. Tests therefore export and decode again through the RGBA normalization path and compare canonical pixels/identity.
 
 ## Serial CPU pipeline
 
