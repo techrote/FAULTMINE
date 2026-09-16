@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.25)
 
-project(FAULTMINE VERSION 0.2.0 LANGUAGES CXX)
+project(FAULTMINE VERSION 0.3.0 LANGUAGES CXX)
 
 if(NOT WIN32)
     message(FATAL_ERROR "FAULTMINE supports Windows x64 only.")
@@ -43,9 +43,12 @@ add_library(faultmine_core STATIC
     src/core/core.cpp
     src/core/determinism.cpp
     src/core/genome.cpp
+    src/core/image.cpp
     src/core/json.cpp
     src/core/json.hpp
+    src/core/pipeline.cpp
     src/core/sha256.cpp
+    src/core/starter_operators.cpp
 )
 
 target_include_directories(faultmine_core
@@ -54,6 +57,25 @@ target_include_directories(faultmine_core
 )
 
 faultmine_project_defaults(faultmine_core)
+
+add_library(faultmine_wic STATIC
+    src/io/wic_io.cpp
+)
+
+target_include_directories(faultmine_wic
+    PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
+target_link_libraries(faultmine_wic
+    PUBLIC
+        faultmine_core
+    PRIVATE
+        ole32
+        windowscodecs
+)
+
+faultmine_project_defaults(faultmine_wic)
 
 add_executable(faultmine WIN32
     src/app/main.cpp
@@ -75,6 +97,20 @@ target_link_libraries(faultmine
 
 faultmine_project_defaults(faultmine)
 
+add_executable(faultmine_render
+    src/tools/render_cli.cpp
+)
+
+set_target_properties(faultmine_render PROPERTIES OUTPUT_NAME "FAULTMINE-render")
+
+target_link_libraries(faultmine_render
+    PRIVATE
+        faultmine_core
+        faultmine_wic
+)
+
+faultmine_project_defaults(faultmine_render)
+
 if(BUILD_TESTING)
     add_executable(faultmine_tests
         tests/core_smoke.cpp
@@ -82,6 +118,18 @@ if(BUILD_TESTING)
 
     target_link_libraries(faultmine_tests PRIVATE faultmine_core)
     faultmine_project_defaults(faultmine_tests)
-
     add_test(NAME deterministic_core_contracts COMMAND faultmine_tests)
+
+    add_executable(faultmine_image_tests
+        tests/image_pipeline_main.cpp
+        tests/image_pipeline_tests.cpp
+    )
+
+    target_link_libraries(faultmine_image_tests
+        PRIVATE
+            faultmine_core
+            faultmine_wic
+    )
+    faultmine_project_defaults(faultmine_image_tests)
+    add_test(NAME canonical_image_pipeline_contracts COMMAND faultmine_image_tests)
 endif()
