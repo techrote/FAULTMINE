@@ -18,16 +18,26 @@ The core interaction is evolutionary exploration: generate a tray of related gli
 
 ## Development status
 
-FM-001 establishes the native project substrate:
+FM-001 established the native project substrate:
 
 - C++20/CMake project targeting Windows x64 with MSVC;
 - dependency-free `faultmine_core` static library separated from Win32 code;
 - minimal Unicode Win32 `FAULTMINE.exe` shell;
-- zero-dependency CTest smoke-test target;
+- zero-dependency CTest target;
 - strict project warning/conformance policy (`/W4 /WX /permissive-`);
-- Debug and Release Windows CI.
+- Debug and Release Windows CI with real Win32 window-lifecycle smoke checks.
 
-D3D11, WIC image loading and glitch operators intentionally begin in later roadmap issues.
+FM-002 establishes the deterministic substrate used by all later visual work:
+
+- versioned genome and operator-descriptor model;
+- fixed-width 64-bit root seeds and stable 128-bit operator instance IDs;
+- named deterministic SplitMix64 streams derived independently from semantic identity;
+- unbiased bounded-integer mapping;
+- strict UTF-8 JSON parsing and canonical genome serialization;
+- pure-core SHA-256 genome identity;
+- exact known-answer tests for entropy, serialization and hashes.
+
+The byte-level rules are documented in [`docs/RAG_DETERMINISM.md`](docs/RAG_DETERMINISM.md). D3D11, WIC image loading and actual glitch operators intentionally begin in later roadmap issues.
 
 ## Prerequisites
 
@@ -80,7 +90,7 @@ Build outputs are generated under `build/`; with a Visual Studio multi-configura
 
 ## Authoritative development documentation
 
-Start with [`docs/RAG_INDEX.md`](docs/RAG_INDEX.md). It indexes the product, architecture, roadmap, verification and autonomous-issue execution contracts.
+Start with [`docs/RAG_INDEX.md`](docs/RAG_INDEX.md). It indexes the product, architecture, deterministic byte-level rules, roadmap, verification and autonomous-issue execution contracts.
 
 Implementation work is tracked as GitHub issues prefixed `FM-###`. Each implementation issue is intended to be executable autonomously: inspect current `main`, implement the stated scope, test it, reconcile documentation, open a PR, repair CI, merge after required checks pass, verify the merge landed on `main`, and only then close the issue when its acceptance criteria are satisfied.
 
@@ -89,9 +99,9 @@ Implementation work is tracked as GitHub issues prefixed `FM-###`. Each implemen
 - C++20
 - CMake + MSVC
 - Win32 desktop shell
+- pure-core deterministic genome/entropy/SHA-256 substrate
 - D3D11 / DXGI presentation
 - Windows Imaging Component (WIC) image I/O
-- Windows built-in crypto primitives where useful for content identity
 - GitHub Actions on `windows-latest`
 
 No third-party runtime dependency is part of the baseline design. Any future dependency must be justified against the standalone/distributable requirement and documented before adoption.
