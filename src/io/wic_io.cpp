@@ -9,6 +9,7 @@
 #include <limits>
 #include <sstream>
 #include <utility>
+#include <vector>
 
 namespace faultmine::io {
 namespace {
@@ -209,7 +210,7 @@ std::optional<WicError> save_wic_png(
     }
     result = stream->InitializeFromFilename(path.c_str(), GENERIC_WRITE);
     if (FAILED(result)) {
-        return make_wic_error(WicErrorCode::encode_failed, "IWICStream::InitializeFromFilename", result, "failed to open PNG destination") ;
+        return make_wic_error(WicErrorCode::encode_failed, "IWICStream::InitializeFromFilename", result, "failed to open PNG destination");
     }
 
     ComPtr<IWICBitmapEncoder> encoder;
@@ -237,19 +238,37 @@ std::optional<WicError> save_wic_png(
         return make_wic_error(WicErrorCode::encode_failed, "IWICBitmapFrameEncode::SetSize", result, "failed to set PNG dimensions");
     }
 
-    WICPixelFormatGUID pixel_format = GUID_WICPixelFormat32bppRGBA;
+    // WIC's PNG encoder uses BGRA as its native 32-bit unassociated-alpha input.
+    // Canonical FAULTMINE pixels remain RGBA; the byte order conversion exists only
+    // at this platform I/O boundary and is reversed naturally by the RGBA decoder path.
+    WICPixelFormatGUID pixel_format = GUID_WICPixelFormat32bppBGRA;
     result = frame->SetPixelFormat(&pixel_format);
-    if (FAILED(result) || !IsEqualGUID(pixel_format, GUID_WICPixelFormat32bppRGBA)) {
-        return make_wic_error(WicErrorCode::encode_failed, "IWICBitmapFrameEncode::SetPixelFormat", FAILED(result) ? result : E_FAIL, "PNG encoder did not accept canonical RGBA8") ;
+    if (FAILED(result) || !IsEqualGUID(pixel_format, GUID_WICPixelFormat32bppBGRA)) {
+        return make_wic_error(
+            WicErrorCode::encode_failed,
+            "IWICBitmapFrameEncode::SetPixelFormat",
+            FAILED(result) ? result : E_FAIL,
+            "PNG encoder did not accept 32bpp BGRA adapter input");
     }
 
     const UINT stride = static_cast<UINT>(image.row_stride);
+    std::vector<BYTE> encoded_row(static_cast<std::size_t>(stride));
     for (std::uint32_t y = 0U; y < image.height; ++y) {
-        const BYTE* row = reinterpret_cast<const BYTE*>(
-            image.bytes.data() + static_cast<std::size_t>(y) * stride);
-        result = frame->WritePixels(1U, stride, stride, const_cast<BYTE*>(row));
+        const std::size_t source_row_offset = static_cast<std::size_t>(y) * stride;
+        for (std::uint32_t x = 0U; x < image.width; ++x) {
+            const std::size_t offset = static_cast<std::size_t>(x) * 4U;
+            encoded_row[offset + 0U] = image.bytes[source_row_offset + offset + 2U];
+            encoded_row[offset + 1U] = image.bytes[source_row_offset + offset + 1U];
+            encoded_row[offset + 2U] = image.bytes[source_row_offset + offset + 0U];
+            encoded_row[offset + 3U] = image.bytes[source_row_offset + offset + 3U];
+        }
+        result = frame->WritePixels(1U, stride, stride, encoded_row.data());
         if (FAILED(result)) {
-            return make_wic_error(WicErrorCode::encode_failed, "IWICBitmapFrameEncode::WritePixels", result, "failed to encode canonical RGBA8 row");
+            return make_wic_error(
+                WicErrorCode::encode_failed,
+                "IWICBitmapFrameEncode::WritePixels",
+                result,
+                "failed to encode canonical RGBA8 row through the BGRA adapter");
         }
     }
 
