@@ -1,13 +1,13 @@
 cmake_minimum_required(VERSION 3.25)
 
-project(FAULTMINE VERSION 0.1.0 LANGUAGES CXX)
+project(FAULTMINE VERSION 0.2.0 LANGUAGES CXX)
 
 if(NOT WIN32)
-    message(FATAL_ERROR "FAULTMINE FM-001 supports Windows x64 only.")
+    message(FATAL_ERROR "FAULTMINE supports Windows x64 only.")
 endif()
 
 if(NOT MSVC)
-    message(FATAL_ERROR "FAULTMINE FM-001 requires MSVC.")
+    message(FATAL_ERROR "FAULTMINE requires MSVC.")
 endif()
 
 if(NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
@@ -41,6 +41,11 @@ endfunction()
 
 add_library(faultmine_core STATIC
     src/core/core.cpp
+    src/core/determinism.cpp
+    src/core/genome.cpp
+    src/core/json.cpp
+    src/core/json.hpp
+    src/core/sha256.cpp
 )
 
 target_include_directories(faultmine_core
@@ -78,5 +83,5 @@ if(BUILD_TESTING)
     target_link_libraries(faultmine_tests PRIVATE faultmine_core)
     faultmine_project_defaults(faultmine_tests)
 
-    add_test(NAME core_smoke COMMAND faultmine_tests)
+    add_test(NAME deterministic_core_contracts COMMAND faultmine_tests)
 endif()
