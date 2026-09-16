@@ -1,7 +1,7 @@
+#include "faultmine/fault_catalogue.hpp"
 #include "faultmine/genome.hpp"
 #include "faultmine/image.hpp"
 #include "faultmine/pipeline.hpp"
-#include "faultmine/starter_operators.hpp"
 #include "faultmine/wic_io.hpp"
 
 #include <filesystem>
@@ -42,9 +42,9 @@ int wmain(const int argc, wchar_t* argv[]) {
 
     faultmine::core::FaultRegistry registry;
     try {
-        registry = faultmine::core::make_starter_fault_registry();
+        registry = faultmine::core::make_default_fault_registry();
     } catch (const std::exception& exception) {
-        std::cerr << "Failed to initialize starter fault registry: " << exception.what() << '\n';
+        std::cerr << "Failed to initialize fault registry: " << exception.what() << '\n';
         return 4;
     }
 

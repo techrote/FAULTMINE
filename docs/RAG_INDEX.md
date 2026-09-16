@@ -11,6 +11,7 @@ This is the retrieval entry point for agents and maintainers. Read the documents
 - [`RAG_DETERMINISM.md`](RAG_DETERMINISM.md) — accepted genome v1, seed/instance IDs, named entropy, canonical JSON and identity byte-level contract.
 - [`RAG_IMAGE_PIPELINE.md`](RAG_IMAGE_PIPELINE.md) — canonical RGBA8/source identity, serial CPU pipeline, starter fault semantics, WIC I/O and visual golden contract.
 - [`RAG_SESSION_PRESENTATION.md`](RAG_SESSION_PRESENTATION.md) — application/session model, deterministic proxy preview, D3D11 presentation, render scheduling and first native interaction contract.
+- [`RAG_MEMORY_ADDRESSING.md`](RAG_MEMORY_ADDRESSING.md) — shared logical-address policies, FM-005 memory/addressing operators, bounded-work rules and mutation descriptor hints.
 - [`RAG_EXTERNAL_DECODERS.md`](RAG_EXTERNAL_DECODERS.md) — external-decoder isolation, non-canonical decoder behaviour, freeze/materialize rules and laboratory provenance.
 - [`RAG_ROADMAP.md`](RAG_ROADMAP.md) — initial plan, review findings, improved dependency-ordered implementation plan and milestones.
 - [`RAG_VERIFICATION.md`](RAG_VERIFICATION.md) — deterministic testing, CI, performance and release verification strategy.
@@ -30,10 +31,13 @@ This is the retrieval entry point for agents and maintainers. Read the documents
 - **canonical RGBA8** — FM-003 still-image representation: straight `R,G,B,A` bytes, tightly packed at `width * 4` bytes per row.
 - **source identity** — SHA-256 identity of the normalized canonical representation defined in `RAG_IMAGE_PIPELINE.md`, independent of pathname.
 - **fault operator** — a safe deterministic transformation that deliberately models a representational, addressing, bit, signal, reconstruction or state error.
+- **logical address** — simulated signed/unsigned address or coordinate resolved against a bounded canonical extent before any host-memory access.
+- **boundary policy** — canonical `wrap`, `clamp`, or `fill` resolution defined in `RAG_MEMORY_ADDRESSING.md`.
 - **fault stack / pipeline** — ordered operator graph for a specimen; v1 begins as a serial stack but serialization must permit future typed expansion.
 - **genome** — complete serializable description of pipeline topology and parameters, excluding incidental UI state.
 - **seed** — explicit 64-bit root deterministic entropy used to derive named random streams under `RAG_DETERMINISM.md`.
 - **operator instance ID** — stable persisted 128-bit identity independent of list position.
+- **mutation descriptor** — non-persisted typed operator/parameter metadata used by later deterministic search; it never changes canonical render identity by itself.
 - **session** — non-canonical application state connecting one normalized source, a genome, preview cache, proxy state and view state; defined in `RAG_SESSION_PRESENTATION.md`.
 - **proxy preview** — deterministic nearest-neighbour preprocessing used only for interactive responsiveness; visibly non-canonical as a final-resolution result and never substituted for export.
 - **specimen** — rendered result from source + genome + seed + engine version (+ explicit tick for temporal work).

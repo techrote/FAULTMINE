@@ -24,7 +24,7 @@ FM-002 established versioned genomes, stable operator identities, named determin
 
 FM-003 established the canonical straight-RGBA8 visual CPU path, content-based source identity, WIC still I/O, the serial canonical pipeline, starter deterministic faults, visual goldens and `FAULTMINE-render.exe`.
 
-FM-004 establishes the first interactively useful desktop shell:
+FM-004 established the first interactively useful desktop shell:
 
 - D3D11/DXGI presentation of already-rendered CPU pixels, with hardware device + WARP fallback;
 - native WIC file-open and canonical PNG export;
@@ -36,7 +36,18 @@ FM-004 establishes the first interactively useful desktop shell:
 - semantic render scheduling outside `WM_PAINT`;
 - D3D device-recreation handling that does not mutate canonical state.
 
-The byte-level deterministic rules are documented in [`docs/RAG_DETERMINISM.md`](docs/RAG_DETERMINISM.md), canonical image/operator semantics in [`docs/RAG_IMAGE_PIPELINE.md`](docs/RAG_IMAGE_PIPELINE.md), and interactive session/presentation boundaries in [`docs/RAG_SESSION_PRESENTATION.md`](docs/RAG_SESSION_PRESENTATION.md).
+FM-005 adds the first substantial memory/addressing family while preserving host-memory safety:
+
+- one shared logical-address boundary abstraction (`wrap`, `clamp`, `fill`);
+- linear address offset and combined XOR/AND/OR address-bit faults;
+- coordinate swap/XOR/offset remapping;
+- deterministic affine tile permutation with explicit partial-edge behavior;
+- line/band repeat/remap faults;
+- deterministic named-stream burst-address faults with bounded work;
+- typed mutation-domain hints in operator descriptors for later FM-009 search;
+- a composed default registry used by the non-GUI renderer while the original FM-003 starter registry remains compatibility-focused.
+
+The byte-level deterministic rules are documented in [`docs/RAG_DETERMINISM.md`](docs/RAG_DETERMINISM.md), canonical image/operator semantics in [`docs/RAG_IMAGE_PIPELINE.md`](docs/RAG_IMAGE_PIPELINE.md), interactive session/presentation boundaries in [`docs/RAG_SESSION_PRESENTATION.md`](docs/RAG_SESSION_PRESENTATION.md), and memory/addressing semantics in [`docs/RAG_MEMORY_ADDRESSING.md`](docs/RAG_MEMORY_ADDRESSING.md).
 
 ## Prerequisites
 
@@ -98,21 +109,21 @@ After launching `FAULTMINE.exe`:
 
 The bottom status line identifies full versus proxy preview, source/preview dimensions, before/result state, starter parameters, seed prefix and D3D11 hardware/WARP mode.
 
-FM-004 intentionally keeps these controls compact. The generic data-driven stack editor is FM-008 work.
+FM-004 intentionally keeps these controls compact. The generic data-driven stack editor is FM-008 work; FM-005 operators are currently exercised through canonical genomes/the CLI until that editor lands.
 
 ## Non-GUI canonical render hook
 
-FM-003's narrow developer CLI remains available:
+The narrow developer CLI remains available:
 
 ```powershell
 .\build\Debug\FAULTMINE-render.exe input.png genome.json output.png
 ```
 
-It validates the genome against the starter registry, normalizes the input through WIC, executes the canonical CPU stack, writes a PNG, and prints normalized source/output identities.
+It validates the genome against the **default** registry (FM-003 starter faults plus accepted fault-family operators), normalizes the input through WIC, executes the canonical CPU stack, writes a PNG, and prints normalized source/output identities.
 
 ## Authoritative development documentation
 
-Start with [`docs/RAG_INDEX.md`](docs/RAG_INDEX.md). It indexes the product, architecture, deterministic contracts, image/pipeline contracts, session/presentation boundaries, roadmap, verification and autonomous-issue execution rules.
+Start with [`docs/RAG_INDEX.md`](docs/RAG_INDEX.md). It indexes the product, architecture, deterministic contracts, image/pipeline contracts, session/presentation boundaries, fault-family contracts, roadmap, verification and autonomous-issue execution rules.
 
 Implementation work is tracked as GitHub issues prefixed `FM-###`. Each implementation issue is intended to be executable autonomously: inspect current `main`, implement the stated scope, test it, reconcile documentation, open a PR, repair CI, merge after required checks pass, verify the merge landed on `main`, and only then close the issue when its acceptance criteria are satisfied.
 
