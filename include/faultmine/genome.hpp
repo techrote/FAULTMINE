@@ -25,9 +25,26 @@ enum class ParameterKind {
 
 using ParameterValue = std::variant<bool, std::int64_t, std::uint64_t, std::string>;
 
+enum class MutationDomain {
+    opaque,
+    toggle,
+    signed_range,
+    unsigned_range,
+    choice,
+    bitmask,
+};
+
 struct MutationMetadata {
     bool mutable_gene{true};
     std::uint32_t policy_version{1};
+    MutationDomain domain{MutationDomain::opaque};
+    std::int64_t signed_min{};
+    std::int64_t signed_max{};
+    std::int64_t signed_step{1};
+    std::uint64_t unsigned_min{};
+    std::uint64_t unsigned_max{};
+    std::uint64_t unsigned_step{1};
+    std::vector<std::string> choices;
 
     bool operator==(const MutationMetadata&) const = default;
 };

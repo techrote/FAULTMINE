@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.25)
 
-project(FAULTMINE VERSION 0.4.0 LANGUAGES CXX)
+project(FAULTMINE VERSION 0.5.0 LANGUAGES CXX)
 
 if(NOT WIN32)
     message(FATAL_ERROR "FAULTMINE supports Windows x64 only.")
@@ -42,10 +42,13 @@ endfunction()
 add_library(faultmine_core STATIC
     src/core/core.cpp
     src/core/determinism.cpp
+    src/core/fault_catalogue.cpp
     src/core/genome.cpp
     src/core/image.cpp
     src/core/json.cpp
     src/core/json.hpp
+    src/core/logical_address.cpp
+    src/core/memory_addressing_operators.cpp
     src/core/pipeline.cpp
     src/core/proxy.cpp
     src/core/sha256.cpp
@@ -189,4 +192,12 @@ if(BUILD_TESTING)
     )
     faultmine_project_defaults(faultmine_session_tests)
     add_test(NAME session_proxy_contracts COMMAND faultmine_session_tests)
+
+    add_executable(faultmine_addressing_tests
+        tests/memory_addressing_tests.cpp
+    )
+
+    target_link_libraries(faultmine_addressing_tests PRIVATE faultmine_core)
+    faultmine_project_defaults(faultmine_addressing_tests)
+    add_test(NAME memory_addressing_contracts COMMAND faultmine_addressing_tests)
 endif()
