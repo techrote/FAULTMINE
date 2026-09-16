@@ -7,6 +7,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <limits>
 #include <sstream>
 #include <string>
 
@@ -309,6 +310,10 @@ std::optional<std::string> CanvasRenderer::create_texture_from_cached_image() {
     }
 
     const core::ImageBuffer& image = *cached_image_;
+    if (image.row_stride > static_cast<std::uint64_t>(std::numeric_limits<UINT>::max())) {
+        return std::string{"canonical image row stride exceeds D3D11 upload pitch range"};
+    }
+
     D3D11_TEXTURE2D_DESC texture_desc{};
     texture_desc.Width = image.width;
     texture_desc.Height = image.height;
@@ -321,7 +326,7 @@ std::optional<std::string> CanvasRenderer::create_texture_from_cached_image() {
 
     D3D11_SUBRESOURCE_DATA initial_data{};
     initial_data.pSysMem = image.bytes.data();
-    initial_data.SysMemPitch = image.row_stride;
+    initial_data.SysMemPitch = static_cast<UINT>(image.row_stride);
 
     HRESULT result = device_->CreateTexture2D(
         &texture_desc,
