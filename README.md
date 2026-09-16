@@ -27,7 +27,7 @@ FM-001 established the native project substrate:
 - strict project warning/conformance policy (`/W4 /WX /permissive-`);
 - Debug and Release Windows CI with real Win32 window-lifecycle smoke checks.
 
-FM-002 establishes the deterministic substrate used by all later visual work:
+FM-002 established the deterministic substrate:
 
 - versioned genome and operator-descriptor model;
 - fixed-width 64-bit root seeds and stable 128-bit operator instance IDs;
@@ -37,7 +37,17 @@ FM-002 establishes the deterministic substrate used by all later visual work:
 - pure-core SHA-256 genome identity;
 - exact known-answer tests for entropy, serialization and hashes.
 
-The byte-level rules are documented in [`docs/RAG_DETERMINISM.md`](docs/RAG_DETERMINISM.md). D3D11, WIC image loading and actual glitch operators intentionally begin in later roadmap issues.
+FM-003 establishes the first complete visual CPU path:
+
+- canonical straight RGBA8 image buffers with checked allocation/stride rules;
+- normalized source identity independent of pathname;
+- WIC still-image decode and PNG export adapters;
+- serial canonical CPU pipeline execution over FM-002 genomes;
+- starter row/stride/address/channel/bit/random-scanline fault operators;
+- exact per-operator and multi-stack golden tests;
+- `FAULTMINE-render.exe` for non-GUI source + genome -> canonical PNG execution.
+
+The byte-level deterministic rules are documented in [`docs/RAG_DETERMINISM.md`](docs/RAG_DETERMINISM.md); visual/source/operator semantics are documented in [`docs/RAG_IMAGE_PIPELINE.md`](docs/RAG_IMAGE_PIPELINE.md). D3D11 presentation begins with FM-004.
 
 ## Prerequisites
 
@@ -88,9 +98,19 @@ Use `Visual Studio 18 2026` instead when building with Visual Studio 2026 and a 
 
 Build outputs are generated under `build/`; with a Visual Studio multi-configuration generator the desktop executable is `build/Debug/FAULTMINE.exe` or `build/Release/FAULTMINE.exe`.
 
+## Non-GUI canonical render hook
+
+FM-003 adds a deliberately narrow developer CLI:
+
+```powershell
+.\build\Debug\FAULTMINE-render.exe input.png genome.json output.png
+```
+
+It validates the genome against the starter registry, normalizes the input through WIC, executes the canonical CPU stack, writes a PNG, and prints normalized source/output identities. This is not the later batch miner; it exists so the visual engine can be exercised without the GUI.
+
 ## Authoritative development documentation
 
-Start with [`docs/RAG_INDEX.md`](docs/RAG_INDEX.md). It indexes the product, architecture, deterministic byte-level rules, roadmap, verification and autonomous-issue execution contracts.
+Start with [`docs/RAG_INDEX.md`](docs/RAG_INDEX.md). It indexes the product, architecture, deterministic byte-level rules, canonical image/pipeline rules, roadmap, verification and autonomous-issue execution contracts.
 
 Implementation work is tracked as GitHub issues prefixed `FM-###`. Each implementation issue is intended to be executable autonomously: inspect current `main`, implement the stated scope, test it, reconcile documentation, open a PR, repair CI, merge after required checks pass, verify the merge landed on `main`, and only then close the issue when its acceptance criteria are satisfied.
 
@@ -100,6 +120,7 @@ Implementation work is tracked as GitHub issues prefixed `FM-###`. Each implemen
 - CMake + MSVC
 - Win32 desktop shell
 - pure-core deterministic genome/entropy/SHA-256 substrate
+- canonical RGBA8 CPU fault pipeline
 - D3D11 / DXGI presentation
 - Windows Imaging Component (WIC) image I/O
 - GitHub Actions on `windows-latest`

@@ -9,6 +9,7 @@ This is the retrieval entry point for agents and maintainers. Read the documents
 - [`RAG_PRODUCT.md`](RAG_PRODUCT.md) — product intent, workflows, terminology and non-goals.
 - [`RAG_ARCHITECTURE.md`](RAG_ARCHITECTURE.md) — system decomposition, deterministic engine contract, data model and safety boundaries.
 - [`RAG_DETERMINISM.md`](RAG_DETERMINISM.md) — accepted genome v1, seed/instance IDs, named entropy, canonical JSON and identity byte-level contract.
+- [`RAG_IMAGE_PIPELINE.md`](RAG_IMAGE_PIPELINE.md) — canonical RGBA8/source identity, serial CPU pipeline, starter fault semantics, WIC I/O and visual golden contract.
 - [`RAG_EXTERNAL_DECODERS.md`](RAG_EXTERNAL_DECODERS.md) — external-decoder isolation, non-canonical decoder behaviour, freeze/materialize rules and laboratory provenance.
 - [`RAG_ROADMAP.md`](RAG_ROADMAP.md) — initial plan, review findings, improved dependency-ordered implementation plan and milestones.
 - [`RAG_VERIFICATION.md`](RAG_VERIFICATION.md) — deterministic testing, CI, performance and release verification strategy.
@@ -24,7 +25,9 @@ This is the retrieval entry point for agents and maintainers. Read the documents
 
 ## Core vocabulary
 
-- **source** — normalized input image/data plus identity metadata.
+- **source** — normalized canonical input pixels/data plus identity metadata; path is convenience metadata only.
+- **canonical RGBA8** — FM-003 still-image representation: straight `R,G,B,A` bytes, tightly packed at `width * 4` bytes per row.
+- **source identity** — SHA-256 identity of the normalized canonical representation defined in `RAG_IMAGE_PIPELINE.md`, independent of pathname.
 - **fault operator** — a safe deterministic transformation that deliberately models a representational, addressing, bit, signal, reconstruction or state error.
 - **fault stack / pipeline** — ordered operator graph for a specimen; v1 begins as a serial stack but serialization must permit future typed expansion.
 - **genome** — complete serializable description of pipeline topology and parameters, excluding incidental UI state.
