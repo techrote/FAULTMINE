@@ -80,7 +80,7 @@ void test_view_events_do_not_render() {
     expect(session.ensure_preview(&error), "initial preview render succeeds");
     const std::uint64_t generation = session.render_generation();
     const std::string genome_identity = session.genome_identity();
-    const std::string result_identity = core::image_identity_hex(*session.preview_result());
+    const std::string result_identity = core::source_identity_hex(*session.preview_result());
 
     session.set_fit_view();
     session.zoom_by(1.2);
@@ -91,7 +91,7 @@ void test_view_events_do_not_render() {
     expect_equal(session.render_generation(), generation, "view events do not execute canonical pipeline");
     expect(!session.preview_dirty(), "view events do not dirty semantic preview");
     expect_equal(session.genome_identity(), genome_identity, "view events do not mutate genome");
-    expect_equal(core::image_identity_hex(*session.preview_result()), result_identity, "view events do not mutate cached canonical result");
+    expect_equal(core::source_identity_hex(*session.preview_result()), result_identity, "view events do not mutate cached canonical result");
 }
 
 void test_session_matches_direct_pipeline() {
@@ -109,8 +109,8 @@ void test_session_matches_direct_pipeline() {
     expect(direct.ok(), "direct starter pipeline succeeds");
     if (direct.ok() && session.preview_result() != nullptr) {
         expect_equal(
-            core::image_identity_hex(*session.preview_result()),
-            core::image_identity_hex(*direct.image),
+            core::source_identity_hex(*session.preview_result()),
+            core::source_identity_hex(*direct.image),
             "session preview calls same canonical CPU pipeline");
     }
 }
@@ -141,8 +141,8 @@ void test_proxy_preview_and_full_export_boundary() {
         expect(direct.ok(), "direct full render succeeds");
         if (direct.ok()) {
             expect_equal(
-                core::image_identity_hex(*full),
-                core::image_identity_hex(*direct.image),
+                core::source_identity_hex(*full),
+                core::source_identity_hex(*direct.image),
                 "full export render ignores proxy preprocessing");
         }
     }
