@@ -23,6 +23,10 @@ bool FaultRegistry::register_operator(
     return true;
 }
 
+OperatorRegistry& FaultRegistry::schema_registry() noexcept {
+    return schemas_;
+}
+
 const OperatorRegistry& FaultRegistry::schema_registry() const noexcept {
     return schemas_;
 }
