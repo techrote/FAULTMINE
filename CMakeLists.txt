@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.25)
 
-project(FAULTMINE VERSION 0.14.0 LANGUAGES CXX)
+project(FAULTMINE VERSION 1.0.0 LANGUAGES CXX RC)
 
 if(NOT WIN32)
     message(FATAL_ERROR "FAULTMINE supports Windows x64 only.")
@@ -14,7 +14,13 @@ if(NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
     message(FATAL_ERROR "FAULTMINE requires a 64-bit build.")
 endif()
 
+# Portable v1 builds statically link the MSVC runtime. The package therefore
+# depends only on supported Windows system components used by the project.
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+
 include(CTest)
+
+set(FAULTMINE_VERSION_RESOURCE src/platform/win32/version.rc)
 
 function(faultmine_project_defaults target_name)
     target_compile_features(${target_name} PUBLIC cxx_std_20)
@@ -177,7 +183,9 @@ faultmine_project_defaults(faultmine_d3d11)
 
 add_executable(faultmine WIN32
     src/app/main.cpp
+    src/app/release_self_test.cpp
     src/platform/win32/main_window_fm012.cpp
+    ${FAULTMINE_VERSION_RESOURCE}
 )
 
 set_target_properties(faultmine PROPERTIES OUTPUT_NAME "FAULTMINE")
@@ -203,6 +211,7 @@ faultmine_project_defaults(faultmine)
 
 add_executable(faultmine_render
     src/tools/render_cli.cpp
+    ${FAULTMINE_VERSION_RESOURCE}
 )
 
 set_target_properties(faultmine_render PROPERTIES OUTPUT_NAME "FAULTMINE-render")
@@ -217,6 +226,7 @@ faultmine_project_defaults(faultmine_render)
 
 add_executable(faultmine_batch
     src/tools/batch_cli.cpp
+    ${FAULTMINE_VERSION_RESOURCE}
 )
 
 set_target_properties(faultmine_batch PROPERTIES OUTPUT_NAME "FAULTMINE-batch")
@@ -233,6 +243,7 @@ faultmine_project_defaults(faultmine_batch)
 
 add_executable(faultmine_lab_worker
     src/worker/laboratory_worker_main.cpp
+    ${FAULTMINE_VERSION_RESOURCE}
 )
 
 set_target_properties(faultmine_lab_worker PROPERTIES OUTPUT_NAME "FAULTMINE-lab-worker")
@@ -247,6 +258,7 @@ faultmine_project_defaults(faultmine_lab_worker)
 
 add_executable(faultmine_lab
     src/tools/laboratory_cli.cpp
+    ${FAULTMINE_VERSION_RESOURCE}
 )
 
 set_target_properties(faultmine_lab PROPERTIES OUTPUT_NAME "FAULTMINE-lab")
@@ -260,6 +272,39 @@ target_link_libraries(faultmine_lab
 )
 
 faultmine_project_defaults(faultmine_lab)
+
+add_executable(faultmine_perf
+    src/tools/perf_cli.cpp
+    ${FAULTMINE_VERSION_RESOURCE}
+)
+
+set_target_properties(faultmine_perf PROPERTIES OUTPUT_NAME "FAULTMINE-perf")
+
+target_include_directories(faultmine_perf
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+target_link_libraries(faultmine_perf
+    PRIVATE
+        faultmine_core
+        faultmine_session
+        faultmine_d3d11
+        user32
+)
+
+faultmine_project_defaults(faultmine_perf)
+
+install(TARGETS
+    faultmine
+    faultmine_render
+    faultmine_batch
+    faultmine_lab
+    faultmine_lab_worker
+    RUNTIME DESTINATION .
+)
+install(FILES README.md DESTINATION .)
+install(DIRECTORY docs/ DESTINATION docs FILES_MATCHING PATTERN "*.md")
 
 if(BUILD_TESTING)
     add_executable(faultmine_tests
@@ -413,4 +458,18 @@ if(BUILD_TESTING)
     )
     faultmine_project_defaults(faultmine_batch_tests)
     add_test(NAME deterministic_batch_mining_contracts COMMAND faultmine_batch_tests)
+
+    add_executable(faultmine_release_tests
+        tests/release_hardening_tests.cpp
+    )
+
+    target_link_libraries(faultmine_release_tests
+        PRIVATE
+            faultmine_core
+            faultmine_session
+            faultmine_export
+            faultmine_laboratory_host
+    )
+    faultmine_project_defaults(faultmine_release_tests)
+    add_test(NAME v1_release_hardening_contracts COMMAND faultmine_release_tests)
 endif()
