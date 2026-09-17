@@ -261,7 +261,7 @@ void commit_state(const ImageBuffer& output, OperatorTemporalState& next_state) 
     output = input;
     if (previous != nullptr) {
         ImageBuffer displaced = input;
-        std::fill(displaced.bytes.begin(), displaced.bytes.end(), 0U);
+        std::fill(displaced.bytes.begin(), displaced.bytes.end(), std::uint8_t{0});
         for (std::uint32_t y = 0U; y < input.height; ++y) {
             for (std::uint32_t x = 0U; x < input.width; ++x) {
                 copy_displaced_pixel(*previous, displaced, x, y, dx, dy, boundary);
@@ -329,7 +329,7 @@ void commit_state(const ImageBuffer& output, OperatorTemporalState& next_state) 
     output = input;
     if (previous != nullptr) {
         ImageBuffer displaced = input;
-        std::fill(displaced.bytes.begin(), displaced.bytes.end(), 0U);
+        std::fill(displaced.bytes.begin(), displaced.bytes.end(), std::uint8_t{0});
         for (std::uint32_t y = 0U; y < input.height; ++y) {
             for (std::uint32_t x = 0U; x < input.width; ++x) {
                 copy_displaced_pixel(*previous, displaced, x, y, dx, dy, boundary);
