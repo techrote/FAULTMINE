@@ -3,6 +3,7 @@
 #include "faultmine/lineage.hpp"
 #include "faultmine/session.hpp"
 #include "faultmine/specimen_tray.hpp"
+#include "faultmine/temporal.hpp"
 
 #include <cstddef>
 #include <cstdint>
