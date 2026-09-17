@@ -1,14 +1,13 @@
-// FM-009 extends the accepted FM-008 Win32 window without copying its large
-// implementation. The existing implementation is included into this translation
-// unit, with private access exposed only here so the tray can share the exact
-// SessionModel and D3D11 renderer. FM-010 may fold this panel into a broader
-// lineage UI; keeping the FM-008 source intact avoids an unrelated rewrite now.
+// FM-010 extends the accepted FM-008 window and FM-009 specimen tray while
+// preserving their tested native rendering path. The panel now owns only
+// presentation state; durable lineage/favourites live in SessionModel/project v2.
 
 #include "platform/win32/main_window.hpp"
 
 #include "faultmine/colour.hpp"
 #include "faultmine/editor.hpp"
 #include "faultmine/image.hpp"
+#include "faultmine/lineage.hpp"
 #include "faultmine/project.hpp"
 #include "faultmine/session.hpp"
 #include "faultmine/specimen_tray.hpp"
@@ -40,8 +39,8 @@ namespace faultmine::platform::win32 {
 namespace {
 
 constexpr wchar_t kTrayClassName[] = L"FAULTMINE.SpecimenTray";
-constexpr wchar_t kTrayPropertyName[] = L"FAULTMINE.FM009.Tray";
-constexpr int kTrayHeight = 210;
+constexpr wchar_t kTrayPropertyName[] = L"FAULTMINE.FM010.Tray";
+constexpr int kTrayHeight = 242;
 constexpr UINT kTrayRenderMessage = WM_APP + 31U;
 
 enum TrayCommandId : UINT {
@@ -52,6 +51,9 @@ enum TrayCommandId : UINT {
     command_tray_radius_low = 1405U,
     command_tray_radius_medium = 1406U,
     command_tray_radius_high = 1407U,
+    command_tray_breed = 1408U,
+    command_lineage_activate = 1409U,
+    command_lineage_provenance = 1410U,
 
     control_tray_seed = 1451U,
     control_tray_radius = 1452U,
@@ -60,6 +62,10 @@ enum TrayCommandId : UINT {
     control_tray_reroll = 1455U,
     control_tray_promote = 1456U,
     control_tray_pin = 1457U,
+    control_tray_breed = 1458U,
+    control_lineage_combo = 1459U,
+    control_lineage_activate = 1460U,
+    control_lineage_provenance = 1461U,
 };
 
 enum TrayHotkeyId : int {
@@ -69,6 +75,7 @@ enum TrayHotkeyId : int {
     hotkey_tray_pin = 1504,
     hotkey_tray_radius_down = 1505,
     hotkey_tray_radius_up = 1506,
+    hotkey_tray_breed = 1507,
 };
 
 class ExplorerTrayPanel {
@@ -120,6 +127,7 @@ public:
         create_controls();
         create_menu_items();
         sync_controls_from_config();
+        sync_lineage_controls();
         layout();
 
         SetPropW(owner_.hwnd_, kTrayPropertyName, reinterpret_cast<HANDLE>(this));
@@ -128,7 +136,7 @@ public:
             owner_.hwnd_, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(&ExplorerTrayPanel::parent_proc)));
         if (old_parent_proc_ == nullptr && GetLastError() != ERROR_SUCCESS) {
             RemovePropW(owner_.hwnd_, kTrayPropertyName);
-            if (error != nullptr) *error = "could not subclass the FAULTMINE main window for tray commands";
+            if (error != nullptr) *error = "could not subclass the FAULTMINE main window for exploration commands";
             return false;
         }
         register_hotkeys();
@@ -141,6 +149,7 @@ public:
             if (error != nullptr) *error = "smoke exploration requires the smoke source";
             return false;
         }
+        const std::string root_identity = owner_.session_.genome_identity();
         app::SpecimenTrayConfig config = tray_.config();
         config.population_size = 4U;
         config.radius = core::MutationRadius::medium;
@@ -158,12 +167,23 @@ public:
                 return false;
             }
         }
-        if (tray_.items().empty() || !tray_.items().front().preview.has_value()) {
-            if (error != nullptr) *error = "smoke tray did not produce a preview";
+        if (tray_.items().size() < 2U || !tray_.items()[0].preview.has_value() || !tray_.items()[1].preview.has_value()) {
+            if (error != nullptr) *error = "smoke tray did not produce two usable previews";
             return false;
         }
-        if (!tray_.select(0U)) return false;
-        if (!owner_.session_.promote_exploration_genome(tray_.items().front().genome, error)) return false;
+        if (!owner_.session_.retain_mutation_specimen(
+                tray_.items()[0].genome, tray_.items()[0].provenance, true, error) ||
+            !owner_.session_.retain_mutation_specimen(
+                tray_.items()[1].genome, tray_.items()[1].provenance, false, error)) {
+            return false;
+        }
+        std::vector<core::Genome> parents{tray_.items()[0].genome, tray_.items()[1].genome};
+        if (!owner_.session_.breed_and_promote(parents, config.mutation_seed, error)) return false;
+        const std::string crossover_identity = owner_.session_.genome_identity();
+        if (!owner_.session_.activate_lineage_specimen(root_identity, error) ||
+            !owner_.session_.activate_lineage_specimen(crossover_identity, error)) {
+            return false;
+        }
         return owner_.session_.ensure_preview(error);
     }
 
@@ -196,7 +216,6 @@ private:
         if (self == nullptr || self->old_parent_proc_ == nullptr) {
             return DefWindowProcW(window, message, w_param, l_param);
         }
-
         if (message == WM_COMMAND) {
             const UINT command = static_cast<UINT>(LOWORD(w_param));
             if (self->handle_tray_command(command)) return 0;
@@ -217,6 +236,7 @@ private:
             const UINT command = static_cast<UINT>(LOWORD(w_param));
             if (command == command_open_image || command == command_open_project) {
                 self->reset_if_source_changed();
+                self->sync_lineage_controls();
             }
             self->restore_selected_comparison();
         } else if (message == WM_KEYDOWN || message == kRenderMessage) {
@@ -241,10 +261,19 @@ private:
                 const int x = static_cast<short>(LOWORD(l_param));
                 const int y = static_cast<short>(HIWORD(l_param));
                 const auto hit = item_at(x, y);
-                if (hit.has_value() && tray_.select(*hit)) {
+                if (!hit.has_value()) return 0;
+                if ((GetKeyState(VK_CONTROL) & 0x8000) != 0) {
+                    if (tray_.toggle_crossover_parent(*hit)) {
+                        InvalidateRect(panel_, nullptr, FALSE);
+                        const std::uint32_t rank = tray_.items()[*hit].crossover_rank;
+                        update_status(rank == 0U
+                            ? "Removed specimen from crossover parent set."
+                            : "Selected specimen as crossover parent #" + std::to_string(rank) + ".");
+                    }
+                } else if (tray_.select(*hit)) {
                     restore_selected_comparison();
                     InvalidateRect(panel_, nullptr, FALSE);
-                    update_status("Selected specimen " + std::to_string(*hit) + " for comparison.");
+                    update_status("Selected specimen " + std::to_string(*hit) + " for comparison. Ctrl+click toggles ordered crossover parents.");
                 }
                 return 0;
             }
@@ -276,14 +305,19 @@ private:
             return control;
         };
 
-        seed_label_ = make(L"STATIC", L"Mutation seed", SS_LEFT, 0U);
+        seed_label_ = make(L"STATIC", L"Seed", SS_LEFT, 0U);
         seed_edit_ = make(L"EDIT", L"", ES_AUTOHSCROLL | WS_BORDER, control_tray_seed);
         radius_combo_ = make(L"COMBOBOX", L"", CBS_DROPDOWNLIST, control_tray_radius);
         count_combo_ = make(L"COMBOBOX", L"", CBS_DROPDOWNLIST, control_tray_count);
         generate_button_ = make(L"BUTTON", L"Generate", BS_PUSHBUTTON, control_tray_generate);
         reroll_button_ = make(L"BUTTON", L"Reroll", BS_PUSHBUTTON, control_tray_reroll);
         promote_button_ = make(L"BUTTON", L"Promote", BS_PUSHBUTTON, control_tray_promote);
-        pin_button_ = make(L"BUTTON", L"Pin", BS_PUSHBUTTON, control_tray_pin);
+        pin_button_ = make(L"BUTTON", L"Favourite", BS_PUSHBUTTON, control_tray_pin);
+        breed_button_ = make(L"BUTTON", L"Breed", BS_PUSHBUTTON, control_tray_breed);
+        lineage_label_ = make(L"STATIC", L"Lineage", SS_LEFT, 0U);
+        lineage_combo_ = make(L"COMBOBOX", L"", CBS_DROPDOWNLIST | WS_VSCROLL, control_lineage_combo);
+        lineage_activate_button_ = make(L"BUTTON", L"Activate", BS_PUSHBUTTON, control_lineage_activate);
+        provenance_button_ = make(L"BUTTON", L"Provenance", BS_PUSHBUTTON, control_lineage_provenance);
 
         SendMessageW(radius_combo_, CB_ADDSTRING, 0U, reinterpret_cast<LPARAM>(L"Low radius"));
         SendMessageW(radius_combo_, CB_ADDSTRING, 0U, reinterpret_cast<LPARAM>(L"Medium radius"));
@@ -298,7 +332,11 @@ private:
         AppendMenuW(explore, MF_STRING, command_tray_generate, L"&Generate tray\tCtrl+Alt+G");
         AppendMenuW(explore, MF_STRING, command_tray_reroll, L"&Reroll descendants\tCtrl+Alt+R");
         AppendMenuW(explore, MF_STRING, command_tray_promote, L"&Promote selected\tCtrl+Alt+Enter");
-        AppendMenuW(explore, MF_STRING, command_tray_pin, L"&Pin selected\tCtrl+Alt+P");
+        AppendMenuW(explore, MF_STRING, command_tray_pin, L"Toggle &favourite\tCtrl+Alt+P");
+        AppendMenuW(explore, MF_STRING, command_tray_breed, L"&Breed selected parents\tCtrl+Alt+B");
+        AppendMenuW(explore, MF_SEPARATOR, 0U, nullptr);
+        AppendMenuW(explore, MF_STRING, command_lineage_activate, L"Activate selected &lineage specimen");
+        AppendMenuW(explore, MF_STRING, command_lineage_provenance, L"Show &provenance");
         AppendMenuW(explore, MF_SEPARATOR, 0U, nullptr);
         AppendMenuW(explore, MF_STRING, command_tray_radius_low, L"Radius: &Low");
         AppendMenuW(explore, MF_STRING, command_tray_radius_medium, L"Radius: &Medium");
@@ -315,6 +353,7 @@ private:
         RegisterHotKey(owner_.hwnd_, hotkey_tray_pin, modifiers, 'P');
         RegisterHotKey(owner_.hwnd_, hotkey_tray_radius_down, modifiers, VK_LEFT);
         RegisterHotKey(owner_.hwnd_, hotkey_tray_radius_up, modifiers, VK_RIGHT);
+        RegisterHotKey(owner_.hwnd_, hotkey_tray_breed, modifiers, 'B');
         hotkeys_registered_ = true;
     }
 
@@ -326,6 +365,7 @@ private:
         UnregisterHotKey(owner_.hwnd_, hotkey_tray_pin);
         UnregisterHotKey(owner_.hwnd_, hotkey_tray_radius_down);
         UnregisterHotKey(owner_.hwnd_, hotkey_tray_radius_up);
+        UnregisterHotKey(owner_.hwnd_, hotkey_tray_breed);
         hotkeys_registered_ = false;
     }
 
@@ -348,26 +388,48 @@ private:
         const int width = std::max<LONG>(1, client.right - client.left);
         int x = 8;
         const int y = 7;
-        MoveWindow(seed_label_, x, y + 4, 78, 20, TRUE); x += 82;
-        MoveWindow(seed_edit_, x, y, 128, 24, TRUE); x += 134;
-        MoveWindow(radius_combo_, x, y, 112, 200, TRUE); x += 118;
-        MoveWindow(count_combo_, x, y, 104, 160, TRUE); x += 110;
-        MoveWindow(generate_button_, x, y, 68, 24, TRUE); x += 72;
-        MoveWindow(reroll_button_, x, y, 62, 24, TRUE); x += 66;
-        MoveWindow(promote_button_, x, y, 66, 24, TRUE); x += 70;
-        MoveWindow(pin_button_, x, y, 48, 24, TRUE);
-        if (x + 48 > width) {
-            MoveWindow(promote_button_, std::max(8, width - 122), y, 66, 24, TRUE);
-            MoveWindow(pin_button_, std::max(78, width - 52), y, 44, 24, TRUE);
-        }
+        MoveWindow(seed_label_, x, y + 4, 34, 20, TRUE); x += 38;
+        MoveWindow(seed_edit_, x, y, 124, 24, TRUE); x += 130;
+        MoveWindow(radius_combo_, x, y, 110, 200, TRUE); x += 116;
+        MoveWindow(count_combo_, x, y, 102, 160, TRUE); x += 108;
+        MoveWindow(generate_button_, x, y, 66, 24, TRUE); x += 70;
+        MoveWindow(reroll_button_, x, y, 60, 24, TRUE); x += 64;
+        MoveWindow(promote_button_, x, y, 64, 24, TRUE); x += 68;
+        MoveWindow(pin_button_, x, y, 68, 24, TRUE); x += 72;
+        MoveWindow(breed_button_, x, y, 54, 24, TRUE);
+
+        const int line_y = 36;
+        MoveWindow(lineage_label_, 8, line_y + 4, 48, 20, TRUE);
+        const int combo_width = std::max(120, width - 8 - 52 - 70 - 82 - 86);
+        MoveWindow(lineage_combo_, 60, line_y, combo_width, 240, TRUE);
+        int line_x = 64 + combo_width;
+        MoveWindow(lineage_activate_button_, line_x, line_y, 76, 24, TRUE); line_x += 80;
+        MoveWindow(provenance_button_, line_x, line_y, 82, 24, TRUE);
     }
 
     void sync_controls_from_config() {
         const app::SpecimenTrayConfig& config = tray_.config();
         SetWindowTextW(seed_edit_, utf8_to_wide(config.mutation_seed.to_string()).c_str());
         SendMessageW(radius_combo_, CB_SETCURSEL, static_cast<WPARAM>(config.radius), 0U);
-        int count_index = config.population_size <= 4U ? 0 : (config.population_size <= 8U ? 1 : 2);
+        const int count_index = config.population_size <= 4U ? 0 : (config.population_size <= 8U ? 1 : 2);
         SendMessageW(count_combo_, CB_SETCURSEL, static_cast<WPARAM>(count_index), 0U);
+    }
+
+    void sync_lineage_controls() {
+        if (lineage_combo_ == nullptr) return;
+        SendMessageW(lineage_combo_, CB_RESETCONTENT, 0U, 0U);
+        const auto& records = owner_.session_.lineage().records();
+        int active_index = -1;
+        for (std::size_t index = 0U; index < records.size(); ++index) {
+            const app::SpecimenRecord& record = records[index];
+            std::string label = "#" + std::to_string(record.creation_ordinal) + " ";
+            if (record.favourite) label += "* ";
+            label += std::string{app::derivation_kind_name(record.derivation.kind)} + " ";
+            label += record.genome_identity.substr(0U, 12U);
+            SendMessageW(lineage_combo_, CB_ADDSTRING, 0U, reinterpret_cast<LPARAM>(utf8_to_wide(label).c_str()));
+            if (record.genome_identity == owner_.session_.lineage().active_identity()) active_index = static_cast<int>(index);
+        }
+        if (active_index >= 0) SendMessageW(lineage_combo_, CB_SETCURSEL, static_cast<WPARAM>(active_index), 0U);
     }
 
     [[nodiscard]] std::optional<app::SpecimenTrayConfig> config_from_controls() {
@@ -376,14 +438,12 @@ private:
         GetWindowTextW(seed_edit_, seed.data(), static_cast<int>(seed.size()));
         const auto parsed_seed = core::RootSeed::parse(wide_to_utf8(seed.data()));
         if (!parsed_seed.has_value()) {
-            update_status("ERROR: mutation seed is not a valid FAULTMINE root-seed literal.");
+            update_status("ERROR: seed is not a valid FAULTMINE root-seed literal.");
             return std::nullopt;
         }
         config.mutation_seed = *parsed_seed;
         const LRESULT radius = SendMessageW(radius_combo_, CB_GETCURSEL, 0U, 0U);
-        if (radius >= 0 && radius <= 2) {
-            config.radius = static_cast<core::MutationRadius>(radius);
-        }
+        if (radius >= 0 && radius <= 2) config.radius = static_cast<core::MutationRadius>(radius);
         const LRESULT count = SendMessageW(count_combo_, CB_GETCURSEL, 0U, 0U);
         config.population_size = count == 0 ? 4U : (count == 2 ? 12U : 8U);
         return config;
@@ -394,11 +454,15 @@ private:
         if (id == control_tray_reroll && notification == BN_CLICKED) { generate(true); return true; }
         if (id == control_tray_promote && notification == BN_CLICKED) { promote_selected(); return true; }
         if (id == control_tray_pin && notification == BN_CLICKED) { pin_selected(); return true; }
+        if (id == control_tray_breed && notification == BN_CLICKED) { breed_selected(); return true; }
+        if (id == control_lineage_activate && notification == BN_CLICKED) { activate_lineage_selected(); return true; }
+        if (id == control_lineage_provenance && notification == BN_CLICKED) { show_provenance(); return true; }
         if (id == control_tray_radius && notification == CBN_SELCHANGE) {
             InvalidateRect(panel_, nullptr, FALSE);
             return true;
         }
         if (id == control_tray_count && notification == CBN_SELCHANGE) return true;
+        if (id == control_lineage_combo && notification == CBN_SELCHANGE) return true;
         return false;
     }
 
@@ -408,6 +472,9 @@ private:
             case command_tray_reroll: generate(true); return true;
             case command_tray_promote: promote_selected(); return true;
             case command_tray_pin: pin_selected(); return true;
+            case command_tray_breed: breed_selected(); return true;
+            case command_lineage_activate: activate_lineage_selected(); return true;
+            case command_lineage_provenance: show_provenance(); return true;
             case command_tray_radius_low: set_radius(core::MutationRadius::low); return true;
             case command_tray_radius_medium: set_radius(core::MutationRadius::medium); return true;
             case command_tray_radius_high: set_radius(core::MutationRadius::high); return true;
@@ -423,6 +490,7 @@ private:
             case hotkey_tray_pin: pin_selected(); return true;
             case hotkey_tray_radius_down: shift_radius(-1); return true;
             case hotkey_tray_radius_up: shift_radius(1); return true;
+            case hotkey_tray_breed: breed_selected(); return true;
             default: return false;
         }
     }
@@ -451,7 +519,6 @@ private:
             config->mutation_seed = app::SpecimenTrayModel::reroll_seed(config->mutation_seed);
             SetWindowTextW(seed_edit_, utf8_to_wide(config->mutation_seed.to_string()).c_str());
         }
-
         std::string error;
         if (!tray_.generate(
                 owner_.session_.genome(), owner_.session_.locks(), owner_.session_.registry(), *config, &error)) {
@@ -468,10 +535,7 @@ private:
     }
 
     void render_one(const std::uint64_t token) {
-        if (token != tray_.generation_token() || !owner_.session_.has_source() ||
-            owner_.session_.full_source() == nullptr) {
-            return;
-        }
+        if (token != tray_.generation_token() || !owner_.session_.has_source() || owner_.session_.full_source() == nullptr) return;
         std::string error;
         const bool processed = tray_.render_next(
             *owner_.session_.full_source(), owner_.session_.source_identity(),
@@ -484,14 +548,12 @@ private:
         restore_selected_comparison();
         if (tray_.busy()) {
             PostMessageW(panel_, kTrayRenderMessage, static_cast<WPARAM>(token), 0U);
+        } else if (!error.empty()) {
+            update_status("Specimen tray ready with render errors: " + error);
         } else {
-            if (!error.empty()) {
-                update_status("Specimen tray ready with render errors: " + error);
-            } else {
-                update_status(
-                    "Specimen tray ready | seed " + tray_.config().mutation_seed.to_string() +
-                    " | radius " + std::string{core::mutation_radius_name(tray_.config().radius)} + ".");
-            }
+            update_status(
+                "Specimen tray ready | seed " + tray_.config().mutation_seed.to_string() +
+                " | radius " + std::string{core::mutation_radius_name(tray_.config().radius)} + ".");
         }
     }
 
@@ -502,28 +564,107 @@ private:
             return;
         }
         std::string error;
-        if (!owner_.session_.promote_exploration_genome(selected->genome, &error)) {
+        if (!owner_.session_.promote_mutation_specimen(
+                selected->genome, selected->provenance, selected->pinned, &error)) {
             update_status("ERROR: specimen promotion failed: " + error);
             return;
         }
         owner_.refresh_editor_controls();
         owner_.schedule_render();
+        sync_lineage_controls();
         update_status(
             "Promoted descendant " + std::to_string(selected->provenance.descendant_index) +
-            " from seed " + selected->provenance.mutation_seed.to_string() +
-            "; full canonical render validated before adoption.");
+            " with durable mutation provenance; full canonical render validated before adoption.");
     }
 
     void pin_selected() {
-        const auto selected = tray_.selected_index();
-        if (!selected.has_value() || !tray_.toggle_pin(*selected)) {
-            update_status("ERROR: select a specimen before pinning.");
+        const auto selected_index = tray_.selected_index();
+        if (!selected_index.has_value() || !tray_.toggle_pin(*selected_index)) {
+            update_status("ERROR: select a specimen before toggling favourite state.");
             return;
         }
-        const bool pinned = tray_.items()[*selected].pinned;
+        const app::SpecimenTrayItem& selected = tray_.items()[*selected_index];
+        std::string error;
+        if (!owner_.session_.retain_mutation_specimen(
+                selected.genome, selected.provenance, selected.pinned, &error)) {
+            (void)tray_.toggle_pin(*selected_index);
+            update_status("ERROR: could not retain specimen: " + error);
+            return;
+        }
+        const std::string identity = core::genome_identity_hex(selected.genome);
+        if (!owner_.session_.set_specimen_favourite(identity, selected.pinned, &error)) {
+            update_status("ERROR: could not persist favourite state: " + error);
+            return;
+        }
+        sync_lineage_controls();
         InvalidateRect(panel_, nullptr, FALSE);
-        update_status(pinned ? "Pinned selected specimen; it will survive tray rerolls."
-                             : "Unpinned selected specimen.");
+        update_status(selected.pinned
+            ? "Favourite retained durably; it survives rerolls and project save/reload."
+            : "Removed durable favourite flag; retained lineage/provenance remains intact.");
+    }
+
+    void breed_selected() {
+        const std::vector<std::size_t> indices = tray_.crossover_parent_indices();
+        if (indices.size() < 2U) {
+            update_status("ERROR: Ctrl+click at least two specimens to define ordered crossover parents.");
+            return;
+        }
+        if (indices.size() > core::kMaximumCrossoverParents) {
+            update_status("ERROR: crossover policy v1 supports at most eight parents.");
+            return;
+        }
+        auto config = config_from_controls();
+        if (!config.has_value()) return;
+        std::vector<core::Genome> parents;
+        parents.reserve(indices.size());
+        std::string error;
+        for (const std::size_t index : indices) {
+            const app::SpecimenTrayItem& item = tray_.items()[index];
+            if (!owner_.session_.retain_mutation_specimen(item.genome, item.provenance, item.pinned, &error)) {
+                update_status("ERROR: could not retain crossover parent: " + error);
+                return;
+            }
+            parents.push_back(item.genome);
+        }
+        if (!owner_.session_.breed_and_promote(parents, config->mutation_seed, &error)) {
+            update_status("ERROR: crossover failed: " + error);
+            return;
+        }
+        tray_.clear_crossover_selection();
+        owner_.refresh_editor_controls();
+        owner_.schedule_render();
+        sync_lineage_controls();
+        InvalidateRect(panel_, nullptr, FALSE);
+        update_status("Bred ordered retained parents with typed crossover v1 | " + owner_.session_.active_provenance_summary());
+    }
+
+    void activate_lineage_selected() {
+        const LRESULT selected = SendMessageW(lineage_combo_, CB_GETCURSEL, 0U, 0U);
+        const auto& records = owner_.session_.lineage().records();
+        if (selected == CB_ERR || static_cast<std::size_t>(selected) >= records.size()) {
+            update_status("ERROR: select a retained lineage specimen first.");
+            return;
+        }
+        const std::string identity = records[static_cast<std::size_t>(selected)].genome_identity;
+        std::string error;
+        if (!owner_.session_.activate_lineage_specimen(identity, &error)) {
+            update_status("ERROR: lineage navigation failed: " + error);
+            return;
+        }
+        owner_.refresh_editor_controls();
+        owner_.schedule_render();
+        sync_lineage_controls();
+        update_status("Activated retained lineage specimen | " + owner_.session_.active_provenance_summary());
+    }
+
+    void show_provenance() {
+        const LRESULT selected = SendMessageW(lineage_combo_, CB_GETCURSEL, 0U, 0U);
+        const auto& records = owner_.session_.lineage().records();
+        if (selected != CB_ERR && static_cast<std::size_t>(selected) < records.size()) {
+            update_status(app::specimen_provenance_summary(records[static_cast<std::size_t>(selected)]));
+        } else {
+            update_status(owner_.session_.active_provenance_summary());
+        }
     }
 
     void reset_if_source_changed() {
@@ -555,7 +696,7 @@ private:
         RECT client{};
         GetClientRect(panel_, &client);
         const int width = std::max<LONG>(1, client.right - client.left);
-        constexpr int top = 38;
+        constexpr int top = 68;
         constexpr int cell_width = 146;
         constexpr int cell_height = 82;
         const int columns = std::max(1, (width - 12) / cell_width);
@@ -620,9 +761,7 @@ private:
             const app::SpecimenTrayItem& item = tray_.items()[index];
             const RECT rect = item_rect(index);
             FillRect(dc, &rect, reinterpret_cast<HBRUSH>(COLOR_WINDOW + 1));
-            if (item.preview.has_value()) {
-                paint_preview(dc, rect, *item.preview);
-            }
+            if (item.preview.has_value()) paint_preview(dc, rect, *item.preview);
             if (!item.render_error.empty()) {
                 RECT error_rect = rect;
                 error_rect.top += 16;
@@ -639,8 +778,9 @@ private:
             DeleteObject(pen);
 
             std::wstring label = L"#" + std::to_wstring(item.provenance.descendant_index);
-            label += item.pinned ? L" [PIN] " : L" ";
-            label += utf8_to_wide(item.provenance.mutation_seed.to_string());
+            if (item.pinned) label += L" [FAV]";
+            if (item.crossover_rank != 0U) label += L" [P" + std::to_wstring(item.crossover_rank) + L"]";
+            label += L" " + utf8_to_wide(item.provenance.mutation_seed.to_string());
             RECT label_rect = rect;
             label_rect.top = rect.top + 55;
             DrawTextW(dc, label.c_str(), -1, &label_rect, DT_CENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
@@ -648,16 +788,16 @@ private:
 
         if (tray_.items().empty()) {
             RECT message = client;
-            message.top = 62;
+            message.top = 92;
             DrawTextW(
                 dc,
-                L"Generate deterministic descendants. Click a thumbnail to compare it on the main canvas.",
+                L"Generate deterministic descendants. Click to compare; Ctrl+click 2-8 thumbnails to choose ordered crossover parents.",
                 -1,
                 &message,
                 DT_CENTER | DT_TOP | DT_WORDBREAK);
         } else if (tray_.busy()) {
             RECT busy = client;
-            busy.top = 36;
+            busy.top = 66;
             DrawTextW(dc, L"rendering...", -1, &busy, DT_RIGHT | DT_TOP);
         }
         EndPaint(panel_, &paint_struct);
@@ -674,6 +814,11 @@ private:
     HWND reroll_button_{};
     HWND promote_button_{};
     HWND pin_button_{};
+    HWND breed_button_{};
+    HWND lineage_label_{};
+    HWND lineage_combo_{};
+    HWND lineage_activate_button_{};
+    HWND provenance_button_{};
     WNDPROC old_parent_proc_{};
     std::string seen_source_identity_;
     bool hotkeys_registered_{};
@@ -688,7 +833,7 @@ int run_application(const HINSTANCE instance, const int show_command, const bool
     ExplorerTrayPanel tray{window};
     std::string tray_error;
     if (!tray.attach(&tray_error)) {
-        show_error_box(nullptr, L"FAULTMINE specimen tray initialization failed:\n" + utf8_to_wide(tray_error));
+        show_error_box(nullptr, L"FAULTMINE exploration/lineage panel initialization failed:\n" + utf8_to_wide(tray_error));
         return EXIT_FAILURE;
     }
 
@@ -698,7 +843,7 @@ int run_application(const HINSTANCE instance, const int show_command, const bool
             return EXIT_FAILURE;
         }
         if (!tray.smoke_explore(&tray_error)) {
-            show_error_box(nullptr, L"FAULTMINE specimen mutation/tray smoke failed:\n" + utf8_to_wide(tray_error));
+            show_error_box(nullptr, L"FAULTMINE mutation/crossover/lineage smoke failed:\n" + utf8_to_wide(tray_error));
             return EXIT_FAILURE;
         }
         PostMessageW(nullptr, WM_NULL, 0U, 0U);
