@@ -17,6 +17,7 @@ This is the retrieval entry point for agents and maintainers. Read the documents
 - [`RAG_PROJECT_EDITOR.md`](RAG_PROJECT_EDITOR.md) — FM-008 generic stack editor, mutation locks, edit history, project persistence/source relink contract; project schema v2 is extended by FM-010.
 - [`RAG_MUTATION_SEARCH.md`](RAG_MUTATION_SEARCH.md) — FM-009 independently addressed descendants, typed mutation radius, topology/lock semantics, specimen tray and promotion contract.
 - [`RAG_LINEAGE_CROSSOVER.md`](RAG_LINEAGE_CROSSOVER.md) — FM-010 typed multi-parent crossover, durable specimen DAG, favourites, provenance UI and explicit project-v1 → project-v2 migration.
+- [`RAG_TEMPORAL.md`](RAG_TEMPORAL.md) — FM-011 explicit frame/tick semantics, model-owned feedback state, integer modulators, temporal faults, timeline-rate metadata and native transport controls.
 - [`RAG_EXTERNAL_DECODERS.md`](RAG_EXTERNAL_DECODERS.md) — external-decoder isolation, non-canonical decoder behaviour, freeze/materialize rules and laboratory provenance.
 - [`RAG_ROADMAP.md`](RAG_ROADMAP.md) — initial plan, review findings, improved dependency-ordered implementation plan and milestones.
 - [`RAG_VERIFICATION.md`](RAG_VERIFICATION.md) — deterministic testing, CI, performance and release verification strategy.
@@ -43,13 +44,13 @@ This is the retrieval entry point for agents and maintainers. Read the documents
 - **palette asset** — an ordered, versioned list of canonical RGBA8 colours with content identity defined in `RAG_COLOUR.md`.
 - **LUT asset** — four explicit 256-entry byte lookup tables for canonical RGBA channels, with versioned canonical serialization and content identity.
 - **fault stack / pipeline** — ordered operator graph for a specimen; v1 begins as a serial stack but serialization must permit future typed expansion.
-- **genome** — complete serializable description of pipeline topology and parameters, excluding incidental UI state.
+- **genome** — complete serializable description of pipeline topology and parameters, excluding incidental UI state. FM-011 temporal operator parameters and optional rational timeline-rate metadata remain ordinary genome state.
 - **project** — versioned human-readable continuation state containing source provenance, active genome, mutation locks, durable specimen lineage/favourites and clearly separated session/UI state. FM-010 project schema v2 is defined by `RAG_LINEAGE_CROSSOVER.md` and migrates schema v1 explicitly.
 - **edit history** — undo/redo snapshots of deliberate manual genome/lock edits, distinct from specimen lineage.
 - **seed** — explicit 64-bit root deterministic entropy used to derive named random streams under `RAG_DETERMINISM.md`.
 - **operator instance ID** — stable persisted 128-bit identity independent of list position.
 - **mutation descriptor** — non-persisted typed operator/parameter metadata used by deterministic search; it never changes canonical render identity by itself.
-- **session** — non-canonical application state connecting one normalized source, a genome, preview cache, proxy state, view state and durable project lineage state.
+- **session** — non-canonical application state connecting one normalized source, a genome, preview cache, proxy state, explicit current temporal frame, view state and durable project lineage state.
 - **proxy preview** — deterministic nearest-neighbour preprocessing used only for interactive responsiveness; visibly non-canonical as a final-resolution result and never substituted for export.
 - **specimen** — retained/searchable canonical genome for a particular source plus explicit derivation metadata; rendered pixels are disposable products, not specimen lineage authority.
 - **gene** — mutable unit of genome state used by exploration controls.
@@ -58,10 +59,14 @@ This is the retrieval entry point for agents and maintainers. Read the documents
 - **lineage** — durable acyclic parent/child/crossover provenance among retained canonical specimens, distinct from editor undo/redo; defined in `RAG_LINEAGE_CROSSOVER.md`.
 - **favourite** — durable non-semantic retained-specimen flag persisted by project schema v2; tray pins are the interactive presentation of that state.
 - **crossover** — deterministic typed multi-parent recombination under policy v1. Parent selection order is semantic; the first parent is the primary topology scaffold.
-- **canonical output** — result of the authoritative deterministic CPU engine.
+- **semantic frame/tick** — explicit unsigned frame index supplied to canonical temporal rendering; it is never inferred from wall clock, paint rate or display refresh.
+- **temporal state** — pipeline-owned previous operator state used by feedback faults and deterministically rebuilt from the defined initial state during canonical replay.
+- **semantic timeline rate** — optional positive rational `rate_num/rate_den` stored by `temporal.timeline-rate`; it is provenance/export metadata and does not choose frame N.
+- **preview playback rate** — presentation-only multiplier controlling how often the native UI requests a next explicit frame; it is not canonical render input.
+- **canonical output** — result of the authoritative deterministic CPU engine for explicit source/genome/version and, for temporal work, explicit frame index.
 - **preview** — interactive presentation; it must not silently redefine canonical semantics.
 - **materialized laboratory source** — validated normalized pixels retained from an external-decoder experiment so downstream canonical work does not depend on rerunning decoder-specific recovery behaviour.
 
 ## v1 target
 
-A compact Windows x64 application capable of opening an image, constructing and editing a deterministic fault stack, exploring seeded descendants in a specimen tray, locking/mutating/breeding results, retaining favourites and navigating durable lineage, saving projects/genomes, and exporting reproducible still or animated output. Advanced codec/binary corruption and batch mining are later v1 phases but are architected from the start as bounded extensions rather than unsafe shortcuts.
+A compact Windows x64 application capable of opening an image, constructing and editing a deterministic fault stack, exploring seeded descendants in a specimen tray, locking/mutating/breeding results, retaining favourites and navigating durable lineage, driving explicit deterministic temporal faults/feedback, saving projects/genomes, and exporting reproducible still or animated output. Advanced codec/binary corruption and batch mining are later v1 phases but are architected from the start as bounded extensions rather than unsafe shortcuts.
