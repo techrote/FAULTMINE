@@ -112,6 +112,10 @@ namespace {
         error = "lineage must retain at least one specimen";
         return false;
     }
+    if (state.specimens.size() > kMaximumLineageSpecimens) {
+        error = "lineage exceeds the v1 limit of 4096 retained specimens; export/prune history before adding more";
+        return false;
+    }
     if (!valid_hex_identity(expected_source_identity)) {
         error = "lineage expected source identity must be 64 lower-case hexadecimal digits";
         return false;
@@ -259,6 +263,10 @@ bool LineageGraph::retain(
         return true;
     }
 
+    if (specimens_.size() >= kMaximumLineageSpecimens) {
+        if (error != nullptr) *error = "lineage has reached the v1 limit of 4096 retained specimens; export/prune history before retaining another specimen";
+        return false;
+    }
     if (!specimens_.empty() && record.source_identity != specimens_.front().source_identity) {
         if (error != nullptr) *error = "retained specimen belongs to a different source identity";
         return false;
