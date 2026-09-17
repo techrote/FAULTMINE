@@ -25,6 +25,7 @@ constexpr UINT kCommandExportStill = 1801U;
 constexpr UINT kCommandExportContact = 1802U;
 constexpr UINT kCommandExportSequence = 1803U;
 constexpr UINT kCommandExportCancel = 1804U;
+constexpr UINT kCommandExportManifest = 1805U;
 
 constexpr int kHotkeyExportContact = 1901;
 constexpr int kHotkeyExportSequence = 1902;
@@ -34,11 +35,6 @@ constexpr UINT kRangeEndEdit = 2002U;
 constexpr UINT kRangeOk = 2003U;
 constexpr UINT kRangeCancel = 2004U;
 constexpr UINT kProgressCancel = 2010U;
-
-[[nodiscard]] bool smoke_command_line() noexcept {
-    const wchar_t* command_line = GetCommandLineW();
-    return command_line != nullptr && std::wstring_view{command_line}.find(L"--smoke-test") != std::wstring_view::npos;
-}
 
 struct RangeDialogState {
     HWND window{};
@@ -92,7 +88,7 @@ LRESULT CALLBACK range_dialog_proc(const HWND window, const UINT message, const 
             (void)make(L"STATIC", L"End frame (exclusive)", SS_LEFT, 0U, 12, 48, 150, 20);
             state->end_edit = make(L"EDIT", std::to_wstring(state->end).c_str(), ES_AUTOHSCROLL | WS_BORDER,
                 kRangeEndEdit, 170, 44, 180, 24);
-            (void)make(L"STATIC", L"Deterministic -f000000 PNG names; provenance manifest on by default.",
+            (void)make(L"STATIC", L"Deterministic -f000000 PNG names; provenance follows the Export-menu setting.",
                 SS_LEFT, 0U, 12, 80, 338, 38);
             (void)make(L"BUTTON", L"Export", BS_DEFPUSHBUTTON, kRangeOk, 190, 126, 76, 26);
             (void)make(L"BUTTON", L"Cancel", BS_PUSHBUTTON, kRangeCancel, 274, 126, 76, 26);
@@ -239,9 +235,11 @@ public:
             if (error != nullptr) *error = "could not create FM-012 Export menu";
             return false;
         }
-        AppendMenuW(export_menu, MF_STRING, kCommandExportStill, L"Canonical &still + manifest\tCtrl+E");
+        AppendMenuW(export_menu, MF_STRING, kCommandExportStill, L"Canonical &still\tCtrl+E");
         AppendMenuW(export_menu, MF_STRING, kCommandExportContact, L"Retained specimen &contact sheet\tCtrl+Shift+E");
         AppendMenuW(export_menu, MF_STRING, kCommandExportSequence, L"Temporal frame &sequence...\tCtrl+Alt+E");
+        AppendMenuW(export_menu, MF_SEPARATOR, 0U, nullptr);
+        AppendMenuW(export_menu, MF_STRING | MF_CHECKED, kCommandExportManifest, L"Write &provenance manifest");
         AppendMenuW(export_menu, MF_SEPARATOR, 0U, nullptr);
         AppendMenuW(export_menu, MF_STRING | MF_GRAYED, kCommandExportCancel, L"Cancel active export\tEsc");
         AppendMenuW(owner_.menu_, MF_POPUP, reinterpret_cast<UINT_PTR>(export_menu), L"E&xport");
@@ -261,12 +259,6 @@ public:
         return true;
     }
 
-    [[nodiscard]] bool maybe_run_smoke(std::string* error) {
-        if (!smoke_command_line() || smoke_attempted_ || !owner_.session_.has_source()) return true;
-        smoke_attempted_ = true;
-        return smoke_export(error);
-    }
-
 private:
     static LRESULT CALLBACK parent_proc(
         const HWND window,
@@ -275,13 +267,6 @@ private:
         const LPARAM l_param) {
         auto* self = reinterpret_cast<ExportUi*>(GetPropW(window, kExportPropertyName));
         if (self == nullptr || self->old_proc_ == nullptr) return DefWindowProcW(window, message, w_param, l_param);
-
-        std::string smoke_error;
-        if (!self->maybe_run_smoke(&smoke_error)) {
-            show_error_box(window, L"FAULTMINE canonical export smoke failed:\n" + utf8_to_wide(smoke_error));
-            PostQuitMessage(EXIT_FAILURE);
-            return 0;
-        }
 
         if (message == WM_COMMAND) {
             const UINT command = static_cast<UINT>(LOWORD(w_param));
@@ -295,6 +280,16 @@ private:
             }
             if (command == kCommandExportSequence) {
                 self->export_sequence();
+                return 0;
+            }
+            if (command == kCommandExportManifest) {
+                self->manifest_enabled_ = !self->manifest_enabled_;
+                CheckMenuItem(self->owner_.menu_, kCommandExportManifest,
+                    MF_BYCOMMAND | (self->manifest_enabled_ ? MF_CHECKED : MF_UNCHECKED));
+                self->owner_.transient_status_ = self->manifest_enabled_
+                    ? "Export provenance manifests enabled."
+                    : "Export provenance manifests disabled for this session.";
+                self->owner_.update_status();
                 return 0;
             }
             if (command == kCommandExportCancel && self->progress_ != nullptr) {
@@ -353,16 +348,21 @@ private:
         return std::filesystem::path{filename.data()};
     }
 
+    [[nodiscard]] bool path_exists(const std::filesystem::path& path) const noexcept {
+        std::error_code error;
+        return std::filesystem::exists(path, error);
+    }
+
     [[nodiscard]] std::optional<app::ExportOverwritePolicy> confirm_overwrite_policy(
         const std::filesystem::path& path,
         const bool sequence_wide) const {
-        const bool image_or_base_exists = std::filesystem::exists(path);
-        const bool manifest_exists = std::filesystem::exists(app::companion_manifest_path(path));
+        const bool image_or_base_exists = path_exists(path);
+        const bool manifest_exists = manifest_enabled_ && path_exists(app::companion_manifest_path(path));
         if (!image_or_base_exists && !manifest_exists) return app::ExportOverwritePolicy::fail_if_exists;
 
         const wchar_t* text = sequence_wide
-            ? L"One or more export names may already exist. Replace colliding sequence files and the companion manifest atomically?"
-            : L"The selected PNG or its companion provenance manifest already exists. Replace the existing export artefact(s) atomically?";
+            ? L"One or more export names may already exist. Replace colliding sequence files and enabled companion provenance atomically?"
+            : L"The selected PNG or its enabled companion provenance manifest already exists. Replace the existing export artefact(s) atomically?";
         const int answer = MessageBoxW(owner_.hwnd_, text, kWindowTitle, MB_YESNO | MB_ICONWARNING | MB_DEFBUTTON2);
         if (answer != IDYES) return std::nullopt;
         return app::ExportOverwritePolicy::replace_existing;
@@ -375,7 +375,9 @@ private:
             return;
         }
         if (result.cancelled) {
-            owner_.transient_status_ = "Export cancelled; completed atomic files and partial manifest were preserved.";
+            owner_.transient_status_ = manifest_enabled_
+                ? "Export cancelled; completed atomic files and partial manifest were preserved."
+                : "Export cancelled; completed atomic files were preserved.";
             owner_.update_status();
             return;
         }
@@ -397,8 +399,10 @@ private:
         if (!policy.has_value()) return;
         app::ExportOptions options;
         options.overwrite_policy = *policy;
+        options.write_manifest = manifest_enabled_;
         report_result(app::export_canonical_still(owner_.session_, *path, options),
-            "Exported full-resolution canonical PNG plus provenance manifest.");
+            manifest_enabled_ ? "Exported full-resolution canonical PNG plus provenance manifest."
+                              : "Exported full-resolution canonical PNG.");
     }
 
     [[nodiscard]] std::vector<app::SpecimenTrayItem> retained_mutation_items() const {
@@ -435,7 +439,7 @@ private:
         std::vector<app::SpecimenTrayItem> items = retained_mutation_items();
         if (items.empty()) {
             show_error_box(owner_.hwnd_,
-                L"No retained mutation specimens are available. Favourite or promote tray specimens first; the contact-sheet command exports that retained subset in lineage order.");
+                L"No retained mutation specimens are available. Favourite or promote tray specimens first; the contact-sheet command exports that retained selection in lineage order.");
             return;
         }
         const auto path = choose_png_path(owner_.session_.source_path().stem().wstring() + L"-faultmine-contact.png");
@@ -444,8 +448,10 @@ private:
         if (!policy.has_value()) return;
         app::ExportOptions options;
         options.overwrite_policy = *policy;
+        options.write_manifest = manifest_enabled_;
         report_result(app::export_contact_sheet(owner_.session_, items, *path, {}, options),
-            "Exported deterministic retained-specimen contact sheet plus cell provenance manifest.");
+            manifest_enabled_ ? "Exported deterministic retained-specimen contact sheet plus cell provenance manifest."
+                              : "Exported deterministic retained-specimen contact sheet.");
     }
 
     [[nodiscard]] bool create_progress_window(ProgressWindowState& state) const {
@@ -494,6 +500,7 @@ private:
         sequence.frame_end_exclusive = end;
         app::ExportOptions options;
         options.overwrite_policy = app::ExportOverwritePolicy::fail_if_exists;
+        options.write_manifest = manifest_enabled_;
 
         ProgressWindowState progress;
         if (!create_progress_window(progress)) {
@@ -520,41 +527,15 @@ private:
         }
         progress_ = nullptr;
         if (progress.window != nullptr && IsWindow(progress.window) != FALSE) DestroyWindow(progress.window);
-        report_result(result, "Exported canonical temporal PNG sequence plus per-frame audit manifest.");
-    }
-
-    [[nodiscard]] bool smoke_export(std::string* error) {
-        const std::filesystem::path root = std::filesystem::temp_directory_path() /
-            (L"faultmine-fm012-smoke-" + std::to_wstring(static_cast<unsigned long>(GetCurrentProcessId())));
-        std::error_code fs_error;
-        std::filesystem::remove_all(root, fs_error);
-        fs_error.clear();
-        std::filesystem::create_directories(root, fs_error);
-        if (fs_error) {
-            if (error != nullptr) *error = "could not create FM-012 native smoke export directory";
-            return false;
-        }
-        const app::ExportResult still = app::export_canonical_still(owner_.session_, root / L"still.png");
-        if (!still.success) {
-            if (error != nullptr) *error = still.error;
-            return false;
-        }
-        app::SequenceOptions sequence;
-        sequence.frame_start_inclusive = 0U;
-        sequence.frame_end_exclusive = 2U;
-        const app::ExportResult frames = app::export_frame_sequence(owner_.session_, root / L"sequence.png", sequence);
-        if (!frames.success) {
-            if (error != nullptr) *error = frames.error;
-            return false;
-        }
-        std::filesystem::remove_all(root, fs_error);
-        return true;
+        report_result(result,
+            manifest_enabled_ ? "Exported canonical temporal PNG sequence plus per-frame audit manifest."
+                              : "Exported canonical temporal PNG sequence.");
     }
 
     MainWindow& owner_;
     WNDPROC old_proc_{};
     ProgressWindowState* progress_{};
-    bool smoke_attempted_{};
+    bool manifest_enabled_{true};
 };
 
 void fm012_install_export_ui(MainWindow& owner) {
@@ -564,7 +545,6 @@ void fm012_install_export_ui(MainWindow& owner) {
     if (!ui->attach(&error)) {
         delete ui;
         show_error_box(owner.hwnd_, L"FAULTMINE export UI initialization failed:\n" + utf8_to_wide(error));
-        if (smoke_command_line()) PostQuitMessage(EXIT_FAILURE);
     }
 }
 
