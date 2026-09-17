@@ -1,0 +1,84 @@
+name: Release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  windows-v1-release:
+    name: Windows x64 gated portable release
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Require tagged commits to be on main
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        run: |
+          git fetch origin main
+          git merge-base --is-ancestor HEAD origin/main
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Release tags must point to a commit reachable from main.'
+          }
+
+      - name: Configure
+        shell: pwsh
+        run: .\scripts\configure.ps1
+
+      - name: Build and test Debug
+        shell: pwsh
+        run: |
+          .\scripts\build.ps1 -Configuration Debug
+          .\scripts\test.ps1 -Configuration Debug
+
+      - name: Build and test Release
+        shell: pwsh
+        run: |
+          .\scripts\build.ps1 -Configuration Release
+          .\scripts\test.ps1 -Configuration Release
+
+      - name: Native Release smoke
+        shell: pwsh
+        run: |
+          $process = Start-Process -FilePath ".\build\Release\FAULTMINE.exe" -ArgumentList "--smoke-test" -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw "Native smoke failed: $($process.ExitCode)" }
+
+      - name: Enforce performance budgets
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force artifacts | Out-Null
+          & .\build\Release\FAULTMINE-perf.exe | Tee-Object -FilePath .\artifacts\performance.json
+          if ($LASTEXITCODE -ne 0) { throw "Performance gate failed: $LASTEXITCODE" }
+
+      - name: Package and verify
+        shell: pwsh
+        run: |
+          .\scripts\package.ps1 -Configuration Release -OutputDir artifacts
+          .\scripts\verify-package.ps1 -ArchivePath .\artifacts\FAULTMINE-1.0.0-win64.zip
+
+      - name: Upload verified release candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: FAULTMINE-1.0.0-win64
+          path: |
+            artifacts/FAULTMINE-1.0.0-win64.zip
+            artifacts/performance.json
+          if-no-files-found: error
+
+      - name: Publish tagged GitHub release
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" ".\artifacts\FAULTMINE-1.0.0-win64.zip" ".\artifacts\performance.json" --verify-tag --generate-notes --title "FAULTMINE ${{ github.ref_name }}"
