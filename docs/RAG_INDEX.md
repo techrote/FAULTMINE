@@ -18,6 +18,7 @@ This is the retrieval entry point for agents and maintainers. Read the documents
 - [`RAG_MUTATION_SEARCH.md`](RAG_MUTATION_SEARCH.md) — FM-009 independently addressed descendants, typed mutation radius, topology/lock semantics, specimen tray and promotion contract.
 - [`RAG_LINEAGE_CROSSOVER.md`](RAG_LINEAGE_CROSSOVER.md) — FM-010 typed multi-parent crossover, durable specimen DAG, favourites, provenance UI and explicit project-v1 → project-v2 migration.
 - [`RAG_TEMPORAL.md`](RAG_TEMPORAL.md) — FM-011 explicit frame/tick semantics, model-owned feedback state, integer modulators, temporal faults, timeline-rate metadata and native transport controls.
+- [`RAG_EXPORT.md`](RAG_EXPORT.md) — FM-012 canonical still/sequence export, manifest schema v1, contact sheets, safe writes, naming and cancellation semantics.
 - [`RAG_EXTERNAL_DECODERS.md`](RAG_EXTERNAL_DECODERS.md) — external-decoder isolation, non-canonical decoder behaviour, freeze/materialize rules and laboratory provenance.
 - [`RAG_ROADMAP.md`](RAG_ROADMAP.md) — initial plan, review findings, improved dependency-ordered implementation plan and milestones.
 - [`RAG_VERIFICATION.md`](RAG_VERIFICATION.md) — deterministic testing, CI, performance and release verification strategy.
@@ -64,9 +65,11 @@ This is the retrieval entry point for agents and maintainers. Read the documents
 - **semantic timeline rate** — optional positive rational `rate_num/rate_den` stored by `temporal.timeline-rate`; it is provenance/export metadata and does not choose frame N.
 - **preview playback rate** — presentation-only multiplier controlling how often the native UI requests a next explicit frame; it is not canonical render input.
 - **canonical output** — result of the authoritative deterministic CPU engine for explicit source/genome/version and, for temporal work, explicit frame index.
+- **export manifest** — FM-012 versioned `.fmmanifest.json` provenance record binding source/genome/version state to still/contact/sequence outputs and per-frame audit identities without making timestamps semantic.
+- **contact sheet** — deterministic presentation composition of canonically rendered specimens plus explicit cell-to-genome provenance; the composed sheet is not itself canonical specimen pixels.
 - **preview** — interactive presentation; it must not silently redefine canonical semantics.
 - **materialized laboratory source** — validated normalized pixels retained from an external-decoder experiment so downstream canonical work does not depend on rerunning decoder-specific recovery behaviour.
 
 ## v1 target
 
-A compact Windows x64 application capable of opening an image, constructing and editing a deterministic fault stack, exploring seeded descendants in a specimen tray, locking/mutating/breeding results, retaining favourites and navigating durable lineage, driving explicit deterministic temporal faults/feedback, saving projects/genomes, and exporting reproducible still or animated output. Advanced codec/binary corruption and batch mining are later v1 phases but are architected from the start as bounded extensions rather than unsafe shortcuts.
+A compact Windows x64 application capable of opening an image, constructing and editing a deterministic fault stack, exploring seeded descendants in a specimen tray, locking/mutating/breeding results, retaining favourites and navigating durable lineage, driving explicit deterministic temporal faults/feedback, saving projects/genomes, and exporting reproducible provenance-rich still or animated output. Advanced codec/binary corruption and batch mining are later v1 phases but are architected from the start as bounded extensions rather than unsafe shortcuts.
