@@ -144,9 +144,9 @@ void change_preview_rate(MainWindow& owner, const bool increase) {
     switch (command) {
         case kCommandTemporalPlay: toggle_play(owner); return true;
         case kCommandTemporalStepForward:
-            g_temporal_ui.playing = false; update_timer(owner); owner.session_.step_frame_forward(); schedule_frame(owner); return true;
+            g_temporal_ui.playing = false; update_timer(owner); (void)owner.session_.step_frame_forward(); schedule_frame(owner); return true;
         case kCommandTemporalStepBackward:
-            g_temporal_ui.playing = false; update_timer(owner); owner.session_.step_frame_backward(); schedule_frame(owner); return true;
+            g_temporal_ui.playing = false; update_timer(owner); (void)owner.session_.step_frame_backward(); schedule_frame(owner); return true;
         case kCommandTemporalReset:
             g_temporal_ui.playing = false; update_timer(owner); owner.session_.reset_timeline(); schedule_frame(owner); return true;
         case kCommandTemporalSeekForward: {
