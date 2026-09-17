@@ -1,6 +1,7 @@
 #pragma once
 
 #include "faultmine/genome.hpp"
+#include "faultmine/laboratory.hpp"
 #include "faultmine/lineage.hpp"
 #include "faultmine/session.hpp"
 
@@ -15,8 +16,9 @@
 
 namespace faultmine::exporting {
 
-inline constexpr std::uint32_t kExportManifestSchemaVersion = 1U;
-inline constexpr std::string_view kApplicationVersion = "0.12.0";
+inline constexpr std::uint32_t kLegacyExportManifestSchemaVersion = 1U;
+inline constexpr std::uint32_t kExportManifestSchemaVersion = 2U;
+inline constexpr std::string_view kApplicationVersion = "0.13.0";
 
 enum class ExportKind {
     still,
@@ -86,6 +88,7 @@ struct ExportManifest {
     std::string output_format{"png-rgba8"};
     std::string output_image_identity;
     std::optional<DerivationManifest> derivation;
+    std::optional<core::LaboratoryProvenance> laboratory_provenance;
 
     std::optional<std::uint64_t> still_frame;
 
