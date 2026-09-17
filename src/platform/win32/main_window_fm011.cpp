@@ -19,6 +19,10 @@ LRESULT temporal_call_window_proc(WNDPROC previous, HWND window, UINT message, W
 namespace faultmine::platform::win32 {
 namespace {
 
+#ifdef FAULTMINE_FM012_LAYER
+void fm012_install_export_ui(MainWindow& owner);
+#endif
+
 constexpr UINT kTemporalTimerId = 0xFA11U;
 constexpr UINT kCommandTemporalPlay = 1601U;
 constexpr UINT kCommandTemporalStepForward = 1602U;
@@ -191,6 +195,9 @@ LRESULT temporal_call_window_proc(
     auto* owner = reinterpret_cast<MainWindow*>(GetWindowLongPtrW(window, GWLP_USERDATA));
     if (owner != nullptr) {
         install_temporal_ui(*owner);
+#ifdef FAULTMINE_FM012_LAYER
+        fm012_install_export_ui(*owner);
+#endif
         if (message == WM_COMMAND && handle_temporal_command(*owner, static_cast<UINT>(LOWORD(w_param)))) return 0;
         if (message == WM_HOTKEY && handle_temporal_hotkey(*owner, static_cast<int>(w_param))) return 0;
         if (message == WM_TIMER && w_param == kTemporalTimerId) {
