@@ -74,6 +74,7 @@ class OperatorRegistry {
 public:
     [[nodiscard]] bool register_operator(OperatorDescriptor descriptor, std::string* error = nullptr);
     [[nodiscard]] const OperatorDescriptor* find(std::string_view type_id) const noexcept;
+    [[nodiscard]] const std::vector<OperatorDescriptor>& descriptors() const noexcept;
 
 private:
     std::vector<OperatorDescriptor> descriptors_;

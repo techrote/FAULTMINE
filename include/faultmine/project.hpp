@@ -1,0 +1,93 @@
+#pragma once
+
+#include "faultmine/editor.hpp"
+#include "faultmine/proxy.hpp"
+
+#include <cstdint>
+#include <optional>
+#include <string>
+#include <string_view>
+
+namespace faultmine::app {
+
+inline constexpr std::uint32_t kProjectSchemaVersion = 1U;
+
+struct ProjectSourceReference {
+    std::string path_utf8;
+    std::string source_identity;
+
+    bool operator==(const ProjectSourceReference&) const = default;
+};
+
+struct ProjectSessionState {
+    bool proxy_enabled{true};
+    core::ProxySpec proxy_spec{};
+    std::string selected_instance_id;
+
+    bool operator==(const ProjectSessionState&) const = default;
+};
+
+struct ProjectViewState {
+    std::string mode{"fit"};
+    std::int64_t zoom_milli{1000};
+    std::int64_t pan_x_milli{};
+    std::int64_t pan_y_milli{};
+    bool show_before{};
+
+    bool operator==(const ProjectViewState&) const = default;
+};
+
+struct ProjectDocument {
+    std::uint32_t project_version{kProjectSchemaVersion};
+    ProjectSourceReference source;
+    core::Genome genome;
+    LockState locks;
+    ProjectSessionState session;
+    ProjectViewState ui;
+
+    bool operator==(const ProjectDocument&) const = default;
+};
+
+enum class ProjectErrorCode {
+    syntax,
+    duplicate_field,
+    missing_field,
+    unexpected_field,
+    wrong_type,
+    invalid_value,
+    unsupported_version,
+    invalid_genome,
+    invalid_lock,
+};
+
+struct ProjectError {
+    ProjectErrorCode code{ProjectErrorCode::invalid_value};
+    std::string path;
+    std::string message;
+    std::optional<std::size_t> byte_offset;
+};
+
+struct ProjectParseResult {
+    std::optional<ProjectDocument> project;
+    std::optional<ProjectError> error;
+
+    [[nodiscard]] bool ok() const noexcept {
+        return project.has_value() && !error.has_value();
+    }
+};
+
+enum class SourceReferenceStatus {
+    missing,
+    identical,
+    changed,
+};
+
+[[nodiscard]] std::string serialize_project_canonical(const ProjectDocument& project);
+[[nodiscard]] ProjectParseResult parse_project(
+    std::string_view text,
+    const core::OperatorRegistry& registry);
+[[nodiscard]] SourceReferenceStatus assess_source_reference(
+    std::string_view expected_identity,
+    const std::optional<std::string>& actual_identity) noexcept;
+
+}  // namespace faultmine::app

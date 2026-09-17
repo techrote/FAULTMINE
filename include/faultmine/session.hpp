@@ -1,13 +1,16 @@
 #pragma once
 
-#include "faultmine/genome.hpp"
-#include "faultmine/pipeline.hpp"
+#include "faultmine/editor.hpp"
+#include "faultmine/project.hpp"
 #include "faultmine/proxy.hpp"
 
+#include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <optional>
 #include <string>
+#include <string_view>
+#include <vector>
 
 namespace faultmine::app {
 
@@ -42,6 +45,12 @@ public:
         std::string source_identity,
         std::filesystem::path source_path,
         std::string* error = nullptr);
+    [[nodiscard]] bool load_project_state(
+        const ProjectDocument& project,
+        core::ImageBuffer source,
+        std::filesystem::path resolved_source_path,
+        std::string* error = nullptr);
+    [[nodiscard]] std::optional<ProjectDocument> make_project_document(std::string* error = nullptr) const;
 
     [[nodiscard]] bool has_source() const noexcept;
     [[nodiscard]] const core::ImageBuffer* full_source() const noexcept;
@@ -51,8 +60,45 @@ public:
     [[nodiscard]] const std::string& source_identity() const noexcept;
     [[nodiscard]] const std::filesystem::path& source_path() const noexcept;
 
+    [[nodiscard]] const core::FaultRegistry& registry() const noexcept;
     [[nodiscard]] const core::Genome& genome() const noexcept;
     [[nodiscard]] std::string genome_identity() const;
+    [[nodiscard]] const LockState& locks() const noexcept;
+    [[nodiscard]] const std::vector<core::OperatorDescriptor>& operator_descriptors() const noexcept;
+    [[nodiscard]] const core::OperatorDescriptor* descriptor_for_operator(std::size_t operator_index) const noexcept;
+    [[nodiscard]] const core::ParameterDescriptor* descriptor_for_parameter(
+        std::size_t operator_index,
+        std::string_view parameter_name) const noexcept;
+
+    [[nodiscard]] EditResult add_operator(std::string_view type_id, std::size_t insert_index);
+    [[nodiscard]] EditResult remove_operator(std::size_t operator_index);
+    [[nodiscard]] EditResult duplicate_operator(std::size_t operator_index);
+    [[nodiscard]] EditResult move_operator(std::size_t from_index, std::size_t to_index);
+    [[nodiscard]] EditResult toggle_operator_enabled(std::size_t operator_index);
+    [[nodiscard]] EditResult set_parameter_from_text(
+        std::size_t operator_index,
+        std::string_view parameter_name,
+        std::string_view text);
+    [[nodiscard]] EditResult nudge_parameter(
+        std::size_t operator_index,
+        std::string_view parameter_name,
+        int direction,
+        bool large_step,
+        bool coalesce_history = false);
+    void end_coalesced_edit() noexcept;
+    [[nodiscard]] EditResult toggle_operator_lock(std::size_t operator_index);
+    [[nodiscard]] EditResult toggle_parameter_lock(std::size_t operator_index, std::string_view parameter_name);
+    [[nodiscard]] bool operator_locked(std::size_t operator_index) const noexcept;
+    [[nodiscard]] bool parameter_locked(std::size_t operator_index, std::string_view parameter_name) const noexcept;
+    [[nodiscard]] bool undo();
+    [[nodiscard]] bool redo();
+    [[nodiscard]] bool can_undo() const noexcept;
+    [[nodiscard]] bool can_redo() const noexcept;
+    [[nodiscard]] bool project_dirty() const noexcept;
+    void mark_project_saved() noexcept;
+
+    void set_selected_operator(std::optional<std::size_t> operator_index) noexcept;
+    [[nodiscard]] std::optional<std::size_t> selected_operator() const noexcept;
 
     [[nodiscard]] bool ensure_preview(std::string* error = nullptr);
     [[nodiscard]] std::optional<core::ImageBuffer> render_full(std::string* error = nullptr) const;
@@ -69,7 +115,7 @@ public:
     [[nodiscard]] bool effects_enabled() const noexcept;
     void adjust_row_offset(std::int64_t delta);
     void adjust_jitter(std::int64_t delta);
-    void reroll_seed() noexcept;
+    void reroll_seed();
     [[nodiscard]] std::int64_t row_offset_amount() const noexcept;
     [[nodiscard]] std::uint64_t jitter_max_shift() const noexcept;
 
@@ -85,9 +131,10 @@ private:
     [[nodiscard]] static core::Genome make_default_genome();
     void mark_preview_dirty() noexcept;
     [[nodiscard]] const core::ImageBuffer* choose_preview_source(std::string* error);
+    void after_semantic_edit(const EditResult& result) noexcept;
+    [[nodiscard]] std::optional<std::size_t> find_operator_type(std::string_view type_id) const noexcept;
 
-    core::FaultRegistry registry_;
-    core::Genome genome_;
+    EditorModel editor_;
     std::optional<core::ImageBuffer> source_;
     std::string source_identity_;
     std::filesystem::path source_path_;
@@ -102,6 +149,7 @@ private:
     std::uint64_t render_generation_{};
 
     CanvasViewState view_{};
+    std::string selected_instance_id_;
 };
 
 }  // namespace faultmine::app
