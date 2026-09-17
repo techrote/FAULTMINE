@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.25)
 
-project(FAULTMINE VERSION 0.12.0 LANGUAGES CXX)
+project(FAULTMINE VERSION 0.13.0 LANGUAGES CXX)
 
 if(NOT WIN32)
     message(FATAL_ERROR "FAULTMINE supports Windows x64 only.")
@@ -51,6 +51,7 @@ add_library(faultmine_core STATIC
     src/core/image.cpp
     src/core/json.cpp
     src/core/json.hpp
+    src/core/laboratory.cpp
     src/core/logical_address.cpp
     src/core/memory_addressing_operators.cpp
     src/core/mutation.cpp
@@ -89,11 +90,27 @@ target_link_libraries(faultmine_wic
 
 faultmine_project_defaults(faultmine_wic)
 
+add_library(faultmine_lab_host STATIC
+    src/io/lab_worker_host.cpp
+)
+
+target_include_directories(faultmine_lab_host
+    PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
+target_link_libraries(faultmine_lab_host
+    PUBLIC
+        faultmine_core
+)
+
+faultmine_project_defaults(faultmine_lab_host)
+
 add_library(faultmine_session STATIC
     src/app/editor.cpp
     src/app/lineage.cpp
-    src/app/project.cpp
-    src/app/session_fm011.cpp
+    src/app/project_fm013.cpp
+    src/app/session_fm013.cpp
     src/app/session_exploration.cpp
     src/app/specimen_tray.cpp
     src/app/specimen_tray_lineage.cpp
@@ -112,7 +129,7 @@ target_link_libraries(faultmine_session
 faultmine_project_defaults(faultmine_session)
 
 add_library(faultmine_export STATIC
-    src/io/export.cpp
+    src/io/export_fm013.cpp
 )
 
 target_include_directories(faultmine_export
@@ -194,6 +211,32 @@ target_link_libraries(faultmine_render
 )
 
 faultmine_project_defaults(faultmine_render)
+
+add_executable(faultmine_lab_worker
+    src/tools/lab_worker_main.cpp
+)
+set_target_properties(faultmine_lab_worker PROPERTIES OUTPUT_NAME "FAULTMINE-lab-worker")
+target_link_libraries(faultmine_lab_worker
+    PRIVATE
+        faultmine_core
+        faultmine_wic
+)
+faultmine_project_defaults(faultmine_lab_worker)
+
+add_executable(faultmine_lab
+    src/tools/lab_cli.cpp
+)
+set_target_properties(faultmine_lab PROPERTIES OUTPUT_NAME "FAULTMINE-lab")
+target_link_libraries(faultmine_lab
+    PRIVATE
+        faultmine_core
+        faultmine_wic
+        faultmine_lab_host
+        faultmine_session
+        faultmine_export
+)
+add_dependencies(faultmine_lab faultmine_lab_worker)
+faultmine_project_defaults(faultmine_lab)
 
 if(BUILD_TESTING)
     add_executable(faultmine_tests
@@ -314,4 +357,19 @@ if(BUILD_TESTING)
     )
     faultmine_project_defaults(faultmine_export_tests)
     add_test(NAME canonical_export_contracts COMMAND faultmine_export_tests)
+
+    add_executable(faultmine_laboratory_tests
+        tests/laboratory_tests.cpp
+    )
+    target_link_libraries(faultmine_laboratory_tests
+        PRIVATE
+            faultmine_core
+            faultmine_wic
+            faultmine_lab_host
+            faultmine_session
+            faultmine_export
+    )
+    add_dependencies(faultmine_laboratory_tests faultmine_lab_worker)
+    faultmine_project_defaults(faultmine_laboratory_tests)
+    add_test(NAME isolated_laboratory_contracts COMMAND faultmine_laboratory_tests)
 endif()
