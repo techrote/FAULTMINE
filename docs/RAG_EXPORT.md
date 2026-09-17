@@ -80,7 +80,7 @@ The companion manifest maps each cell to:
 - embedded canonical specimen genome;
 - canonical full-resolution rendered-image identity used to create the presentation thumbnail.
 
-The core export API therefore supports current tray/selection ordering directly. The compact native FM-012 export menu exposes a retained-exploration contact sheet in durable lineage creation order; callers with a transient tray pass its exact item order to the same API.
+The native FM-012 export menu reads the actual current `SpecimenTrayModel` through a read-only presentation accessor and exports its item vector in exact tray/index order. If no transient tray exists yet, it falls back to the retained lineage/selection in durable creation order, and finally to the active genome if nothing has been retained. The core export API also accepts any explicit caller-provided specimen/selection order.
 
 ## Canonical frame sequences
 
