@@ -47,7 +47,18 @@ FM-005 adds the first substantial memory/addressing family while preserving host
 - typed mutation-domain hints in operator descriptors for later FM-009 search;
 - a composed default registry used by the non-GUI renderer while the original FM-003 starter registry remains compatibility-focused.
 
-The byte-level deterministic rules are documented in [`docs/RAG_DETERMINISM.md`](docs/RAG_DETERMINISM.md), canonical image/operator semantics in [`docs/RAG_IMAGE_PIPELINE.md`](docs/RAG_IMAGE_PIPELINE.md), interactive session/presentation boundaries in [`docs/RAG_SESSION_PRESENTATION.md`](docs/RAG_SESSION_PRESENTATION.md), and memory/addressing semantics in [`docs/RAG_MEMORY_ADDRESSING.md`](docs/RAG_MEMORY_ADDRESSING.md).
+FM-006 adds a representation/bit family that models data being misunderstood rather than merely recoloured:
+
+- arbitrary channel routing, duplication, drop/fill and selected-channel spatial delay;
+- explicit 2/4-byte logical word lane reversal/rotation;
+- host-independent RGB565/BGR565/RGBA4444/ARGB1555 packing and endian disagreement;
+- planar/interleaved layout mismatch;
+- explicit signed-byte reinterpretation modes;
+- zero-fill shifts, nibble swaps, bitplane exchange and stuck-at masks;
+- structured named-stream block bit bursts with bounded work;
+- typed mutation domains for every new parameter.
+
+The byte-level deterministic rules are documented in [`docs/RAG_DETERMINISM.md`](docs/RAG_DETERMINISM.md), canonical image/operator semantics in [`docs/RAG_IMAGE_PIPELINE.md`](docs/RAG_IMAGE_PIPELINE.md), interactive session/presentation boundaries in [`docs/RAG_SESSION_PRESENTATION.md`](docs/RAG_SESSION_PRESENTATION.md), memory/addressing semantics in [`docs/RAG_MEMORY_ADDRESSING.md`](docs/RAG_MEMORY_ADDRESSING.md), and representation/bit semantics in [`docs/RAG_REPRESENTATION_BITS.md`](docs/RAG_REPRESENTATION_BITS.md).
 
 ## Prerequisites
 
@@ -109,7 +120,7 @@ After launching `FAULTMINE.exe`:
 
 The bottom status line identifies full versus proxy preview, source/preview dimensions, before/result state, starter parameters, seed prefix and D3D11 hardware/WARP mode.
 
-FM-004 intentionally keeps these controls compact. The generic data-driven stack editor is FM-008 work; FM-005 operators are currently exercised through canonical genomes/the CLI until that editor lands.
+FM-004 intentionally keeps these controls compact. The generic data-driven stack editor is FM-008 work; FM-005/FM-006 operators are currently exercised through canonical genomes/the CLI until that editor lands.
 
 ## Non-GUI canonical render hook
 
@@ -119,7 +130,9 @@ The narrow developer CLI remains available:
 .\build\Debug\FAULTMINE-render.exe input.png genome.json output.png
 ```
 
-It validates the genome against the **default** registry (FM-003 starter faults plus accepted fault-family operators), normalizes the input through WIC, executes the canonical CPU stack, writes a PNG, and prints normalized source/output identities.
+It validates the genome against the **default** registry (starter faults plus accepted memory/addressing and representation/bit families), normalizes the input through WIC, executes the canonical CPU stack, writes a PNG, and prints normalized source/output identities.
+
+Example genomes under `examples/` include the FM-003 starter stack, an FM-005 addressing stack, and an FM-006 representation/bit stack.
 
 ## Authoritative development documentation
 
