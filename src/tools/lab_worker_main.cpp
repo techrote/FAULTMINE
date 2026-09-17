@@ -2,8 +2,8 @@
 #include "faultmine/wic_io.hpp"
 
 #include <windows.h>
-#include <winternl.h>
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -66,16 +66,24 @@ void append_u64(std::vector<std::uint8_t>& output, const std::uint64_t value) {
 }
 
 [[nodiscard]] std::string os_build_text() {
-    const HMODULE ntdll = GetModuleHandleW(L"ntdll.dll");
-    if (ntdll == nullptr) return "windows-build-unavailable";
-    using RtlGetVersionFunction = LONG (WINAPI*)(PRTL_OSVERSIONINFOW);
-    const auto function = reinterpret_cast<RtlGetVersionFunction>(GetProcAddress(ntdll, "RtlGetVersion"));
-    if (function == nullptr) return "windows-build-unavailable";
-    RTL_OSVERSIONINFOW info{};
-    info.dwOSVersionInfoSize = sizeof(info);
-    if (function(&info) != 0) return "windows-build-unavailable";
-    return "Windows " + std::to_string(info.dwMajorVersion) + "." + std::to_string(info.dwMinorVersion) +
-        " build " + std::to_string(info.dwBuildNumber);
+    std::array<wchar_t, 128> build{};
+    DWORD byte_count = static_cast<DWORD>(sizeof(build));
+    const LSTATUS status = RegGetValueW(
+        HKEY_LOCAL_MACHINE,
+        L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion",
+        L"CurrentBuildNumber",
+        RRF_RT_REG_SZ,
+        nullptr,
+        build.data(),
+        &byte_count);
+    if (status != ERROR_SUCCESS || build.front() == L'\0') return "Windows build unavailable";
+    std::string narrow;
+    for (const wchar_t character : build) {
+        if (character == L'\0') break;
+        if (character < L'0' || character > L'9') return "Windows build unavailable";
+        narrow.push_back(static_cast<char>(character));
+    }
+    return narrow.empty() ? "Windows build unavailable" : "Windows build " + narrow;
 }
 
 [[nodiscard]] bool write_response(
@@ -149,7 +157,7 @@ int wmain(const int argc, wchar_t** argv) {
         return 5;
     }
     auto encoded = read_bytes(arguments->input, faultmine::laboratory::kLabWorkerMaximumEncodedBytes);
-    if (!encoded.has_value() || encoded->size() != encoded_length) return 6;
+    if (!encoded.has_value() || static_cast<std::uint64_t>(encoded->size()) != encoded_length) return 6;
     const WorkerMode mode = static_cast<WorkerMode>(raw_mode);
     const std::string os = os_build_text();
     const std::string decoder = "Windows Imaging Component (external decoder; pixels non-canonical until frozen)";
@@ -205,6 +213,6 @@ int wmain(const int argc, wchar_t** argv) {
     }
     const faultmine::core::ImageBuffer& image = loaded.source->image;
     return write_response(arguments->response, arguments->pixels, 0U, image.width, image.height, image.row_stride,
-        image.bytes.size(), "decode completed; result remains external-decoder dependent until materialized",
+        static_cast<std::uint64_t>(image.bytes.size()), "decode completed; result remains external-decoder dependent until materialized",
         decoder, os, image.bytes) ? 0 : 13;
 }
