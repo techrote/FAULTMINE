@@ -134,7 +134,7 @@ faultmine_project_defaults(faultmine_d3d11)
 
 add_executable(faultmine WIN32
     src/app/main.cpp
-    src/platform/win32/main_window_fm009.cpp
+    src/platform/win32/main_window_fm010.cpp
 )
 
 set_target_properties(faultmine PROPERTIES OUTPUT_NAME "FAULTMINE")
@@ -172,96 +172,48 @@ target_link_libraries(faultmine_render
 faultmine_project_defaults(faultmine_render)
 
 if(BUILD_TESTING)
-    add_executable(faultmine_tests
-        tests/core_smoke.cpp
-    )
-
+    add_executable(faultmine_tests tests/core_smoke.cpp)
     target_link_libraries(faultmine_tests PRIVATE faultmine_core)
     faultmine_project_defaults(faultmine_tests)
     add_test(NAME deterministic_core_contracts COMMAND faultmine_tests)
 
-    add_executable(faultmine_image_tests
-        tests/image_pipeline_main.cpp
-        tests/image_pipeline_tests.cpp
-    )
-
-    target_link_libraries(faultmine_image_tests
-        PRIVATE
-            faultmine_core
-            faultmine_wic
-    )
+    add_executable(faultmine_image_tests tests/image_pipeline_main.cpp tests/image_pipeline_tests.cpp)
+    target_link_libraries(faultmine_image_tests PRIVATE faultmine_core faultmine_wic)
     faultmine_project_defaults(faultmine_image_tests)
     add_test(NAME canonical_image_pipeline_contracts COMMAND faultmine_image_tests)
 
-    add_executable(faultmine_session_tests
-        tests/session_model_tests.cpp
-    )
-
-    target_link_libraries(faultmine_session_tests
-        PRIVATE
-            faultmine_core
-            faultmine_session
-    )
+    add_executable(faultmine_session_tests tests/session_model_tests.cpp)
+    target_link_libraries(faultmine_session_tests PRIVATE faultmine_core faultmine_session)
     faultmine_project_defaults(faultmine_session_tests)
     add_test(NAME session_proxy_contracts COMMAND faultmine_session_tests)
 
-    add_executable(faultmine_addressing_tests
-        tests/memory_addressing_tests.cpp
-    )
-
+    add_executable(faultmine_addressing_tests tests/memory_addressing_tests.cpp)
     target_link_libraries(faultmine_addressing_tests PRIVATE faultmine_core)
     faultmine_project_defaults(faultmine_addressing_tests)
     add_test(NAME memory_addressing_contracts COMMAND faultmine_addressing_tests)
 
-    add_executable(faultmine_representation_tests
-        tests/representation_bit_tests.cpp
-    )
-
+    add_executable(faultmine_representation_tests tests/representation_bit_tests.cpp)
     target_link_libraries(faultmine_representation_tests PRIVATE faultmine_core)
     faultmine_project_defaults(faultmine_representation_tests)
     add_test(NAME representation_bit_contracts COMMAND faultmine_representation_tests)
 
-    add_executable(faultmine_colour_tests
-        tests/colour_tests.cpp
-    )
-
+    add_executable(faultmine_colour_tests tests/colour_tests.cpp)
     target_link_libraries(faultmine_colour_tests PRIVATE faultmine_core)
     faultmine_project_defaults(faultmine_colour_tests)
     add_test(NAME colour_lut_contracts COMMAND faultmine_colour_tests)
 
-    add_executable(faultmine_editor_project_tests
-        tests/editor_project_tests.cpp
-    )
-
-    target_link_libraries(faultmine_editor_project_tests
-        PRIVATE
-            faultmine_core
-            faultmine_session
-    )
+    add_executable(faultmine_editor_project_tests tests/editor_project_tests.cpp)
+    target_link_libraries(faultmine_editor_project_tests PRIVATE faultmine_core faultmine_session)
     faultmine_project_defaults(faultmine_editor_project_tests)
     add_test(NAME editor_project_contracts COMMAND faultmine_editor_project_tests)
 
-    add_executable(faultmine_mutation_tests
-        tests/mutation_tests.cpp
-    )
-
-    target_link_libraries(faultmine_mutation_tests
-        PRIVATE
-            faultmine_core
-            faultmine_session
-    )
+    add_executable(faultmine_mutation_tests tests/mutation_tests.cpp)
+    target_link_libraries(faultmine_mutation_tests PRIVATE faultmine_core faultmine_session)
     faultmine_project_defaults(faultmine_mutation_tests)
     add_test(NAME deterministic_mutation_tray_contracts COMMAND faultmine_mutation_tests)
 
-    add_executable(faultmine_crossover_lineage_tests
-        tests/crossover_lineage_tests.cpp
-    )
-
-    target_link_libraries(faultmine_crossover_lineage_tests
-        PRIVATE
-            faultmine_core
-            faultmine_session
-    )
+    add_executable(faultmine_crossover_lineage_tests tests/crossover_lineage_tests.cpp)
+    target_link_libraries(faultmine_crossover_lineage_tests PRIVATE faultmine_core faultmine_session)
     faultmine_project_defaults(faultmine_crossover_lineage_tests)
     add_test(NAME crossover_lineage_project_contracts COMMAND faultmine_crossover_lineage_tests)
 endif()
