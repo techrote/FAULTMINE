@@ -4,6 +4,7 @@
 #include "faultmine/genome.hpp"
 #include "faultmine/image.hpp"
 #include "faultmine/laboratory_worker.hpp"
+#include "faultmine/lineage.hpp"
 #include "faultmine/mutation.hpp"
 #include "faultmine/project.hpp"
 #include "faultmine/version.hpp"
@@ -56,16 +57,52 @@ void test_image_resource_limit() {
         "oversized canonical image must report an actionable resource-limit error");
 }
 
-void test_structured_input_depth_limit() {
+void test_structured_input_limits() {
+    const auto registry = faultmine::core::make_default_fault_registry();
+
     std::string malicious;
     malicious.append(70U, '[');
     malicious += '0';
     malicious.append(70U, ']');
-    const auto registry = faultmine::core::make_default_fault_registry();
-    const auto parsed = faultmine::core::parse_genome(malicious, registry.schema_registry());
-    expect(!parsed.ok(), "excessively nested structured input must be rejected");
-    expect(parsed.error.has_value() && parsed.error->code == faultmine::core::GenomeErrorCode::syntax_error,
+    const auto nested = faultmine::core::parse_genome(malicious, registry.schema_registry());
+    expect(!nested.ok(), "excessively nested structured input must be rejected");
+    expect(nested.error.has_value() && nested.error->code == faultmine::core::GenomeErrorCode::syntax_error,
         "nesting rejection must surface as a structured parse error");
+
+    std::string oversized =
+        "{\"schema_version\":1,\"engine_contract_version\":1,\"root_seed\":\"0000000000000000\",\"operators\":[";
+    for (std::size_t index = 0U; index < faultmine::core::kMaximumGenomeOperators + 1U; ++index) {
+        if (index != 0U) oversized += ',';
+        oversized += "{}";
+    }
+    oversized += "]}";
+    const auto parsed = faultmine::core::parse_genome(oversized, registry.schema_registry());
+    expect(!parsed.ok(), "oversized genome JSON must be rejected before per-operator parsing");
+    expect(parsed.error.has_value() && parsed.error->code == faultmine::core::GenomeErrorCode::resource_limit,
+        "oversized genome JSON must report the resource-limit error class");
+
+    faultmine::core::Genome programmatic;
+    programmatic.operators.resize(faultmine::core::kMaximumGenomeOperators + 1U);
+    const auto validation = faultmine::core::validate_genome(programmatic, registry.schema_registry());
+    expect(validation.has_value() && validation->code == faultmine::core::GenomeErrorCode::resource_limit,
+        "programmatic genomes must obey the same topology resource ceiling as parsed genomes");
+}
+
+void test_lineage_resource_limit() {
+    const auto registry = faultmine::core::make_default_fault_registry();
+    faultmine::app::LineageState oversized;
+    oversized.specimens.resize(faultmine::app::kMaximumLineageSpecimens + 1U);
+    oversized.active_genome_identity = std::string(64U, '0');
+    faultmine::app::LineageGraph graph;
+    std::string error;
+    expect(!graph.load(
+        std::move(oversized),
+        registry.schema_registry(),
+        std::string(64U, '0'),
+        &error),
+        "oversized retained lineage must be rejected before graph traversal");
+    expect(error.find("4096") != std::string::npos,
+        "lineage resource-limit error must state the v1 retained-specimen ceiling");
 }
 
 void test_resource_contract_alignment() {
@@ -73,6 +110,8 @@ void test_resource_contract_alignment() {
         "v1 genome topology resource ceiling must be explicit");
     expect(faultmine::core::kMaximumMutationOperators == faultmine::core::kMaximumGenomeOperators,
         "mutation topology limit must match the genome resource contract");
+    expect(faultmine::app::kMaximumLineageSpecimens == 4096U,
+        "v1 retained-lineage ceiling must be explicit");
     const faultmine::laboratory::WorkerOptions worker;
     expect(worker.timeout_ms == 5000U, "worker default deadline remains explicit");
     expect(worker.job_memory_limit_bytes == 512ULL * 1024ULL * 1024ULL,
@@ -84,7 +123,8 @@ void test_resource_contract_alignment() {
 int main() {
     test_release_versions();
     test_image_resource_limit();
-    test_structured_input_depth_limit();
+    test_structured_input_limits();
+    test_lineage_resource_limit();
     test_resource_contract_alignment();
 
     if (failures != 0) {
