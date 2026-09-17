@@ -76,7 +76,7 @@ The export API has two explicit policies:
 
 PNG and manifest bytes are first written to a temporary peer file in the destination directory. A successfully completed temporary file is then committed to the final name using Windows move/replace semantics. Encoder/write failure removes the temporary file and does not leave a final-looking truncated output.
 
-The native UI uses save/overwrite confirmation and, for sequence-wide collisions, an additional explicit replace prompt before switching to `replace_existing`.
+The native UI uses save/overwrite confirmation and, for sequence-wide collisions, an additional explicit replace prompt before switching to `replace_existing`. If manifests are enabled, a collision with the companion manifest is also treated as an overwrite decision even when the image filename itself is new.
 
 ## Sequence cancellation and partial results
 
@@ -98,21 +98,22 @@ The sheet:
 - preserves caller order exactly;
 - uses bounded deterministic cell geometry;
 - includes a small deterministic label containing exported selection index and genome-identity prefix;
-- records full mutation seed/descendant/genome mapping in the companion manifest;
+- records full mutation seed/descendant/genome mapping in the companion manifest when provenance output is enabled;
 - never promotes or mutates any specimen/session state.
 
-The native FM-012 command exports the user-retained mutation subset represented by lineage records, in creation order. The lower-level API accepts the current tray directly, enabling exact tray/index contact sheets and later batch-miner reuse.
+The native FM-012 command exports the user-retained mutation selection represented by lineage records, in creation order. This is the durable selection already created by promotion/favourite workflows rather than render-completion order. The lower-level API accepts an explicit current tray/selection directly, enabling exact tray/index contact sheets and later batch-miner reuse without coupling export semantics to native panel internals.
 
 ## Native controls
 
 FM-012 adds an **Export** menu while retaining the established File-menu still command:
 
-- `Ctrl+E` — canonical full-resolution still PNG plus manifest;
-- `Ctrl+Shift+E` — retained mutation-specimen contact sheet plus cell manifest;
+- `Ctrl+E` — canonical full-resolution still PNG;
+- `Ctrl+Shift+E` — deterministic contact sheet of the retained mutation selection;
 - `Ctrl+Alt+E` — temporal frame-sequence range dialog;
+- **Write provenance manifest** — checked by default and may be toggled off for the current UI session;
 - sequence export shows progress and exposes a Cancel button; cancellation takes effect between atomic frame commits.
 
-The sequence dialog accepts explicit unsigned start-inclusive/end-exclusive frames. Destination dialogs control the base PNG name. Manifests are enabled by default.
+The sequence dialog accepts explicit unsigned start-inclusive/end-exclusive frames. Destination dialogs control the base PNG name. The reusable export API exposes the same manifest-on/off choice through `ExportOptions::write_manifest`, with provenance enabled by default.
 
 ## State invariants
 
@@ -136,4 +137,4 @@ Tests additionally freeze that success, failure and cancellation preserve canoni
 - cancellation preserves completed frames, writes truthful partial provenance and emits no cancelled-frame file;
 - export paths do not mutate genome identity or interactive semantic frame.
 
-The real native smoke path also performs canonical still and two-frame sequence exports after the accepted D3D/session/mutation/crossover/lineage smoke workflow. CI continues to require Debug and Release build, complete tests and native smoke.
+CI runs these semantic export contracts in both Debug and Release, alongside the established real native window/D3D/session/mutation/crossover/lineage smoke lifecycle. The native smoke remains intentionally presentation-focused; export correctness is exercised directly through the reusable export API so failures are diagnosable as normal test assertions rather than hidden inside a window callback.
