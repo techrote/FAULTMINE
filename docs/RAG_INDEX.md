@@ -13,6 +13,7 @@ This is the retrieval entry point for agents and maintainers. Read the documents
 - [`RAG_SESSION_PRESENTATION.md`](RAG_SESSION_PRESENTATION.md) — application/session model, deterministic proxy preview, D3D11 presentation, render scheduling and first native interaction contract.
 - [`RAG_MEMORY_ADDRESSING.md`](RAG_MEMORY_ADDRESSING.md) — shared logical-address policies, FM-005 memory/addressing operators, bounded-work rules and mutation descriptor hints.
 - [`RAG_REPRESENTATION_BITS.md`](RAG_REPRESENTATION_BITS.md) — FM-006 channel/word/packed/planar/signed/bit semantics, structured bit bursts and host-independent representation rules.
+- [`RAG_COLOUR.md`](RAG_COLOUR.md) — FM-007 palette/LUT assets, colour mapping, integer quantisation/dither, seeded palette generation and colour mutation domains.
 - [`RAG_EXTERNAL_DECODERS.md`](RAG_EXTERNAL_DECODERS.md) — external-decoder isolation, non-canonical decoder behaviour, freeze/materialize rules and laboratory provenance.
 - [`RAG_ROADMAP.md`](RAG_ROADMAP.md) — initial plan, review findings, improved dependency-ordered implementation plan and milestones.
 - [`RAG_VERIFICATION.md`](RAG_VERIFICATION.md) — deterministic testing, CI, performance and release verification strategy.
@@ -36,6 +37,8 @@ This is the retrieval entry point for agents and maintainers. Read the documents
 - **boundary policy** — canonical `wrap`, `clamp`, or `fill` resolution defined in `RAG_MEMORY_ADDRESSING.md`.
 - **logical word** — an explicitly assembled sequence of bytes/bits with documented order; never a native type-punned host load.
 - **packed reinterpretation** — pack canonical channels into an explicit logical bit layout/byte order, then decode those same logical bytes under another explicit layout/order.
+- **palette asset** — an ordered, versioned list of canonical RGBA8 colours with content identity defined in `RAG_COLOUR.md`.
+- **LUT asset** — four explicit 256-entry byte lookup tables for canonical RGBA channels, with versioned canonical serialization and content identity.
 - **fault stack / pipeline** — ordered operator graph for a specimen; v1 begins as a serial stack but serialization must permit future typed expansion.
 - **genome** — complete serializable description of pipeline topology and parameters, excluding incidental UI state.
 - **seed** — explicit 64-bit root deterministic entropy used to derive named random streams under `RAG_DETERMINISM.md`.
