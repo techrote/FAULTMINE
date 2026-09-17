@@ -1,6 +1,7 @@
 #pragma once
 
 #include "faultmine/editor.hpp"
+#include "faultmine/laboratory.hpp"
 #include "faultmine/lineage.hpp"
 #include "faultmine/proxy.hpp"
 
@@ -12,7 +13,8 @@
 namespace faultmine::app {
 
 inline constexpr std::uint32_t kLegacyProjectSchemaVersion = 1U;
-inline constexpr std::uint32_t kProjectSchemaVersion = 2U;
+inline constexpr std::uint32_t kLineageProjectSchemaVersion = 2U;
+inline constexpr std::uint32_t kProjectSchemaVersion = 3U;
 
 struct ProjectSourceReference {
     std::string path_utf8;
@@ -47,6 +49,9 @@ struct ProjectDocument {
     LineageState lineage;
     ProjectSessionState session;
     ProjectViewState ui;
+    // Project v3 embeds validated normalized pixels and decoder provenance for a
+    // frozen laboratory result. Ordinary sources leave this null.
+    std::optional<core::MaterializedLaboratorySource> laboratory_source;
 
     bool operator==(const ProjectDocument&) const = default;
 };
@@ -62,6 +67,7 @@ enum class ProjectErrorCode {
     invalid_genome,
     invalid_lock,
     invalid_lineage,
+    invalid_laboratory_source,
 };
 
 struct ProjectError {
@@ -86,8 +92,10 @@ enum class SourceReferenceStatus {
     changed,
 };
 
-// Serialization always emits project schema v2. Parsing accepts v1 and
-// explicitly migrates it to one history-free migrated-project lineage root.
+// Serialization always emits project schema v3. Parsing accepts v1/v2 and
+// explicitly migrates them with no laboratory source, preserving FM-010 lineage
+// migration semantics. V3 frozen laboratory sources carry their validated RGBA8
+// pixels so project reopen never needs to rerun an unstable decoder.
 [[nodiscard]] std::string serialize_project_canonical(const ProjectDocument& project);
 [[nodiscard]] ProjectParseResult parse_project(
     std::string_view text,
