@@ -2,94 +2,255 @@
 
 ## Verification goals
 
-Testing proves that FAULTMINE's artistic randomness is intentional while its engineering behaviour is not random. The highest-risk contracts are deterministic output/provenance, memory/address safety despite simulated corruption, persistence/migration correctness, isolation of malformed-codec experiments, UI/export/headless agreement on canonical semantics, and responsiveness without semantic shortcuts.
+Testing must prove that FAULTMINE's artistic randomness is intentional while its engineering behaviour is not random.
 
-## v1 CI baseline
+The highest-risk contracts are:
 
-GitHub Actions on `windows-latest` configures x64 MSVC/CMake and uses `/W4 /WX` for project code. The v1 gate performs Debug build/tests/native smoke, Release build/tests/native smoke, representative performance measurement, portable package construction, extracted-package verification and packaged workflow smoke. Release-candidate CI retains the portable ZIP and measured performance JSON as artifacts.
+1. deterministic output/provenance;
+2. memory/address safety despite simulated corruption;
+3. persistence/migration correctness;
+4. isolation of malformed-codec experiments;
+5. UI/export agreement on canonical semantics;
+6. responsiveness without semantic shortcuts.
 
-UI automation remains deliberately thin on hosted CI. Core correctness is independently testable without making window paint or D3D timing semantic; the native smoke exists to verify composition and lifecycle rather than to replace model tests.
+## Baseline CI
+
+FM-001 should establish GitHub Actions on `windows-latest` with x64 MSVC and CMake.
+
+At minimum, CI should converge on:
+
+- configure + build Debug;
+- configure + build Release;
+- core/unit test execution;
+- deterministic fixture execution;
+- warning policy for project code;
+- packaging/release checks once packaging exists.
+
+UI automation may be limited on hosted CI. Core correctness must therefore remain independently testable without opening a window or creating a D3D device.
 
 ## Determinism tests
 
 ### PRNG and stream derivation
 
-Store exact known-answer vectors for root-seed parsing, stream-key derivation, generator transitions/output, bounded integer mapping and per-gene/per-coordinate derivation. Refactors may not change these accidentally. An intentional algorithm change requires an explicit engine/schema version transition and migration/compatibility decision.
+Store exact known-answer vectors for:
+
+- root seed parsing;
+- stream-key derivation;
+- generator state transition/output;
+- bounded integer mapping;
+- per-gene/per-coordinate derivation where used.
+
+A refactor is not allowed to change these values accidentally. An intentional algorithm change requires an explicit engine/schema version transition and migration/compatibility decision.
 
 ### Canonical serialization
 
-Fixtures verify exact canonical bytes/text for representative genomes: key/operator order, stable IDs, integer formatting, strings/enums/booleans, omission rules, UTF-8/line endings and unsupported-version rejection. Round-trip parsing must preserve semantic state.
+Fixtures verify exact canonical bytes/text for representative genomes, including:
+
+- key order;
+- operator order and stable IDs;
+- integer/fixed-point formatting;
+- strings/enums/booleans;
+- default/omission rules;
+- UTF-8/line ending rules;
+- unknown/unsupported version rejection.
+
+Round-trip parsing must preserve canonical semantic state.
 
 ### Canonical image output
 
-Programmatic tiny-image fixtures exercise exact bytes/hashes across boundaries including 1x1/narrow/odd widths, parameter boundaries, logical addressing, disabled/repeated operators, deterministic structured faults and proxy/full-resolution identity distinctions. The historical canonical goldens remain release contracts; FM-015 does not alter them.
+Use tiny deterministic images generated programmatically or stored as small fixtures. For representative pipelines, test exact output bytes and/or a collision-resistant hash of canonical output.
 
-### Build-mode and surface equivalence
+Fixtures should cover boundaries rather than only pretty examples:
 
-Debug/Release must preserve the same canonical contracts. The headless batch path invokes the same core as the GUI/session, and accepted tests verify equivalent canonical pixels/hashes for the same source/genome/frame. Temporal export likewise matches explicit per-frame canonical rendering. Optimisation is never permission to update a golden mechanically.
+- 1x1 and narrow images;
+- odd row widths;
+- minimum/maximum legal parameter values;
+- large logical stride offsets mapped through safe policies;
+- disabled operators;
+- repeated operator types with different instance IDs;
+- structured random faults;
+- proxy versus full-resolution identity rules where applicable.
 
-## Memory, resource and arithmetic safety
+### Build-mode equivalence
 
-Address/dimension operators test invalid dimensions, multiplication/addition overflow, logical stride extremes, signed offsets, wrap/clamp/fill boundaries, image edges and extreme parameters. The oracle reasons about bounded logical mapping rather than merely asserting non-crash.
+Where practical, compare deterministic vectors/output hashes from Debug and Release CI artifacts. Optimisation must not change canonical semantics.
 
-FM-015 adds release-level allocation/state ceilings described in `RAG_RELEASE_V1.md`, including the 512 MiB canonical image-buffer limit and 4096 retained-lineage limit. Mutation/genome topology remains capped at 64 operators. Limit failures are explicit errors and must never silently truncate or alter semantic state. The generic JSON parser retains bounded nesting, duplicate-key rejection and strict UTF-8/schema handling.
+## Memory and arithmetic safety tests
 
-Sanitizers may supplement these contracts when stable for the supported toolchain but do not replace checked arithmetic and explicit tests.
+Every operator that transforms logical addresses or dimensions needs boundary tests for:
+
+- zero/invalid dimensions rejected before execution;
+- multiplication/addition overflow;
+- stride underflow/overflow concepts;
+- negative logical offsets where supported;
+- wrap/clamp/drop/fill boundaries;
+- block coordinates at image edges;
+- huge parameter values rejected/normalized according to contract.
+
+The test oracle should reason about logical-address mapping, not merely assert that the process did not crash.
+
+Sanitizer support on MSVC/clang-cl may be added when it is stable for the target configuration, but sanitizers supplement rather than replace explicit checked arithmetic and tests.
 
 ## Persistence and migration tests
 
-For every retained persisted schema: parse valid fixture; reject malformed required fields and future versions; migrate historical versions explicitly; canonicalize current state without semantic drift; verify source-identity mismatch handling; and verify locks/favourites/lineage survive save/load.
+For every persisted schema version retained by the project:
 
-Project schema v2 retains a real project-v1 migration fixture rather than testing migration only against files emitted by the current parser. FM-015's packaged self-test additionally performs save/parse/reopen on a project containing a promoted favourite mutation specimen.
+- parse valid fixture;
+- reject malformed required fields;
+- reject unsupported future versions clearly;
+- preserve unknown optional data only if the schema explicitly promises such preservation;
+- migrate old -> current through explicit migration steps;
+- canonicalize current -> current without semantic drift;
+- verify source identity mismatch detection;
+- verify lineage/locks/favourites survive save/load once those features exist.
 
-## Operator contracts
+Never test migrations only against freshly generated files from the same parser. Retain representative historical fixtures once formats are released.
 
-Each operator family covers parameter validation, exact known output, deterministic random behaviour when applicable, disabled/no-op behaviour, edge bounds, serialization/registry agreement and mutation-descriptor validity. Cross-operator pipeline tests remain important because glitches are intentionally compositional.
+## Operator contract tests
 
-## Mutation, crossover and evolutionary search
+Each operator should have:
 
-Tests prove independently addressed descendants, scheduling independence, lock protection, typed locality/topology policy, registry-valid high-radius results, exact parent/seed/index reproducibility, deterministic crossover for ordered parents and durable lineage across project reload. Diversity/novelty is tested mathematically without claiming subjective visual quality.
+- parameter validation tests;
+- at least one exact known-output test;
+- deterministic-random test where entropy is used;
+- disabled/no-op behaviour test;
+- edge/bounds tests;
+- serialization round-trip test through the registry;
+- mutation-descriptor validity test once mutation metadata exists.
+
+Fault-family issues should also include cross-operator pipeline tests because glitches are intentionally compositional.
+
+## Mutation and evolutionary search tests
+
+Tests must prove:
+
+- descendant N is independent of whether descendants 0..N-1 were generated/rendered;
+- parallel execution order does not alter genomes;
+- locked genes never mutate;
+- low-radius mutations remain within their documented locality rules;
+- high-radius topology mutation always produces a registry-valid pipeline;
+- same parent + policy + seed + descendant index yields the same child;
+- crossover is deterministic for the same parents/seed/policy;
+- lineage links survive project reload.
+
+Avoid asserting subjective “quality”. The system can test diversity/novelty descriptors mathematically without claiming aesthetic preference.
 
 ## Temporal tests
 
-Temporal tests use explicit frame/tick sequences and verify stable frame N, independence from playback/paint rate, no hidden pause/resume ticks, model-owned feedback state, exact seeded modulators and equality between sequence export and canonical frame rendering. Future checkpoint acceleration must match replay from the defined initial state byte-for-byte.
+Temporal state is tested using explicit frame/tick sequences.
+
+Verify:
+
+- frame N from a known initial state is stable;
+- playback speed/UI paint rate does not alter semantic frame state;
+- pause/resume does not insert hidden ticks;
+- feedback state is project/model-owned;
+- seeded modulators produce exact known vectors;
+- sequence export matches canonical per-frame rendering;
+- checkpoint/replay, if introduced, matches replay from the defined initial state.
 
 ## D3D11/UI verification
 
-Presentation tests/smoke verify native device/window creation where CI permits, canvas state remaining non-semantic, deterministic proxy distinction, source-consistent before/after and harmless cancellation/error paths. The v1 performance probe separately records D3D11 upload/draw/present overhead; this is presentation measurement, not canonical input.
+The presentation layer should be thin enough that most semantics are testable below it.
 
-A future GPU operator claiming canonical authority requires explicit CPU-vs-GPU conformance evidence across supported hardware/driver environments before it can replace the CPU reference.
+Useful automated/manual checks include:
+
+- D3D device/window creation smoke test where CI permits;
+- device-loss/recreation path does not mutate project/genome state;
+- canvas fit/zoom/pan does not affect canonical pixels;
+- proxy/non-canonical preview state is visibly indicated;
+- before/after uses the same normalized source identity;
+- file-dialog cancellation is harmless;
+- error surfaces include actionable context.
+
+If a future GPU operator claims canonical equivalence, it requires explicit CPU-vs-GPU conformance fixtures across supported hardware/driver environments before becoming authoritative.
 
 ## Worker-process verification
 
-The FM-013 isolation suite covers normal completion, structured decode failure, crash, hang/timeout, oversized/malformed responses and invalid returned dimensions/stride/byte counts. Job Object cleanup, deadline/cancellation and validated IPC keep malformed external-decoder behaviour outside the editor process. Materialized decoder-dependent pixels retain truthful provenance.
+For FM-013 and later, test the isolation boundary with synthetic worker behaviours:
+
+- normal completion;
+- structured decoder failure;
+- crash;
+- hang/timeout;
+- oversized response;
+- malformed IPC message;
+- memory pressure where practical;
+- host shutdown while worker is active.
+
+The host must remain usable and must never trust unchecked dimensions/byte counts returned by the worker.
 
 ## Export verification
 
-Export manifests bind source identity, canonical genome/identity, root seed, engine/schema/operator versions, canonical/proxy status, output dimensions/format and explicit temporal range when applicable. Tests prove still/sequence export uses full-resolution canonical execution rather than thumbnail/proxy state and that partial/cancelled output remains truthful.
+Exports must record enough provenance to identify:
+
+- source identity;
+- genome identity/canonical representation;
+- root seed;
+- engine/schema/operator versions;
+- explicit temporal range for sequences;
+- canonical/proxy status;
+- output dimensions/format.
+
+Tests verify that final still/sequence export renders from canonical full-resolution semantics by default rather than serializing a thumbnail/proxy buffer.
 
 ## Performance verification
 
-FM-015 establishes the v1 measured workload and numeric regression ceilings in `RAG_RELEASE_V1.md`. The release probe covers representative 1920x1080 canonical render, proxy generation, D3D upload/present, project serialize+parse, temporal frame replay, headless batch throughput and a conservative active-pipeline memory estimate.
+Performance is important, but no optimisation may redefine canonical output.
 
-Hosted runner variance means these ceilings are tripwires rather than latency guarantees. Exact measurements from the accepted candidate are retained as `performance.json` beside the portable archive. A performance change may reuse buffers, parallelize independently addressed work or introduce deterministic caches only if canonical equality remains proven. Approximate paths remain visibly preview-only.
+Track at least:
+
+- canonical CPU render time for representative image sizes/stacks;
+- D3D upload/present cost;
+- specimen proxy generation throughput;
+- memory consumption for active source/result/tray caches;
+- project load/save latency;
+- temporal playback headroom once temporal features exist.
+
+Do not lock premature numeric pass/fail budgets into early issues. FM-015 should establish release budgets from measured representative workloads and the final architecture. Until then, regressions should be measured and reported rather than hidden behind lower-quality semantics.
 
 ## Headless/batch verification
 
-The batch tool invokes the shared canonical core. Same source/genome/frame semantics agree with GUI/session canonical output; thread count, ordering and resume do not change candidate identities. Resume cache entries are revalidated rather than trusted by filename/existence.
+The headless tool must invoke the same canonical core as the GUI, not a reimplemented approximation.
+
+For the same source/genome/seed/tick, GUI and headless canonical hashes must match.
+
+Batch ordering, thread count and resume/restart must not change generated specimen identities.
 
 ## Packaging/release verification
 
-The supported v1 artifact is `FAULTMINE-1.0.0-win64.zip`. CMake uses the static MSVC runtime strategy documented in `RAG_RELEASE_V1.md`. CI stages only runtime executables plus owned documentation/convenience files, then extracts the archive outside the development tree and verifies:
+The v1 portable package should be buildable on CI from a clean checkout and should include only required redistributable artefacts/documentation.
 
-- required/minimal contents and absence of source/build debris;
-- executable 1.0.0 version resources;
-- no dynamic MSVC C++ runtime dependency;
-- native application window smoke;
-- open -> edit/mutate -> favourite lineage -> save -> parse/reopen -> canonical still export -> temporal step/sequence export through `--release-self-test`.
+Release checks should include:
 
-The dedicated Release workflow repeats Debug/Release tests, performance and package verification. Tagged GitHub Release publication is permitted only for a tag reachable from `main`; successful compilation alone cannot publish an unverified candidate.
+- clean Release build;
+- full deterministic test suite;
+- portable archive construction;
+- executable/version metadata;
+- launch from an extracted directory with no development tree present;
+- open/edit/save/reopen/export smoke workflow;
+- no mandatory package manager/web runtime/external service;
+- documentation/build/run instructions match the shipped artefacts.
 
 ## Evidence in PRs
 
-Every implementation/release PR records tests added/changed, commands/checks run, deterministic fixtures affected and why, persistence/version changes, known limits/follow-up work and final CI result. FM-015 additionally records measured performance, package artifact evidence and exact tested-head/merged-tree verification before issue closure.
+Every implementation PR should state:
+
+- tests added/changed;
+- commands/checks run;
+- deterministic fixtures affected and why;
+- persisted-format changes/migrations;
+- known limits or follow-up work;
+- CI result before merge.
+
+A changed golden hash is evidence requiring explanation, not something to update mechanically until tests pass.
+
+## FM-015 v1.0.0 resolution
+
+FM-015 turns the earlier release-verification goals above into an executable gate. The authoritative numeric ceilings, resource limits, version matrix, portable-package contract and measured reference workload are frozen in [`RAG_RELEASE_V1.md`](RAG_RELEASE_V1.md).
+
+The final pull-request gate now performs Debug build/tests/native smoke, Release build/tests/native smoke, the representative performance probe, portable archive construction, clean extracted-package validation, static-MSVC-runtime dependency validation, packaged native smoke, and a packaged `--release-self-test` covering open -> edit/mutate -> favourite lineage -> save -> parse/reopen -> canonical still export -> explicit temporal step/frame-sequence export. The ZIP and exact `performance.json` are retained together as CI evidence.
+
+Release-hardening tests add explicit failure coverage for the 512 MiB canonical image allocation limit, 64-operator parsed/programmatic genome limit, 4096-specimen retained-lineage limit and the generic JSON nesting limit while retaining the worker deadline/memory-bound assertions. These limits reject work explicitly rather than truncating or silently changing canonical state.
+
+The dedicated Release workflow repeats the test/performance/package gate for manual candidates and tags. Tagged publication is permitted only for commits reachable from `main`; package construction alone is not sufficient to publish an unstable release. `/W4 /WX`, existing deterministic known-answer vectors, canonical image goldens, migration fixtures, temporal/export equivalence, batch/session agreement and worker containment remain mandatory release evidence rather than being weakened for packaging.
