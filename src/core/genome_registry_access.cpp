@@ -1,5 +1,6 @@
 #include "faultmine/genome.hpp"
 
+#include <algorithm>
 #include <utility>
 
 namespace faultmine::core {
