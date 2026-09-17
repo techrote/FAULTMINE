@@ -1,6 +1,8 @@
 #pragma once
 
+#include "faultmine/crossover.hpp"
 #include "faultmine/editor.hpp"
+#include "faultmine/lineage.hpp"
 #include "faultmine/project.hpp"
 #include "faultmine/proxy.hpp"
 
@@ -97,12 +99,35 @@ public:
     [[nodiscard]] bool project_dirty() const noexcept;
     void mark_project_saved() noexcept;
 
-    // Adopt a generated child as the new active parent. The candidate is
-    // rendered once against the full canonical source before adoption so a
-    // thumbnail/proxy can never become the authoritative promoted result.
+    // Compatibility promotion for callers without derivation metadata. It is
+    // retained as a history-free manual root rather than fabricating ancestry.
     [[nodiscard]] bool promote_exploration_genome(
         const core::Genome& genome,
         std::string* error = nullptr);
+
+    [[nodiscard]] bool retain_mutation_specimen(
+        const core::Genome& genome,
+        const core::DescendantProvenance& provenance,
+        bool favourite,
+        std::string* error = nullptr);
+    [[nodiscard]] bool promote_mutation_specimen(
+        const core::Genome& genome,
+        const core::DescendantProvenance& provenance,
+        bool favourite,
+        std::string* error = nullptr);
+    [[nodiscard]] bool breed_and_promote(
+        const std::vector<core::Genome>& ordered_parents,
+        core::RootSeed crossover_seed,
+        std::string* error = nullptr);
+    [[nodiscard]] bool activate_lineage_specimen(
+        std::string_view genome_identity,
+        std::string* error = nullptr);
+    [[nodiscard]] bool set_specimen_favourite(
+        std::string_view genome_identity,
+        bool favourite,
+        std::string* error = nullptr);
+    [[nodiscard]] const LineageGraph& lineage() const noexcept;
+    [[nodiscard]] std::string active_provenance_summary() const;
 
     void set_selected_operator(std::optional<std::size_t> operator_index) noexcept;
     [[nodiscard]] std::optional<std::size_t> selected_operator() const noexcept;
@@ -140,11 +165,16 @@ private:
     [[nodiscard]] const core::ImageBuffer* choose_preview_source(std::string* error);
     void after_semantic_edit(const EditResult& result) noexcept;
     [[nodiscard]] std::optional<std::size_t> find_operator_type(std::string_view type_id) const noexcept;
+    [[nodiscard]] bool ensure_current_lineage_root(std::string* error = nullptr);
+    [[nodiscard]] bool adopt_exploration_genome(const core::Genome& genome, std::string* error = nullptr);
 
     EditorModel editor_;
     std::optional<core::ImageBuffer> source_;
     std::string source_identity_;
     std::filesystem::path source_path_;
+
+    LineageGraph lineage_;
+    bool lineage_detached_{true};
 
     core::ProxySpec proxy_spec_{};
     bool proxy_enabled_{true};
