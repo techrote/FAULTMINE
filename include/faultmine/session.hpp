@@ -2,6 +2,7 @@
 
 #include "faultmine/crossover.hpp"
 #include "faultmine/editor.hpp"
+#include "faultmine/laboratory.hpp"
 #include "faultmine/lineage.hpp"
 #include "faultmine/project.hpp"
 #include "faultmine/proxy.hpp"
@@ -54,6 +55,10 @@ public:
         std::string source_identity,
         std::filesystem::path source_path,
         std::string* error = nullptr);
+    [[nodiscard]] bool set_materialized_laboratory_source(
+        laboratory::MaterializedSource source,
+        std::filesystem::path source_path,
+        std::string* error = nullptr);
     [[nodiscard]] bool load_project_state(
         const ProjectDocument& project,
         core::ImageBuffer source,
@@ -68,6 +73,7 @@ public:
     [[nodiscard]] const core::ImageBuffer* display_image() const noexcept;
     [[nodiscard]] const std::string& source_identity() const noexcept;
     [[nodiscard]] const std::filesystem::path& source_path() const noexcept;
+    [[nodiscard]] const std::optional<laboratory::LaboratoryProvenance>& laboratory_provenance() const noexcept;
 
     [[nodiscard]] const core::FaultRegistry& registry() const noexcept;
     [[nodiscard]] const core::Genome& genome() const noexcept;
@@ -181,6 +187,20 @@ public:
     [[nodiscard]] const CanvasViewState& view_state() const noexcept;
 
 private:
+    // FM-013 wrappers retain the accepted FM-012 session implementation under
+    // private names, then add provenance bookkeeping without duplicating it.
+    [[nodiscard]] bool set_source_fm012(
+        core::ImageBuffer image,
+        std::string source_identity,
+        std::filesystem::path source_path,
+        std::string* error);
+    [[nodiscard]] bool load_project_state_fm012(
+        const ProjectDocument& project,
+        core::ImageBuffer source,
+        std::filesystem::path resolved_source_path,
+        std::string* error);
+    [[nodiscard]] std::optional<ProjectDocument> make_project_document_fm012(std::string* error) const;
+
     [[nodiscard]] static core::Genome make_default_genome();
     void mark_preview_dirty() noexcept;
     [[nodiscard]] const core::ImageBuffer* choose_preview_source(std::string* error);
@@ -193,6 +213,7 @@ private:
     std::optional<core::ImageBuffer> source_;
     std::string source_identity_;
     std::filesystem::path source_path_;
+    std::optional<laboratory::LaboratoryProvenance> laboratory_provenance_;
 
     LineageGraph lineage_;
     bool lineage_detached_{true};
