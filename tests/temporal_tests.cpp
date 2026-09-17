@@ -1,5 +1,7 @@
+#include "faultmine/crossover.hpp"
 #include "faultmine/fault_catalogue.hpp"
 #include "faultmine/image.hpp"
+#include "faultmine/mutation.hpp"
 #include "faultmine/project.hpp"
 #include "faultmine/session.hpp"
 #include "faultmine/temporal.hpp"
@@ -166,6 +168,49 @@ void test_registry_and_temporal_genome_round_trip() {
     if (parsed.ok()) expect_equal(*parsed.genome, genome, "temporal genome round-trip preserves exact operator parameters and IDs");
 }
 
+void test_temporal_mutation_and_crossover_determinism() {
+    using namespace faultmine::core;
+    const FaultRegistry registry = make_default_fault_registry();
+    const Genome parent = make_feedback_genome();
+
+    MutationRequest mutation;
+    mutation.mutation_seed = RootSeed{0x44aa55bb66cc77ddULL};
+    mutation.descendant_index = 7U;
+    mutation.radius = MutationRadius::medium;
+    const MutationResult mutation_a = generate_descendant(parent, registry.schema_registry(), mutation);
+    const MutationResult mutation_b = generate_descendant(parent, registry.schema_registry(), mutation);
+    expect(mutation_a.ok() && mutation_b.ok(), "temporal genome participates in deterministic typed mutation");
+    if (mutation_a.ok() && mutation_b.ok()) {
+        expect_equal(*mutation_a.genome, *mutation_b.genome, "same temporal mutation address yields exactly the same descendant genome");
+        expect_equal(mutation_a.provenance.parent_genome_identity, genome_identity_hex(parent), "temporal mutation provenance binds the parent genome identity");
+        expect_equal(mutation_a.provenance.mutation_seed, mutation_b.provenance.mutation_seed, "temporal mutation provenance retains deterministic seed");
+        expect_equal(mutation_a.provenance.descendant_index, mutation_b.provenance.descendant_index, "temporal mutation provenance retains deterministic descendant address");
+    }
+
+    Genome second_parent = parent;
+    second_parent.operators.front().parameters.at("dx") = ParameterValue{std::int64_t{-2}};
+    CrossoverRequest crossover;
+    crossover.crossover_seed = RootSeed{0x9f8e7d6c5b4a3210ULL};
+    crossover.parents.push_back(CrossoverParent{parent, {}});
+    crossover.parents.push_back(CrossoverParent{second_parent, {}});
+    const CrossoverResult crossover_a = crossover_genomes(registry.schema_registry(), crossover);
+    const CrossoverResult crossover_b = crossover_genomes(registry.schema_registry(), crossover);
+    expect(crossover_a.ok() && crossover_b.ok(), "temporal genome participates in deterministic typed crossover");
+    if (crossover_a.ok() && crossover_b.ok()) {
+        expect_equal(*crossover_a.genome, *crossover_b.genome, "same ordered temporal parents and seed yield exactly the same crossover genome");
+        expect_equal(crossover_a.provenance.parent_genome_identities, crossover_b.provenance.parent_genome_identities, "temporal crossover provenance preserves ordered parent identities");
+        expect_equal(crossover_a.provenance.crossover_seed, crossover_b.provenance.crossover_seed, "temporal crossover provenance preserves seed");
+
+        const ImageBuffer source = make_three_pixel_source();
+        const RenderResult frame_a = render_pipeline_at_frame(source, *crossover_a.genome, registry, 3U);
+        const RenderResult frame_b = render_pipeline_at_frame(source, *crossover_b.genome, registry, 3U);
+        expect(frame_a.ok() && frame_b.ok(), "deterministically crossed temporal descendants render at an explicit frame");
+        if (frame_a.ok() && frame_b.ok()) {
+            expect_equal(*frame_a.image, *frame_b.image, "deterministic temporal crossover yields identical explicit-frame pixels");
+        }
+    }
+}
+
 void test_session_step_seek_and_project_reload() {
     using namespace faultmine;
     core::ImageBuffer source = make_three_pixel_source();
@@ -198,6 +243,13 @@ void test_session_step_seek_and_project_reload() {
 
     const auto before_save = session.render_full_at_frame(2U, &error);
     expect(before_save.has_value(), "session renders explicit full-resolution temporal frame before save");
+    session.set_preview_rate_milli(500U);
+    const auto after_preview_rate_change = session.render_full_at_frame(2U, &error);
+    expect(after_preview_rate_change.has_value(), "same semantic frame renders after changing presentation playback rate");
+    if (before_save.has_value() && after_preview_rate_change.has_value()) {
+        expect_equal(*after_preview_rate_change, *before_save, "preview playback rate cannot alter canonical explicit-frame pixels");
+    }
+
     const auto document = session.make_project_document(&error);
     expect(document.has_value(), "project document can materialize temporal genome and lineage");
     if (!document.has_value() || !before_save.has_value()) return;
@@ -221,6 +273,7 @@ int main() {
     test_modulator_known_vectors();
     test_feedback_replay_and_frame_identity();
     test_registry_and_temporal_genome_round_trip();
+    test_temporal_mutation_and_crossover_determinism();
     test_session_step_seek_and_project_reload();
 
     if (g_failures != 0) {
