@@ -14,9 +14,12 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <iostream>
+#include <map>
 #include <string>
 #include <thread>
+#include <utility>
 #include <vector>
 
 namespace {
