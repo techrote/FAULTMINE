@@ -1,6 +1,6 @@
 # FAULTMINE canonical export and provenance contract
 
-Status: FM-012 export contract v1.
+Status: FM-013 export contract v2, retaining FM-012 canonical image semantics.
 
 ## Authority boundary
 
@@ -13,11 +13,13 @@ Export is an output operation over an immutable semantic snapshot. It never prom
 
 PNG through the accepted WIC RGBA/BGRA adapter remains the lossless portable image baseline. PNG file bytes are not themselves a canonical identity contract; the decoded canonical RGBA8 pixels and manifest identities are.
 
-## Export manifest schema v1
+## Export manifest schema v2
 
-Every export operation can emit a sidecar JSON manifest. Native UI defaults manifest output on. Manifest identity is not timestamp-based and v1 deliberately stores no timestamp.
+Every export operation can emit a sidecar JSON manifest. Native UI defaults manifest output on. Manifest identity is not timestamp-based and deliberately stores no timestamp.
 
-The schema is strict and versioned with `manifest_version: 1`. Unknown top-level/schema-owned fields, duplicate JSON fields, missing required fields, invalid canonical genomes, mismatched identities and unsupported manifest versions are rejected by `parse_export_manifest`.
+FM-013 advances the strict schema to `manifest_version: 2` by adding one required `laboratory_provenance` field. It is `null` for ordinary sources. For a frozen/materialized laboratory source it contains the validated external-decoder provenance defined by `RAG_EXTERNAL_DECODERS.md`, including original/mutated encoded identities, mutation seed and parameters, worker protocol/application version, decoder/OS metadata, outcome/diagnostic and the normalized materialized source identity. That materialized identity must equal the manifest `source_identity`.
+
+The parser remains compatible with manifest v1. Unknown top-level/schema-owned fields, duplicate JSON fields, missing required fields, invalid canonical genomes, mismatched identities and unsupported manifest versions are rejected. V2 therefore extends provenance without weakening the FM-012 strictness contract.
 
 Every manifest records:
 
@@ -30,9 +32,10 @@ Every manifest records:
 - explicit output dimensions and format;
 - `canonical_full_resolution` truth marker;
 - canonical decoded output-image identity when one final image exists;
-- retained lineage derivation when the active genome is a retained specimen for the active source.
+- retained lineage derivation when the active genome is a retained specimen for the active source;
+- explicit laboratory provenance or `null`.
 
-Derivation data uses the FM-010 vocabulary and records kind, ordered parent identities, policy version and applicable seed/descendant/radius fields without inventing provenance for a detached manual state.
+Derivation data uses the FM-010 vocabulary and records kind, ordered parent identities, policy version and applicable seed/descendant/radius fields without inventing provenance for a detached manual state. Laboratory derivation is separate from this downstream genome derivation: a frozen source can have external-decoder provenance while its active specimen still has an ordinary manual/mutation/crossover lineage.
 
 The manifest is canonical compact UTF-8 JSON with one final LF. It is human-inspectable and intentionally easy for later FM-014 headless tooling to parse strictly.
 
@@ -56,6 +59,8 @@ Consequences:
 - `overwrite` replaces only after a complete temporary output is available;
 - a successfully committed image may remain if its subsequent optional manifest commit fails, and the returned structured error reports that partial operation truthfully.
 
+FM-013's provenance augmentation follows the same atomic rule: after an FM-012 export succeeds, the v2 manifest is atomically replaced with the validated laboratory-provenance form. A failed v2 commit is reported as an export error rather than silently leaving provenance incomplete.
+
 Temporary files are removed on handled encode/commit failure. Existing unrelated temporary-looking paths are not deleted; the exporter searches for an unused adjacent temporary name.
 
 ## Deterministic contact sheets
@@ -72,13 +77,7 @@ For each ordered specimen:
 
 The final contact sheet is explicitly marked `canonical_full_resolution: false` and uses output format `png-rgba8-contact-sheet-presentation`. It is a review artefact, not a specimen image.
 
-The companion manifest maps each cell to:
-
-- zero-based cell index;
-- caller-provided order key (tray index, selection ordinal or retained creation ordinal);
-- complete specimen genome identity;
-- embedded canonical specimen genome;
-- canonical full-resolution rendered-image identity used to create the presentation thumbnail.
+The companion manifest maps each cell to zero-based cell index, caller-provided order key, complete specimen genome identity, embedded canonical specimen genome and canonical full-resolution rendered-image identity used to create the presentation thumbnail.
 
 The native FM-012 export menu reads the actual current `SpecimenTrayModel` through a read-only presentation accessor and exports its item vector in exact tray/index order. If no transient tray exists yet, it falls back to the retained lineage/selection in durable creation order, and finally to the active genome if nothing has been retained. The core export API also accepts any explicit caller-provided specimen/selection order.
 
@@ -86,12 +85,7 @@ The native FM-012 export menu reads the actual current `SpecimenTrayModel` throu
 
 `FrameSequenceRequest` uses an explicit inclusive/exclusive range `[frame_begin, frame_end_exclusive)`. Empty/reversed ranges are rejected.
 
-Each frame:
-
-- is rendered through `SessionModel::render_full_at_frame(frame)`;
-- is written as an independent atomically committed PNG;
-- receives the canonical decoded-image identity;
-- receives the FM-011 `temporal_frame_identity_hex` binding source identity, genome identity, explicit frame index and canonical output image.
+Each frame is rendered through `SessionModel::render_full_at_frame(frame)`, written as an independent atomically committed PNG, receives the canonical decoded-image identity, and receives the FM-011 `temporal_frame_identity_hex` binding source identity, genome identity, explicit frame index and canonical output image.
 
 The sequence manifest also records the positive rational semantic timeline rate from `temporal.timeline-rate` or the accepted `30/1` default. Preview playback speed never enters export provenance.
 
@@ -117,29 +111,12 @@ If rendering/encoding fails after earlier frames have committed, those completed
 
 Contact-sheet and sequence APIs accept progress and cancellation callbacks.
 
-Sequence cancellation is checked between frames, never by interrupting a WIC write halfway into a final path. On cancellation:
-
-- already atomically committed frame files remain valid;
-- no next-frame final file is created;
-- result state sets `cancelled=true` without fabricating an encoder/render error;
-- when manifest output is enabled, a partial manifest is committed with `complete=false`, `cancelled=true` and exactly the completed frame identity records.
+Sequence cancellation is checked between frames, never by interrupting a WIC write halfway into a final path. On cancellation, already atomically committed frame files remain valid, no next-frame final file is created, result state sets `cancelled=true` without fabricating an encoder/render error, and when manifest output is enabled a partial manifest is committed with `complete=false`, `cancelled=true` and exactly the completed frame identity records.
 
 The native sequence UI accepts explicit begin/end frames, displays completed/total progress in the status surface and uses Escape as the cancellation gesture. Timeline playback is paused before sequence export. Still/contact/sequence UI exposes manifest on/off and an explicit overwrite toggle.
 
 ## Verification contract
 
-`canonical_export_contracts` freezes at least:
+`canonical_export_contracts` continues to freeze at least full-resolution still pixels while proxy preview is active; source/genome/root-seed/operator/output manifest fields; strict manifest round-trip and schema rejection; collision/overwrite policy; contact ordering/mapping; sequence naming, frame pixels/hashes/identities and cancellation semantics; and project/genome/current-frame invariance.
 
-- full-resolution still pixels while proxy preview is active;
-- source/genome/root-seed/operator/output manifest fields;
-- strict manifest exact round-trip, missing-field rejection and unknown-field rejection;
-- no-overwrite preservation and explicit overwrite behaviour;
-- invalid destination handling without a final-looking file;
-- deterministic contact order and cell-to-specimen mapping;
-- contact sheet presentation/canonical distinction;
-- deterministic sequence naming and padding;
-- exported temporal frame pixels/hashes/frame identities matching direct canonical renders;
-- partial cancellation manifest and completed-file semantics;
-- project, genome and interactive current-frame invariance across completion and cancellation.
-
-All earlier Debug/Release deterministic tests and the native Win32/D3D smoke remain required. A later format/video exporter may be added, but it must not weaken PNG/image-sequence canonical semantics or provenance requirements.
+FM-013's `isolated_laboratory_contracts` additionally proves a frozen source's manifest-v2 laboratory provenance round-trips exactly and remains bound to the frozen source identity. All earlier Debug/Release deterministic tests and the native Win32/D3D smoke remain required. A later format/video exporter may be added, but it must not weaken PNG/image-sequence canonical semantics or provenance requirements.
