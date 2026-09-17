@@ -11,7 +11,7 @@
 namespace faultmine::core {
 
 inline constexpr std::uint32_t kMutationPolicyVersion = 1U;
-inline constexpr std::size_t kMaximumMutationOperators = 64U;
+inline constexpr std::size_t kMaximumMutationOperators = kMaximumGenomeOperators;
 
 // Radius is deliberately categorical. Each band has typed semantics rather than
 // multiplying every parameter by one generic strength scalar.
@@ -76,14 +76,9 @@ struct MutationResult {
     }
 };
 
-// Validate the descriptor metadata that FM-009 consumes. Opaque metadata is
-// permitted only for genes explicitly marked non-mutable.
 [[nodiscard]] std::optional<std::string> validate_mutation_descriptors(
     const OperatorRegistry& registry);
 
-// Generate one descendant independently. No mutable process-global stream is
-// consumed, so descendant N is independent of whether any other descendants
-// were generated or rendered.
 [[nodiscard]] MutationResult generate_descendant(
     const Genome& parent,
     const OperatorRegistry& registry,
