@@ -23,16 +23,6 @@
 namespace faultmine::exporting {
 namespace {
 
-[[nodiscard]] core::json::Value* mutable_manifest_field(
-    core::json::Value& value,
-    const std::string_view name) noexcept {
-    if (value.type != core::json::ValueType::object) return nullptr;
-    for (auto& pair : value.object) {
-        if (pair.first == name) return &pair.second;
-    }
-    return nullptr;
-}
-
 [[nodiscard]] std::string trim_newline(std::string value) {
     if (!value.empty() && value.back() == '\n') value.pop_back();
     return value;
