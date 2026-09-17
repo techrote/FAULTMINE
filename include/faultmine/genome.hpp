@@ -75,6 +75,11 @@ public:
     [[nodiscard]] bool register_operator(OperatorDescriptor descriptor, std::string* error = nullptr);
     [[nodiscard]] const OperatorDescriptor* find(std::string_view type_id) const noexcept;
     [[nodiscard]] const std::vector<OperatorDescriptor>& descriptors() const noexcept;
+    [[nodiscard]] bool update_mutation_metadata(
+        std::string_view type_id,
+        std::string_view parameter_name,
+        MutationMetadata metadata,
+        std::string* error = nullptr);
 
 private:
     std::vector<OperatorDescriptor> descriptors_;

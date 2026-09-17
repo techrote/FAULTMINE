@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.25)
 
-project(FAULTMINE VERSION 0.8.0 LANGUAGES CXX)
+project(FAULTMINE VERSION 0.9.0 LANGUAGES CXX)
 
 if(NOT WIN32)
     message(FATAL_ERROR "FAULTMINE supports Windows x64 only.")
@@ -52,6 +52,7 @@ add_library(faultmine_core STATIC
     src/core/json.hpp
     src/core/logical_address.cpp
     src/core/memory_addressing_operators.cpp
+    src/core/mutation.cpp
     src/core/pipeline.cpp
     src/core/proxy.cpp
     src/core/representation_bit_operators.cpp
@@ -89,6 +90,8 @@ add_library(faultmine_session STATIC
     src/app/editor.cpp
     src/app/project.cpp
     src/app/session.cpp
+    src/app/session_exploration.cpp
+    src/app/specimen_tray.cpp
 )
 
 target_include_directories(faultmine_session
@@ -129,7 +132,7 @@ faultmine_project_defaults(faultmine_d3d11)
 
 add_executable(faultmine WIN32
     src/app/main.cpp
-    src/platform/win32/main_window.cpp
+    src/platform/win32/main_window_fm009.cpp
 )
 
 set_target_properties(faultmine PROPERTIES OUTPUT_NAME "FAULTMINE")
@@ -146,6 +149,7 @@ target_link_libraries(faultmine
         faultmine_session
         faultmine_d3d11
         user32
+        gdi32
         comdlg32
 )
 
@@ -234,4 +238,16 @@ if(BUILD_TESTING)
     )
     faultmine_project_defaults(faultmine_editor_project_tests)
     add_test(NAME editor_project_contracts COMMAND faultmine_editor_project_tests)
+
+    add_executable(faultmine_mutation_tests
+        tests/mutation_tests.cpp
+    )
+
+    target_link_libraries(faultmine_mutation_tests
+        PRIVATE
+            faultmine_core
+            faultmine_session
+    )
+    faultmine_project_defaults(faultmine_mutation_tests)
+    add_test(NAME deterministic_mutation_tray_contracts COMMAND faultmine_mutation_tests)
 endif()

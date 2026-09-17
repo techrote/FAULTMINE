@@ -48,6 +48,7 @@ public:
         OperatorExecutor executor,
         std::string* error = nullptr);
 
+    [[nodiscard]] OperatorRegistry& schema_registry() noexcept;
     [[nodiscard]] const OperatorRegistry& schema_registry() const noexcept;
     [[nodiscard]] OperatorExecutor find_executor(std::string_view type_id) const noexcept;
 

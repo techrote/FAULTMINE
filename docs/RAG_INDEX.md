@@ -15,6 +15,7 @@ This is the retrieval entry point for agents and maintainers. Read the documents
 - [`RAG_REPRESENTATION_BITS.md`](RAG_REPRESENTATION_BITS.md) — FM-006 channel/word/packed/planar/signed/bit semantics, structured bit bursts and host-independent representation rules.
 - [`RAG_COLOUR.md`](RAG_COLOUR.md) — FM-007 palette/LUT assets, colour mapping, integer quantisation/dither, seeded palette generation and colour mutation domains.
 - [`RAG_PROJECT_EDITOR.md`](RAG_PROJECT_EDITOR.md) — FM-008 generic stack editor, mutation locks, edit history, project-v1 persistence and source relink contract.
+- [`RAG_MUTATION_SEARCH.md`](RAG_MUTATION_SEARCH.md) — FM-009 independently addressed descendants, typed mutation radius, topology/lock semantics, specimen tray and promotion contract.
 - [`RAG_EXTERNAL_DECODERS.md`](RAG_EXTERNAL_DECODERS.md) — external-decoder isolation, non-canonical decoder behaviour, freeze/materialize rules and laboratory provenance.
 - [`RAG_ROADMAP.md`](RAG_ROADMAP.md) — initial plan, review findings, improved dependency-ordered implementation plan and milestones.
 - [`RAG_VERIFICATION.md`](RAG_VERIFICATION.md) — deterministic testing, CI, performance and release verification strategy.
@@ -51,8 +52,8 @@ This is the retrieval entry point for agents and maintainers. Read the documents
 - **proxy preview** — deterministic nearest-neighbour preprocessing used only for interactive responsiveness; visibly non-canonical as a final-resolution result and never substituted for export.
 - **specimen** — rendered result from source + genome + seed + engine version (+ explicit tick for temporal work).
 - **gene** — mutable unit of genome state used by exploration controls.
-- **lock** — mutation protection applied to one or more genes/operators; locks are project state and do not block deliberate manual editing.
-- **mutation radius** — magnitude/topological freedom allowed while producing descendants.
+- **lock** — mutation protection applied to one or more genes/operators; locks are project state and do not block deliberate manual editing. Under FM-009 a whole-operator lock is also a topology anchor preserving that instance's stack position during mutation.
+- **mutation radius** — categorical typed mutation locality/topology policy (`low`, `medium`, `high`) defined by `RAG_MUTATION_SEARCH.md`, not a generic scalar multiplier.
 - **lineage** — parent/child/crossover provenance among specimens.
 - **canonical output** — result of the authoritative deterministic CPU engine.
 - **preview** — interactive presentation; it must not silently redefine canonical semantics.
