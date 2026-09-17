@@ -54,6 +54,10 @@ public:
         std::string source_identity,
         std::filesystem::path source_path,
         std::string* error = nullptr);
+    [[nodiscard]] bool set_materialized_laboratory_source(
+        core::MaterializedLaboratorySource source,
+        std::filesystem::path original_encoded_path,
+        std::string* error = nullptr);
     [[nodiscard]] bool load_project_state(
         const ProjectDocument& project,
         core::ImageBuffer source,
@@ -68,6 +72,7 @@ public:
     [[nodiscard]] const core::ImageBuffer* display_image() const noexcept;
     [[nodiscard]] const std::string& source_identity() const noexcept;
     [[nodiscard]] const std::filesystem::path& source_path() const noexcept;
+    [[nodiscard]] const std::optional<core::LaboratoryProvenance>& laboratory_provenance() const noexcept;
 
     [[nodiscard]] const core::FaultRegistry& registry() const noexcept;
     [[nodiscard]] const core::Genome& genome() const noexcept;
@@ -137,11 +142,8 @@ public:
     void set_selected_operator(std::optional<std::size_t> operator_index) noexcept;
     [[nodiscard]] std::optional<std::size_t> selected_operator() const noexcept;
 
-    // The normal preview/export entry points render the explicit current frame.
     [[nodiscard]] bool ensure_preview(std::string* error = nullptr);
     [[nodiscard]] std::optional<core::ImageBuffer> render_full(std::string* error = nullptr) const;
-    // Legacy implementations are retained internally by session_fm011.cpp so
-    // accepted non-temporal behaviour can be regression-checked without copy/paste.
     [[nodiscard]] bool ensure_preview_legacy(std::string* error = nullptr);
     [[nodiscard]] std::optional<core::ImageBuffer> render_full_legacy(std::string* error = nullptr) const;
     [[nodiscard]] std::optional<core::ImageBuffer> render_full_at_frame(
@@ -181,6 +183,21 @@ public:
     [[nodiscard]] const CanvasViewState& view_state() const noexcept;
 
 private:
+    // Internal accepted FM-012 implementations are compiled under these names by
+    // session_fm013.cpp so the FM-013 source-provenance layer can delegate
+    // without duplicating the mature editor/timeline/session code.
+    [[nodiscard]] bool set_source_fm012(
+        core::ImageBuffer image,
+        std::string source_identity,
+        std::filesystem::path source_path,
+        std::string* error);
+    [[nodiscard]] bool load_project_state_fm012(
+        const ProjectDocument& project,
+        core::ImageBuffer source,
+        std::filesystem::path resolved_source_path,
+        std::string* error);
+    [[nodiscard]] std::optional<ProjectDocument> make_project_document_fm012(std::string* error) const;
+
     [[nodiscard]] static core::Genome make_default_genome();
     void mark_preview_dirty() noexcept;
     [[nodiscard]] const core::ImageBuffer* choose_preview_source(std::string* error);
@@ -193,6 +210,7 @@ private:
     std::optional<core::ImageBuffer> source_;
     std::string source_identity_;
     std::filesystem::path source_path_;
+    std::optional<core::LaboratoryProvenance> laboratory_provenance_;
 
     LineageGraph lineage_;
     bool lineage_detached_{true};
