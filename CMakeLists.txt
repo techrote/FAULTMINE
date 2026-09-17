@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.25)
 
-project(FAULTMINE VERSION 0.6.0 LANGUAGES CXX)
+project(FAULTMINE VERSION 0.7.0 LANGUAGES CXX)
 
 if(NOT WIN32)
     message(FATAL_ERROR "FAULTMINE supports Windows x64 only.")
@@ -40,6 +40,8 @@ function(faultmine_project_defaults target_name)
 endfunction()
 
 add_library(faultmine_core STATIC
+    src/core/colour.cpp
+    src/core/colour_operators.cpp
     src/core/core.cpp
     src/core/determinism.cpp
     src/core/fault_catalogue.cpp
@@ -209,4 +211,12 @@ if(BUILD_TESTING)
     target_link_libraries(faultmine_representation_tests PRIVATE faultmine_core)
     faultmine_project_defaults(faultmine_representation_tests)
     add_test(NAME representation_bit_contracts COMMAND faultmine_representation_tests)
+
+    add_executable(faultmine_colour_tests
+        tests/colour_tests.cpp
+    )
+
+    target_link_libraries(faultmine_colour_tests PRIVATE faultmine_core)
+    faultmine_project_defaults(faultmine_colour_tests)
+    add_test(NAME colour_lut_contracts COMMAND faultmine_colour_tests)
 endif()

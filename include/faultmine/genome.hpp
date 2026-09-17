@@ -32,6 +32,9 @@ enum class MutationDomain {
     unsigned_range,
     choice,
     bitmask,
+    colour_rgba,
+    palette,
+    lut,
 };
 
 struct MutationMetadata {
