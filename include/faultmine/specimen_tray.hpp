@@ -28,6 +28,9 @@ struct SpecimenTrayItem {
     std::optional<core::ImageBuffer> preview;
     std::string render_error;
     bool pinned{};
+    // Zero means not selected for crossover. Positive ranks encode semantic
+    // parent order; policy v1 treats the first selected parent as primary.
+    std::uint32_t crossover_rank{};
 };
 
 class SpecimenTrayModel {
@@ -56,6 +59,9 @@ public:
     [[nodiscard]] const SpecimenTrayItem* selected_item() const noexcept;
     [[nodiscard]] bool select(std::size_t index) noexcept;
     [[nodiscard]] bool toggle_pin(std::size_t index) noexcept;
+    [[nodiscard]] bool toggle_crossover_parent(std::size_t index) noexcept;
+    [[nodiscard]] std::vector<std::size_t> crossover_parent_indices() const;
+    void clear_crossover_selection() noexcept;
 
     [[nodiscard]] bool busy() const noexcept;
     [[nodiscard]] const std::string& error_text() const noexcept;

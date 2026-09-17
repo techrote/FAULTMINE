@@ -30,9 +30,7 @@ void expect_equal(const Left& left, const Right& right, const std::string_view m
 
 faultmine::core::ImageBuffer make_source(const std::uint32_t width = 5U, const std::uint32_t height = 3U) {
     auto created = faultmine::core::make_rgba8_image(width, height);
-    if (!created.ok()) {
-        throw std::runtime_error(created.error->message);
-    }
+    if (!created.ok()) throw std::runtime_error(created.error->message);
     auto image = std::move(*created.image);
     for (std::size_t index = 0U; index < image.bytes.size(); ++index) {
         image.bytes[index] = static_cast<std::uint8_t>((index * 31U + 7U) & 0xffU);
@@ -44,7 +42,6 @@ void test_descriptor_driven_editing() {
     using namespace faultmine;
     app::EditorModel editor;
     expect(editor.operator_descriptors().size() > 20U, "full default catalogue is enumerable by the generic editor");
-
     auto result = editor.add_operator(core::kFaultAddressOffset, 0U);
     expect(result.ok(), "generic add creates FM-005 operator from descriptor metadata");
     expect_equal(editor.genome().operators.size(), std::size_t{1U}, "one operator added");
@@ -53,12 +50,10 @@ void test_descriptor_driven_editing() {
     expect_equal(std::get<std::int64_t>(editor.genome().operators[0].parameters.at("offset_pixels")), std::int64_t{2}, "exact entry updates typed genome value");
     result = editor.set_parameter_from_text(0U, "offset_pixels", "999999999");
     expect(!result.ok(), "descriptor range rejects hostile exact entry");
-
     result = editor.add_operator(core::kFaultBitplaneSwap, 1U);
     expect(result.ok(), "generic add creates FM-006 operator");
     result = editor.set_parameter_from_text(1U, "channels", "purple");
     expect(!result.ok(), "choice metadata rejects invalid enum text");
-
     result = editor.add_operator(core::kColourQuantize, 2U);
     expect(result.ok(), "generic add creates FM-007 operator");
     result = editor.set_parameter_from_text(2U, "levels", "16");
@@ -81,7 +76,6 @@ void test_duplicate_reorder_history_and_ids() {
     expect_equal(editor.genome().operators[1].instance_id, duplicate, "redo restores the exact duplicate id rather than regenerating it");
     expect(editor.move_operator(1U, 0U).ok(), "reorder succeeds");
     expect_equal(editor.genome().operators[0].instance_id, duplicate, "reorder preserves instance identity");
-
     expect(editor.set_parameter_from_text(0U, "offset_pixels", "1").ok(), "parameter edit succeeds");
     const std::string before_nudge = editor.genome_identity();
     expect(editor.nudge_parameter(0U, "offset_pixels", 1, false, true).ok(), "first coalesced nudge succeeds");
@@ -100,7 +94,6 @@ void test_locks_are_noncanonical() {
     const core::ImageBuffer source = make_source();
     const auto before = core::render_pipeline(source, editor.genome(), editor.registry());
     expect(before.ok(), "pre-lock canonical render succeeds");
-
     expect(editor.toggle_operator_lock(0U).ok(), "whole-operator mutation lock toggles");
     expect(editor.toggle_parameter_lock(0U, "offset_pixels").ok(), "gene mutation lock toggles");
     expect(editor.operator_locked(0U), "operator lock reported");
@@ -125,6 +118,14 @@ void test_project_roundtrip_and_source_classification() {
     project.source.source_identity = std::string(64U, 'a');
     project.genome = editor.genome();
     project.locks = editor.locks();
+    app::SpecimenRecord root;
+    root.genome = project.genome;
+    root.genome_identity = core::genome_identity_hex(root.genome);
+    root.source_identity = project.source.source_identity;
+    root.derivation = app::make_manual_root_derivation();
+    root.creation_ordinal = 0U;
+    project.lineage.active_genome_identity = root.genome_identity;
+    project.lineage.specimens.push_back(root);
     project.session.proxy_enabled = false;
     project.session.selected_instance_id = project.genome.operators[0].instance_id.to_string();
     project.ui.mode = "custom";
@@ -135,10 +136,11 @@ void test_project_roundtrip_and_source_classification() {
 
     const std::string canonical = app::serialize_project_canonical(project);
     const auto parsed = app::parse_project(canonical, editor.registry().schema_registry());
-    expect(parsed.ok(), "canonical project parses");
+    expect(parsed.ok(), "canonical project v2 parses");
     if (parsed.ok()) {
         expect_equal(app::serialize_project_canonical(*parsed.project), canonical, "project parse/serialize is exactly canonical");
         expect_equal(parsed.project->locks, project.locks, "lock state survives project reload");
+        expect_equal(parsed.project->lineage, project.lineage, "lineage root survives project reload");
         expect_equal(
             std::get<std::string>(parsed.project->genome.operators[0].parameters.at("palette")),
             std::get<std::string>(project.genome.operators[0].parameters.at("palette")),
@@ -146,11 +148,11 @@ void test_project_roundtrip_and_source_classification() {
     }
 
     std::string future = canonical;
-    const std::string token = "\"project_version\":1";
+    const std::string token = "\"project_version\":2";
     const std::size_t position = future.find(token);
     expect(position != std::string::npos, "project version token located");
     if (position != std::string::npos) {
-        future.replace(position, token.size(), "\"project_version\":2");
+        future.replace(position, token.size(), "\"project_version\":99");
         expect(!app::parse_project(future, editor.registry().schema_registry()).ok(), "future project version is rejected clearly");
     }
 
@@ -163,7 +165,6 @@ void test_session_project_reproduction() {
     using namespace faultmine;
     core::ImageBuffer source = make_source(7U, 5U);
     const std::string identity = core::source_identity_hex(source);
-
     app::SessionModel first;
     std::string error;
     expect(first.set_source(source, identity, L"C:\\work\\original.png", &error), "first session accepts source");
@@ -178,15 +179,11 @@ void test_session_project_reproduction() {
 
     const auto document = first.make_project_document(&error);
     expect(document.has_value(), "session emits project document");
-    if (!document.has_value()) {
-        return;
-    }
+    if (!document.has_value()) return;
     const std::string text = app::serialize_project_canonical(*document);
     const auto parsed = app::parse_project(text, first.registry().schema_registry());
     expect(parsed.ok(), "saved session project parses");
-    if (!parsed.ok()) {
-        return;
-    }
+    if (!parsed.ok()) return;
 
     app::SessionModel restored;
     expect(restored.load_project_state(*parsed.project, source, L"D:\\moved\\original.png", &error), "moved identical source relinks without changing provenance");
@@ -216,11 +213,10 @@ int main() {
         ++g_failures;
         std::cerr << "UNCAUGHT TEST EXCEPTION: " << exception.what() << '\n';
     }
-
     if (g_failures != 0) {
-        std::cerr << g_failures << " FM-008 editor/project assertion(s) failed.\n";
+        std::cerr << g_failures << " editor/project assertion(s) failed.\n";
         return 1;
     }
-    std::cout << "FAULTMINE FM-008 editor/project contracts passed.\n";
+    std::cout << "FAULTMINE editor/project contracts passed.\n";
     return 0;
 }

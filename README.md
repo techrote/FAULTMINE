@@ -2,9 +2,9 @@
 
 FAULTMINE is a standalone Windows glitch-art synthesis instrument built around **controlled, deterministic mistakes** rather than a conventional filter stack.
 
-The program deliberately misinterprets image memory, addressing, representation, bitplanes, channels, timing, reconstruction and feedback. Every result must remain reproducible from its source identity, genome, seed and engine version.
+The program deliberately misinterprets image memory, addressing, representation, bitplanes, channels, timing, reconstruction and feedback. Every canonical result must remain reproducible from explicit source/genome/seed/versioned semantics.
 
-The core interaction is evolutionary exploration: generate a tray of related glitch specimens, select interesting results, lock desirable genes, mutate the rest, breed compatible genomes and progressively reduce mutation radius to excavate a visual neighbourhood.
+The core interaction is evolutionary exploration: generate a tray of related glitch specimens, retain interesting results, lock desirable genes, mutate the rest, breed compatible genomes and progressively reduce mutation radius to excavate a visual neighbourhood.
 
 ## Product principles
 
@@ -18,28 +18,23 @@ The core interaction is evolutionary exploration: generate a tray of related gli
 
 ## Development status
 
-FM-001 established the native C++20/CMake/MSVC substrate, strict warning policy, Win32 shell and Debug/Release CI.
+FM-001 established the native C++20/CMake/MSVC substrate, strict warning policy, Win32 shell and Debug/Release CI. FM-002 established versioned genomes, stable operator identities, named deterministic entropy, canonical JSON and pure-core SHA-256 identities. FM-003 established canonical straight-RGBA8 image semantics, content-based source identity, WIC still I/O, the serial canonical pipeline, starter deterministic faults, visual goldens and `FAULTMINE-render.exe`. FM-004 added D3D11/DXGI presentation, deterministic proxy preview, native canvas controls and semantic render scheduling outside `WM_PAINT`.
 
-FM-002 established versioned genomes, stable operator identities, named deterministic entropy, canonical JSON and pure-core SHA-256 identities.
+FM-005 added bounded memory/addressing faults; FM-006 added host-independent representation/bit faults; FM-007 added deterministic palettes, LUTs, quantisation, Bayer/noise dither and generated palettes. FM-008 turned those catalogues into a descriptor-driven native stack editor with mutation locks, undo/redo, typed parameter editing, project save/load and source-identity-checked relinking.
 
-FM-003 established the canonical straight-RGBA8 visual CPU path, content-based source identity, WIC still I/O, the serial canonical pipeline, starter deterministic faults, visual goldens and `FAULTMINE-render.exe`.
+FM-009 added deterministic independently addressed mutation descendants, typed low/medium/high mutation radius, topology-aware lock protection, proxy specimen thumbnails, reroll/pin/compare controls and canonical full-source promotion.
 
-FM-004 established D3D11/DXGI presentation, WIC open/export, deterministic proxy preview, native canvas controls and semantic render scheduling outside `WM_PAINT`.
+FM-010 adds the durable evolutionary layer:
 
-FM-005 adds the bounded memory/addressing family; FM-006 adds host-independent representation/bit faults; FM-007 adds deterministic palettes, LUTs, quantisation, Bayer/noise dither and generated palettes.
+- deterministic typed crossover for 2–8 **ordered** parents, with the first parent as the primary topology scaffold;
+- conservative operator alignment, typed gene inheritance and deterministic new instance IDs for inherited unmatched operators;
+- a durable acyclic lineage graph keyed by canonical genome identity, distinct from manual editor undo/redo;
+- explicit mutation/crossover provenance, source identity and parent edges for retained specimens;
+- durable favourites that survive tray rerolls and project reload;
+- lineage navigation back to retained ancestors/descendants plus provenance inspection;
+- `.fmproj` project schema v2 with lineage/favourites and explicit history-free migration from project v1.
 
-FM-008 turns those catalogues into a practical native manual instrument:
-
-- a descriptor-driven right-side stack editor over the full default registry;
-- add/remove/duplicate/reorder/bypass for registered operators;
-- generic exact typed parameter editing, descriptor choices, numeric nudges and palette/LUT asset loading;
-- separate whole-operator and per-parameter mutation locks;
-- snapshot-based undo/redo with coalesced keyboard nudges and stable instance IDs;
-- versioned `.fmproj` project save/load containing source provenance, genome, locks, proxy/session state and separately identified UI view state;
-- explicit missing/moved/changed source handling with identity-checked relinking;
-- keyboard-first stack navigation/edit controls.
-
-The byte-level deterministic rules are documented in [`docs/RAG_DETERMINISM.md`](docs/RAG_DETERMINISM.md), canonical image/operator semantics in [`docs/RAG_IMAGE_PIPELINE.md`](docs/RAG_IMAGE_PIPELINE.md), interactive session/presentation boundaries in [`docs/RAG_SESSION_PRESENTATION.md`](docs/RAG_SESSION_PRESENTATION.md), memory/addressing semantics in [`docs/RAG_MEMORY_ADDRESSING.md`](docs/RAG_MEMORY_ADDRESSING.md), representation/bit semantics in [`docs/RAG_REPRESENTATION_BITS.md`](docs/RAG_REPRESENTATION_BITS.md), colour semantics/assets in [`docs/RAG_COLOUR.md`](docs/RAG_COLOUR.md), and editor/project semantics in [`docs/RAG_PROJECT_EDITOR.md`](docs/RAG_PROJECT_EDITOR.md).
+The byte-level deterministic rules are documented in [`docs/RAG_DETERMINISM.md`](docs/RAG_DETERMINISM.md), canonical image/operator semantics in [`docs/RAG_IMAGE_PIPELINE.md`](docs/RAG_IMAGE_PIPELINE.md), session/presentation boundaries in [`docs/RAG_SESSION_PRESENTATION.md`](docs/RAG_SESSION_PRESENTATION.md), fault-family contracts in the corresponding RAG documents, manual editor/project foundations in [`docs/RAG_PROJECT_EDITOR.md`](docs/RAG_PROJECT_EDITOR.md), mutation search in [`docs/RAG_MUTATION_SEARCH.md`](docs/RAG_MUTATION_SEARCH.md), and crossover/lineage/project-v2 semantics in [`docs/RAG_LINEAGE_CROSSOVER.md`](docs/RAG_LINEAGE_CROSSOVER.md).
 
 ## Prerequisites
 
@@ -84,48 +79,34 @@ Build outputs are generated under `build/`; the desktop executable is `build/Deb
 
 ## Interactive controls
 
-The native right-side editor exposes the registered fault catalogue and selected operator parameters directly. Baseline shortcuts are:
+The native right-side editor exposes the registered fault catalogue and selected operator parameters directly. Baseline editor/canvas shortcuts include `Ctrl+O` open image, `Ctrl+Shift+O` open project, `Ctrl+S`/`Ctrl+Shift+S` save/save-as, `Ctrl+E` full-resolution canonical PNG export, `Ctrl+Z`/`Ctrl+Y` manual undo/redo, `Ctrl+Insert` add operator, `Ctrl+D` duplicate operator, `Delete` remove operator, `Ctrl+Up`/`Ctrl+Down` select operator, `Alt+Up`/`Alt+Down` reorder, `X` bypass, `L` whole-operator mutation lock, `Ctrl+L` selected-parameter mutation lock, `[`/`]` numeric nudge (`Shift` for large), `Space` whole-stack enable/disable, `R` deterministic root-seed reroll, `F5` rerender, `F` fit, `1` 1:1 display, wheel zoom, drag/arrow pan, `B` before/after and `P` deterministic proxy-preview toggle.
 
-- `Ctrl+O` — open a WIC-supported image;
-- `Ctrl+Shift+O` — open a `.fmproj` project;
-- `Ctrl+S` / `Ctrl+Shift+S` — save / save-as project;
-- `Ctrl+E` — export the current genome against the **full-resolution canonical source** as PNG;
-- `Ctrl+Z` / `Ctrl+Y` — undo / redo manual project edits;
-- `Ctrl+Insert` — add the currently selected registered operator type;
-- `Ctrl+D` — duplicate selected stack operator with a new stable instance ID;
-- `Delete` — remove selected operator;
-- `Ctrl+Up` / `Ctrl+Down` — select previous/next operator;
-- `Alt+Up` / `Alt+Down` — reorder selected operator;
-- `X` — bypass/enable selected operator;
-- `L` — toggle selected operator mutation lock;
-- `Ctrl+L` — toggle selected parameter mutation lock;
-- `[` / `]` — small selected numeric-parameter nudge;
-- `Shift+[` / `Shift+]` — large nudge;
-- `Space` — enable/disable the whole stack;
-- `R` — deterministically reroll the explicit root seed;
-- `F5` — rerender;
-- `F` — fit image to the canvas;
-- `1` — 1:1 display;
-- mouse wheel — zoom relative to fit;
-- left-button drag or arrow keys — pan;
-- `B` — before/after;
-- `P` — toggle deterministic proxy preview.
+The Explore panel adds deterministic mutation/search controls:
 
-Mutation locks do **not** block deliberate manual edits; they are protection state for the FM-009 descendant mutation engine. Locks, project UI state and edit history never change canonical genome identity by themselves.
+- `Ctrl+Alt+G` — generate a mutation tray from the active genome;
+- `Ctrl+Alt+R` — reroll descendants with the next deterministic mutation seed;
+- `Ctrl+Alt+Enter` — promote the selected mutation specimen with exact provenance;
+- `Ctrl+Alt+P` — toggle the selected specimen's durable Favourite state;
+- `Ctrl+Alt+Left` / `Ctrl+Alt+Right` — reduce/increase mutation radius;
+- normal thumbnail click — compare a tray specimen on the main canvas;
+- `Ctrl+click` thumbnails — assign/remove ordered crossover ranks `P1`, `P2`, ...;
+- `Ctrl+Alt+B` — breed the selected 2–8 ordered parents using typed crossover v1;
+- Lineage **Activate** — navigate to any retained specimen without treating navigation as undo/redo;
+- **Provenance** — report derivation kind, source/genome identity, parent identities and mutation/crossover address data.
+
+Mutation locks do **not** block deliberate manual edits. They protect search operations and remain outside canonical genome identity. A primary whole-operator lock is also a crossover topology anchor. Manual edit history and specimen lineage remain intentionally separate.
 
 ## Project files and source relinking
 
-`.fmproj` v1 is strict human-readable JSON. It embeds the canonical genome object and records:
+`.fmproj` schema v2 is strict human-readable JSON. It embeds the active canonical genome and records source provenance, active-genome mutation locks, durable specimen lineage/favourites, proxy/session state, selected operator and separately identified non-semantic canvas view state.
 
-- source path metadata plus the normalized FM-003 source identity;
-- mutation locks;
-- proxy/session state;
-- selected operator;
-- separately identified non-semantic canvas view state.
+Lineage records retain complete typed genomes plus canonical genome/source identities and explicit derivation metadata. Mutation nodes store parent identity, mutation-policy version, seed, descendant index and radius. Crossover nodes store ordered parent identities, crossover-policy version and crossover seed. Rendered thumbnail/full-resolution pixels are never lineage authority.
+
+The v2 parser accepts historical project v1 and migrates it conservatively to exactly one `migrated-project` lineage root. The migration does not fabricate parents or historical seed/policy information. The next save writes schema v2. Unsupported future project versions remain rejected.
 
 If the recorded source is moved, FAULTMINE accepts an explicitly relinked file only when its normalized content identity is identical. Missing sources and changed content are distinguished; changed content at the old path is never silently accepted as the same provenance.
 
-FM-007 palettes/LUTs remain embedded canonical asset JSON inside the operator parameters that use them, so project v1 requires no second asset serialization system.
+FM-007 palettes/LUTs remain embedded canonical asset JSON inside the operator parameters that use them, so project persistence requires no second asset serialization system.
 
 ## Non-GUI canonical render hook
 
@@ -135,13 +116,11 @@ The narrow developer CLI remains available:
 .\build\Debug\FAULTMINE-render.exe input.png genome.json output.png
 ```
 
-It validates the genome against the **default** registry (starter faults plus accepted memory/addressing, representation/bit and colour families), normalizes the input through WIC, executes the canonical CPU stack, writes a PNG, and prints normalized source/output identities.
-
-Example genomes under `examples/` include the FM-003 starter stack, FM-005 addressing stack, FM-006 representation/bit stack and FM-007 colour stack. `examples/fm007-rust.fmpal` demonstrates the canonical human-editable FAULTMINE palette format.
+It validates the genome against the **default** registry, normalizes the input through WIC, executes the canonical CPU stack, writes a PNG, and prints normalized source/output identities. Example genomes under `examples/` cover the accepted addressing, representation/bit and colour families; `examples/fm007-rust.fmpal` demonstrates the canonical human-editable palette format.
 
 ## Authoritative development documentation
 
-Start with [`docs/RAG_INDEX.md`](docs/RAG_INDEX.md). It indexes the product, architecture, deterministic contracts, image/pipeline contracts, session/presentation boundaries, fault-family contracts, project/editor contracts, roadmap, verification and autonomous-issue execution rules.
+Start with [`docs/RAG_INDEX.md`](docs/RAG_INDEX.md). It indexes the product, architecture, deterministic contracts, image/pipeline contracts, session/presentation boundaries, fault-family contracts, mutation/search/crossover/lineage contracts, project semantics, roadmap, verification and autonomous-issue execution rules.
 
 Implementation work is tracked as GitHub issues prefixed `FM-###`. Each implementation issue is intended to be executable autonomously: inspect current `main`, implement the stated scope, test it, reconcile documentation, open a PR, repair CI, merge after required checks pass, verify the merge landed on `main`, and only then close the issue when its acceptance criteria are satisfied.
 
@@ -149,10 +128,10 @@ Implementation work is tracked as GitHub issues prefixed `FM-###`. Each implemen
 
 - C++20
 - CMake + MSVC
-- Win32 desktop shell and generic native stack editor
+- Win32 desktop shell and generic native stack/exploration editor
 - pure-core deterministic genome/entropy/SHA-256 substrate
 - canonical RGBA8 CPU fault pipeline
-- application/session/editor/project models and deterministic proxy preprocessing
+- application/session/editor/project/lineage models and deterministic proxy preprocessing
 - D3D11 / DXGI presentation
 - Windows Imaging Component (WIC) image I/O
 - GitHub Actions on `windows-latest`
