@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.25)
 
-project(FAULTMINE VERSION 0.10.0 LANGUAGES CXX)
+project(FAULTMINE VERSION 0.11.0 LANGUAGES CXX)
 
 if(NOT WIN32)
     message(FATAL_ERROR "FAULTMINE supports Windows x64 only.")
@@ -59,6 +59,8 @@ add_library(faultmine_core STATIC
     src/core/representation_bit_operators.cpp
     src/core/sha256.cpp
     src/core/starter_operators.cpp
+    src/core/temporal.cpp
+    src/core/temporal_timeline.cpp
 )
 
 target_include_directories(faultmine_core
@@ -91,7 +93,7 @@ add_library(faultmine_session STATIC
     src/app/editor.cpp
     src/app/lineage.cpp
     src/app/project.cpp
-    src/app/session.cpp
+    src/app/session_fm011.cpp
     src/app/session_exploration.cpp
     src/app/specimen_tray.cpp
     src/app/specimen_tray_lineage.cpp
@@ -135,7 +137,7 @@ faultmine_project_defaults(faultmine_d3d11)
 
 add_executable(faultmine WIN32
     src/app/main.cpp
-    src/platform/win32/main_window_fm009.cpp
+    src/platform/win32/main_window_fm011.cpp
 )
 
 set_target_properties(faultmine PROPERTIES OUTPUT_NAME "FAULTMINE")
@@ -265,4 +267,16 @@ if(BUILD_TESTING)
     )
     faultmine_project_defaults(faultmine_lineage_tests)
     add_test(NAME deterministic_crossover_lineage_contracts COMMAND faultmine_lineage_tests)
+
+    add_executable(faultmine_temporal_tests
+        tests/temporal_tests.cpp
+    )
+
+    target_link_libraries(faultmine_temporal_tests
+        PRIVATE
+            faultmine_core
+            faultmine_session
+    )
+    faultmine_project_defaults(faultmine_temporal_tests)
+    add_test(NAME deterministic_temporal_contracts COMMAND faultmine_temporal_tests)
 endif()
