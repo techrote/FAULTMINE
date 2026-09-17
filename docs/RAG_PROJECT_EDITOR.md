@@ -1,101 +1,51 @@
 # FAULTMINE generic editor and project contract
 
-This document records the FM-008 manual-editor, lock, history and project-persistence contracts. It is authoritative until an explicit later version supersedes a rule.
+This document records the FM-008 manual-editor/lock/history contract and its FM-010 project-v2 evolution. `RAG_LINEAGE_CROSSOVER.md` is authoritative for crossover, favourites and specimen-lineage semantics.
 
 ## Layering
 
-FM-008 keeps three state classes distinct:
+FAULTMINE keeps these state classes distinct:
 
-1. **canonical genome** — operator topology, stable instance IDs, typed parameters, enabled state and root seed; this alone determines canonical still rendering together with the normalized source;
-2. **project/exploration state** — mutation locks, source reference/provenance and editor/session state;
-3. **non-semantic UI state** — selected operator, canvas view and proxy preference.
+1. **canonical genome** — topology, stable instance IDs, typed parameters, enabled state and root seed; with normalized source this determines canonical pixels;
+2. **project/evolution state** — source provenance, mutation locks, retained specimen lineage and favourites;
+3. **manual edit history** — deliberate genome/lock undo/redo snapshots;
+4. **non-semantic UI/session state** — selected operator, canvas view and proxy preference.
 
-Locks, selection and view state never participate in genome identity or canonical pixels.
+Locks, lineage, favourites, selection and view state never participate in canonical genome identity or canonical pixels by themselves.
 
 ## Generic editor model
 
-`EditorModel` owns the full default fault registry, active genome, mutation locks and manual edit history. The native UI consumes `OperatorDescriptor` / `ParameterDescriptor` metadata rather than reimplementing operator semantics.
+`EditorModel` owns the full default registry, active genome, mutation locks and manual edit history. The native UI consumes `OperatorDescriptor` / `ParameterDescriptor` metadata rather than reimplementing operator semantics.
 
-The registry now exposes its ordered descriptor collection for UI/add-operator enumeration. This is metadata access only; canonical execution still uses the same `FaultRegistry` executors.
+Supported manual operations include add/remove/duplicate/reorder, enable/bypass, exact typed parameter editing, numeric nudges, whole-operator and per-parameter mutation locks, undo/redo, and deterministic root-seed reroll.
 
-Supported manual operations are:
+Manual add/duplicate IDs are derived deterministically from persisted root/instance/type context. Undo/redo restores exact snapshots rather than regenerating identities.
 
-- add a registered operator;
-- remove;
-- duplicate;
-- reorder;
-- enable/bypass;
-- exact typed parameter entry;
-- numeric small/large nudging;
-- operator mutation lock;
-- parameter/gene mutation lock;
-- undo/redo;
-- deterministic root-seed reroll.
-
-### Stable IDs for manual topology edits
-
-Manual add/duplicate never uses wall-clock or process randomness.
-
-- add derives a candidate stable ID from root seed + a type-derived stable parent ID + purpose `manual-add-operator` + the first collision-free ordinal;
-- duplicate derives from the source instance ID + purpose `manual-duplicate-operator` + the first collision-free ordinal.
-
-Once created, IDs are ordinary persisted genome data. Undo/redo restores exact snapshots, so redo never regenerates an ID. Project reload likewise restores the persisted ID exactly.
-
-## Descriptor-driven parameter editing
-
-Exact editor input uses the existing genome primitive kinds:
-
-- boolean: literal `true` / `false`;
-- signed integer: decimal or `0x` hexadecimal, with optional sign;
-- unsigned integer: decimal or `0x` hexadecimal;
-- text: UTF-8 text.
-
-Mutation metadata also supplies editor validation hints:
-
-- signed/unsigned ranges and steps;
-- choice lists;
-- bitmask numeric entry;
-- `colour_rgba` canonical colour literals;
-- `palette` strict FM-007 palette JSON;
-- `lut` strict FM-007 LUT JSON.
-
-Palette/LUT edits are parsed through the FM-007 asset parser and stored in canonical asset text. This does not add a second asset format.
-
-Executor validation remains authoritative for cross-parameter semantic constraints that cannot be expressed by a single parameter descriptor. A render error is surfaced; state is never silently coerced into another artistic meaning.
+Exact parameter entry uses the genome primitive kinds and descriptor mutation metadata for range/choice/bitmask/colour/palette/LUT validation. Executor validation remains authoritative for cross-parameter constraints.
 
 ## Mutation locks
 
-Locks protect future FM-009 mutation, not deliberate manual edits.
+Locks protect mutation/crossover search, not deliberate manual editing. They live outside `Genome`, so toggling a lock does not alter canonical genome SHA-256 or rendered pixels.
 
-Two lock forms exist:
+Removing an operator removes its associated locks. Reorder preserves lock identity. Duplicating an operator does not implicitly copy protection to the new instance.
 
-- whole operator lock by stable instance ID;
-- individual parameter lock by stable instance ID + parameter name.
-
-Locks are stored outside `Genome`. Adding/removing a lock therefore leaves canonical genome SHA-256 and rendered pixels unchanged.
-
-Removing an operator removes its associated project locks. Reordering and duplicating do not transfer locks implicitly to the new duplicate.
+FM-009 additionally treats a whole-operator lock as a topology anchor during mutation. FM-010 crossover follows the protection rules in `RAG_LINEAGE_CROSSOVER.md`.
 
 ## Manual edit history
 
-History snapshots contain:
+History snapshots contain the complete canonical genome and complete lock state. Source changes, project loads and lineage activation/promotion are explicit history boundaries. View changes are not history entries.
 
-- complete canonical genome;
-- complete lock state.
+Repeated numeric nudges may be coalesced while one gesture is active. Structural edits and explicit Apply operations form their own boundaries.
 
-Source changes and project loads are explicit history boundaries. View changes are not semantic edit-history entries.
+Manual undo/redo is intentionally not specimen ancestry navigation.
 
-Repeated numeric nudges may be coalesced while one keyboard gesture is active; `end_coalesced_edit()` terminates that group. Structural edits and explicit Apply operations each create their own boundary.
+## Project schema history
 
-Edit history is intentionally separate from FM-009/010 specimen lineage.
+File extension: `.fmproj`.
 
-## Project v1
+### Project v1 — FM-008 migration baseline
 
-File extension: `.fmproj`
-
-Project schema version: `1`
-
-Canonical project JSON uses these top-level fields in order:
+Schema version 1 established strict human-readable project JSON with top-level fields:
 
 ```text
 project_version
@@ -106,142 +56,78 @@ session
 ui
 ```
 
-The canonical text ends with one LF.
+It persisted source path/normalized identity, active genome, locks, proxy/session state, selected operator and separately identified canvas UI state. It contained no specimen-lineage evidence.
 
-### `source`
+Version 1 remains accepted as an explicit migration input under FM-010; it is no longer the current save format.
+
+### Project v2 — FM-010 current format
+
+Schema version 2 adds durable evolutionary state. Canonical top-level order is:
+
+```text
+project_version
+source
+genome
+locks
+lineage
+session
+ui
+```
+
+The canonical text ends with one LF. The active top-level genome/locks must exactly match `lineage.active_specimen_id`. Detailed lineage representation and v1 migration semantics are defined in `RAG_LINEAGE_CROSSOVER.md`.
+
+Unknown future project versions remain rejected rather than partially interpreted.
+
+## Source
 
 ```json
 {"path":"C:/art/source.png","identity":"<64 hex SHA-256>"}
 ```
 
-Path is convenience/relink metadata. Identity is the normalized FM-003 source identity and is authoritative provenance.
+Path is convenience/relink metadata. The normalized FM-003 source identity is authoritative provenance.
 
-### `genome`
+Project load tries the recorded path, normalizes through the ordinary WIC source path, compares content identity, and requires explicit relink when missing/unreadable/mismatched. A replacement is accepted only when normalized identity is identical.
 
-The normal canonical genome object is embedded directly, not quoted as a secondary string format. Genome schema/engine/operator versions remain governed by `RAG_DETERMINISM.md`.
+Therefore moved identical content is accepted; missing and changed content are distinguished; changed same-path content is never silently accepted as the same source.
 
-### `locks`
+## Genome and locks
 
-Lock records are canonicalized by stable instance-ID order:
+The normal canonical genome object is embedded directly. Genome/operator versions remain governed by `RAG_DETERMINISM.md`.
 
-```json
-{"instance_id":"<32 hex>","operator":true,"parameters":["amount","boundary"]}
-```
+Lock records are canonicalized by stable instance ID and contain whole-operator protection plus sorted parameter names. Duplicate records/parameters, missing instances and undeclared parameters are rejected.
 
-Parameter names are sorted. The parser rejects duplicate lock records, duplicate parameter locks, missing instances and undeclared parameter names.
+FM-007 palette/LUT assets remain embedded canonical asset JSON inside operator parameters; project v2 does not add an independent colour-asset reference system.
 
-### `session`
+## Session and UI
 
-Project v1 persists:
+Session state persists deterministic proxy preference/specification and selected operator stable ID. Unsupported proxy method versions fail clearly.
 
-- proxy enabled flag;
-- proxy max width/height;
-- proxy method version;
-- selected operator instance ID (or empty string).
+UI state persists `fit`/`actual`/`custom` view mode, scaled integer zoom/pan and before/result selection. These values never enter genome identity.
 
-Unsupported proxy method versions fail rather than changing preview semantics silently.
+## Project parsing
 
-### `ui`
-
-Non-semantic canvas state is separate:
-
-- `view_mode`: `fit`, `actual`, or `custom`;
-- `zoom_milli`;
-- `pan_x_milli`, `pan_y_milli`;
-- before/result selection.
-
-Scaled integers avoid making project parsing dependent on floating-point text formatting. UI values never enter genome identity.
-
-### FM-007 assets
-
-FM-007 palettes/LUTs remain embedded canonical JSON text in the operator parameters that use them. Project v1 preserves them through the embedded genome; it does not introduce path-referenced colour assets before such a reference model is explicitly versioned.
-
-## Project parse and migration baseline
-
-Project parsing uses the existing strict JSON parser:
+The strict existing JSON parser remains authoritative:
 
 - duplicate keys rejected;
-- unknown schema-owned fields rejected;
-- required fields checked;
-- project version other than `1` rejected;
-- embedded genome validated against the current default registry;
-- source identity must be 64 hexadecimal digits;
+- schema-owned unknown fields rejected;
+- required fields/type/ranges checked;
+- embedded genomes validated against the registry;
+- source identity validated;
 - lock targets validated;
-- selected instance validated;
-- proxy/view ranges validated.
+- selected operator validated;
+- proxy/view values validated;
+- project v2 lineage/DAG/source binding validated;
+- v1 migrated explicitly to one `legacy-project-root` node;
+- unsupported future versions rejected.
 
-Version 1 is the migration baseline. There is no historical project schema to migrate yet. Future schema support must add an explicit version transition rather than partially interpreting unknown future state.
+## Native editor baseline
 
-## Source open/relink contract
+The FM-008 right-side editor remains descriptor-driven and exposes operator add/remove/duplicate/reorder/bypass, lock controls, generic parameter editing, numeric nudges and palette/LUT loading without introducing a heavyweight UI framework.
 
-When a project opens:
-
-1. try the recorded path;
-2. normalize the candidate with the ordinary WIC source path;
-3. compare normalized identity with the project identity;
-4. if missing/unreadable/mismatched, explicitly offer relink;
-5. accept a replacement only when its normalized identity is identical.
-
-Therefore:
-
-- moved identical-content source: accepted;
-- missing source: distinguished and requires relink;
-- changed content at the old path: rejected as the same provenance;
-- user-cancelled relink: previous valid application session remains intact.
-
-## Native instrument surface
-
-FM-008 adds a compact native right-side editor containing:
-
-- registered operator picker + Add;
-- stack list with enabled and mutation-lock indicators;
-- Remove, Duplicate, Up, Down, Bypass and operator-lock buttons;
-- generic parameter selector;
-- exact edit field or descriptor-backed boolean/choice dropdown;
-- Apply and numeric +/- controls;
-- parameter-lock button;
-- palette/LUT asset load button when appropriate.
-
-No heavyweight UI framework is introduced.
-
-## Baseline shortcuts
-
-- `Ctrl+O` — open image;
-- `Ctrl+Shift+O` — open project;
-- `Ctrl+S` / `Ctrl+Shift+S` — save / save-as project;
-- `Ctrl+Z` / `Ctrl+Y` — undo / redo;
-- `Ctrl+Insert` — add selected registered type;
-- `Ctrl+D` — duplicate selected operator;
-- `Delete` — remove selected operator;
-- `Ctrl+Up/Down` — select previous/next operator;
-- `Alt+Up/Down` — reorder selected operator;
-- `X` — bypass selected operator;
-- `L` — toggle selected operator mutation lock;
-- `Ctrl+L` — toggle selected parameter mutation lock;
-- `[` / `]` — small selected numeric-parameter nudge;
-- `Shift+[` / `Shift+]` — large nudge;
-- `Space` — enable/disable the whole active stack;
-- `R` — deterministic root-seed reroll;
-- `F5` — rerender;
-- existing `F`, `1`, `B`, `P`, mouse wheel and canvas pan controls remain presentation-only.
-
-Bindings may evolve later, but their semantics must retain the separation between manual edit history, mutation locks and canonical rendering.
+FM-009/010 add the Explore surface without changing the manual editor's semantic role. Evolutionary promotion and lineage navigation refresh the editor around the selected retained genome but do not manufacture undo entries representing ancestry.
 
 ## Verification
 
-`editor_project_contracts` covers:
+`editor_project_contracts` continues to cover generic descriptor editing, stable IDs/history, non-canonical locks, canonical project round-trip, future-version rejection, source classification/relink, palette persistence and restored output/locks/selection.
 
-- descriptor enumeration and generic add/edit across FM-005/006/007;
-- exact numeric entry and descriptor validation;
-- duplicate/reorder stable IDs;
-- coalesced nudge undo;
-- mutation locks excluded from canonical identity/output;
-- manual edits allowed despite mutation locks;
-- exact project canonical round-trip;
-- future project-version rejection;
-- source missing/identical/changed classification;
-- embedded FM-007 palette persistence;
-- project reload reproducing canonical output and lock state;
-- moved identical source relink and changed-source rejection.
-
-All earlier deterministic suites and the real D3D11 smoke remain required in Debug and Release.
+`crossover_lineage_project_contracts` adds project-v2 lineage/favourite persistence, v1 migration, DAG validation, crossover provenance and lineage navigation. All earlier deterministic suites plus Debug/Release real D3D11/native smoke remain mandatory.
