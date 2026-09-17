@@ -67,6 +67,28 @@ struct GeneTarget {
         [id](const MutationParameterLock& lock) { return lock.instance_id == id; });
 }
 
+[[nodiscard]] std::optional<std::size_t> last_operator_lock_index(
+    const Genome& genome,
+    const MutationLocks& locks) noexcept {
+    std::optional<std::size_t> last;
+    for (std::size_t index = 0U; index < genome.operators.size(); ++index) {
+        if (operator_locked(locks, genome.operators[index].instance_id)) {
+            last = index;
+        }
+    }
+    return last;
+}
+
+[[nodiscard]] bool all_operators_locked(
+    const Genome& genome,
+    const MutationLocks& locks) noexcept {
+    return !genome.operators.empty() && std::all_of(
+        genome.operators.begin(), genome.operators.end(),
+        [&locks](const OperatorInstance& instance) {
+            return operator_locked(locks, instance.instance_id);
+        });
+}
+
 [[nodiscard]] std::optional<std::string> validate_locks(
     const Genome& parent,
     const OperatorRegistry& registry,
@@ -545,7 +567,12 @@ struct GeneTarget {
     }
     const std::size_t descriptor_index = static_cast<std::size_t>(stream.uniform_below(registry.descriptors().size()));
     const OperatorDescriptor& descriptor = registry.descriptors()[descriptor_index];
-    const std::size_t position = static_cast<std::size_t>(stream.uniform_below(genome.operators.size() + 1U));
+    std::size_t minimum_position = 0U;
+    if (const auto last_locked = last_operator_lock_index(genome, request.locks); last_locked.has_value()) {
+        minimum_position = *last_locked + 1U;
+    }
+    const std::size_t available_positions = genome.operators.size() - minimum_position + 1U;
+    const std::size_t position = minimum_position + static_cast<std::size_t>(stream.uniform_below(available_positions));
     const InstanceId parent_identity{parent_words[0], parent_words[1]};
     const std::uint64_t ordinal = mix64(
         request.descendant_index ^ stable_tag_hash(descriptor.type_id) ^
@@ -563,8 +590,12 @@ struct GeneTarget {
     Genome& genome,
     const MutationLocks& locks,
     DeterministicStream& stream) {
+    const std::optional<std::size_t> last_locked = last_operator_lock_index(genome, locks);
     std::vector<std::size_t> candidates;
     for (std::size_t index = 0U; index < genome.operators.size(); ++index) {
+        if (last_locked.has_value() && index <= *last_locked) {
+            continue;
+        }
         const InstanceId id = genome.operators[index].instance_id;
         if (!operator_locked(locks, id) && !any_parameter_locked(locks, id)) {
             candidates.push_back(index);
@@ -650,6 +681,9 @@ struct GeneTarget {
     const OperatorRegistry& registry,
     const MutationRequest& request,
     const std::array<std::uint64_t, 4U>& parent_words) {
+    if (all_operators_locked(genome, request.locks)) {
+        return false;
+    }
     const InstanceId owner{parent_words[0], parent_words[1]};
     auto stream = mutation_stream(request, owner, "mutation-topology-v1", parent_words);
     const std::uint64_t initial = stream.uniform_below(5U);
