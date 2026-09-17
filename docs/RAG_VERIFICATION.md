@@ -244,3 +244,13 @@ Every implementation PR should state:
 - CI result before merge.
 
 A changed golden hash is evidence requiring explanation, not something to update mechanically until tests pass.
+
+## FM-015 v1.0.0 resolution
+
+FM-015 turns the earlier release-verification goals above into an executable gate. The authoritative numeric ceilings, resource limits, version matrix, portable-package contract and measured reference workload are frozen in [`RAG_RELEASE_V1.md`](RAG_RELEASE_V1.md).
+
+The final pull-request gate now performs Debug build/tests/native smoke, Release build/tests/native smoke, the representative performance probe, portable archive construction, clean extracted-package validation, static-MSVC-runtime dependency validation, packaged native smoke, and a packaged `--release-self-test` covering open -> edit/mutate -> favourite lineage -> save -> parse/reopen -> canonical still export -> explicit temporal step/frame-sequence export. The ZIP and exact `performance.json` are retained together as CI evidence.
+
+Release-hardening tests add explicit failure coverage for the 512 MiB canonical image allocation limit, 64-operator parsed/programmatic genome limit, 4096-specimen retained-lineage limit and the generic JSON nesting limit while retaining the worker deadline/memory-bound assertions. These limits reject work explicitly rather than truncating or silently changing canonical state.
+
+The dedicated Release workflow repeats the test/performance/package gate for manual candidates and tags. Tagged publication is permitted only for commits reachable from `main`; package construction alone is not sufficient to publish an unstable release. `/W4 /WX`, existing deterministic known-answer vectors, canonical image goldens, migration fixtures, temporal/export equivalence, batch/session agreement and worker containment remain mandatory release evidence rather than being weakened for packaging.

@@ -360,6 +360,12 @@ std::optional<GenomeError> validate_genome(const Genome& genome, const OperatorR
     if (genome.engine_contract_version != kEngineContractVersion) {
         return make_error(GenomeErrorCode::unsupported_version, "$.engine_contract_version", "unsupported engine contract version");
     }
+    if (genome.operators.size() > kMaximumGenomeOperators) {
+        return make_error(
+            GenomeErrorCode::resource_limit,
+            "$.operators",
+            "genome exceeds the v1 limit of 64 operators");
+    }
 
     for (std::size_t index = 0; index < genome.operators.size(); ++index) {
         const OperatorInstance& instance = genome.operators[index];
@@ -496,6 +502,14 @@ GenomeParseResult parse_genome(const std::string_view text, const OperatorRegist
 
     if (operators_value->type != json::ValueType::array) {
         return GenomeParseResult{std::nullopt, make_error(GenomeErrorCode::wrong_type, "$.operators", "operators must be an array")};
+    }
+    if (operators_value->array.size() > kMaximumGenomeOperators) {
+        return GenomeParseResult{
+            std::nullopt,
+            make_error(
+                GenomeErrorCode::resource_limit,
+                "$.operators",
+                "genome exceeds the v1 limit of 64 operators")};
     }
     genome.operators.reserve(operators_value->array.size());
     for (std::size_t index = 0; index < operators_value->array.size(); ++index) {

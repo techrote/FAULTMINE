@@ -12,9 +12,9 @@ permissions:
 
 jobs:
   windows-msvc-x64:
-    name: Windows x64 MSVC — Debug + Release
+    name: Windows x64 MSVC — v1 release gate
     runs-on: windows-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
 
     steps:
       - name: Checkout
@@ -55,3 +55,30 @@ jobs:
           if ($process.ExitCode -ne 0) {
             throw "Release FAULTMINE smoke test failed with exit code $($process.ExitCode)."
           }
+
+      - name: Measure and enforce v1 performance budgets
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force artifacts | Out-Null
+          & .\build\Release\FAULTMINE-perf.exe | Tee-Object -FilePath .\artifacts\performance.json
+          if ($LASTEXITCODE -ne 0) {
+            throw "FAULTMINE performance budget probe failed with exit code $LASTEXITCODE."
+          }
+
+      - name: Build portable package
+        shell: pwsh
+        run: .\scripts\package.ps1 -Configuration Release -OutputDir artifacts
+
+      - name: Verify clean extracted package
+        shell: pwsh
+        run: .\scripts\verify-package.ps1 -ArchivePath .\artifacts\FAULTMINE-1.0.0-win64.zip
+
+      - name: Upload v1 release-candidate evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: FAULTMINE-1.0.0-win64-release-candidate
+          path: |
+            artifacts/FAULTMINE-1.0.0-win64.zip
+            artifacts/performance.json
+          if-no-files-found: error
+          retention-days: 30

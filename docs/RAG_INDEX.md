@@ -21,6 +21,7 @@ This is the retrieval entry point for agents and maintainers. Read the documents
 - [`RAG_EXPORT.md`](RAG_EXPORT.md) — FM-012 canonical still/contact/sequence export, strict provenance manifests, atomic collision policy and cancellation/partial-output semantics.
 - [`RAG_EXTERNAL_DECODERS.md`](RAG_EXTERNAL_DECODERS.md) — external-decoder isolation, non-canonical decoder behaviour, freeze/materialize rules and laboratory provenance.
 - [`RAG_BATCH_MINING.md`](RAG_BATCH_MINING.md) — FM-014 headless indexed mutation search, descriptor v1, exact/near dedupe, deterministic diversity selection, safe resume and GUI-importable mined provenance.
+- [`RAG_RELEASE_V1.md`](RAG_RELEASE_V1.md) — FM-015 v1.0.0 hardening, resource ceilings, performance budgets, portable-package contract and final release checklist.
 - [`RAG_ROADMAP.md`](RAG_ROADMAP.md) — initial plan, review findings, improved dependency-ordered implementation plan and milestones.
 - [`RAG_VERIFICATION.md`](RAG_VERIFICATION.md) — deterministic testing, CI, performance and release verification strategy.
 - [`RAG_ISSUE_PROTOCOL.md`](RAG_ISSUE_PROTOCOL.md) — standard structure and completion protocol used by every `FM-###` GitHub implementation issue.
@@ -78,4 +79,4 @@ This is the retrieval entry point for agents and maintainers. Read the documents
 
 ## v1 target
 
-A compact Windows x64 application capable of opening an image, constructing and editing a deterministic fault stack, exploring seeded descendants in a specimen tray, locking/mutating/breeding results, retaining favourites and navigating durable lineage, driving explicit deterministic temporal faults/feedback, saving projects/genomes, exporting provenance-rich reproducible stills/contact sheets/temporal image sequences, running isolated codec/raw-data laboratory experiments, and mining large deterministic descendant ranges headlessly with resumable descriptor-based diversity search. FM-015 hardening/packaging remains the release-readiness phase.
+FAULTMINE v1.0.0 is the compact Windows x64 application described above: open and normalize an image, construct/edit a deterministic fault stack, explore seeded descendants, lock/mutate/breed results, retain favourites and durable lineage, drive explicit deterministic temporal faults, save/reopen projects, export provenance-rich canonical stills/contact sheets/frame sequences, run isolated codec/raw-data laboratory experiments, and mine deterministic descendant ranges headlessly. FM-015 freezes the release contract, bounded-resource policy, measured regression budgets and self-contained portable-package gate documented in `RAG_RELEASE_V1.md`.

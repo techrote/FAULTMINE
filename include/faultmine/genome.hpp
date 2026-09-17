@@ -15,6 +15,7 @@ namespace faultmine::core {
 
 inline constexpr std::uint32_t kGenomeSchemaVersion = 1;
 inline constexpr std::uint32_t kEngineContractVersion = 1;
+inline constexpr std::size_t kMaximumGenomeOperators = 64U;
 
 enum class ParameterKind {
     boolean,
@@ -112,6 +113,7 @@ enum class GenomeErrorCode {
     wrong_type,
     invalid_value,
     numeric_overflow,
+    resource_limit,
     unsupported_version,
     unknown_operator,
     duplicate_instance_id,

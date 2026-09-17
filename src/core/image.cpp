@@ -23,6 +23,10 @@ void append_u32_le(std::vector<std::uint8_t>& bytes, const std::uint32_t value) 
     bytes.push_back(static_cast<std::uint8_t>((value >> 24U) & 0xffU));
 }
 
+[[nodiscard]] bool exceeds_resource_limit(const std::uint64_t bytes) noexcept {
+    return bytes > static_cast<std::uint64_t>(kMaxCanonicalImageBytes);
+}
+
 }  // namespace
 
 std::optional<std::size_t> canonical_rgba8_byte_size(
@@ -42,18 +46,37 @@ std::optional<std::size_t> canonical_rgba8_byte_size(
     }
 
     const std::uint64_t total = stride * static_cast<std::uint64_t>(height);
-    if (total > static_cast<std::uint64_t>(std::numeric_limits<std::size_t>::max())) {
+    if (total > static_cast<std::uint64_t>(std::numeric_limits<std::size_t>::max()) ||
+        exceeds_resource_limit(total)) {
         return std::nullopt;
     }
     return static_cast<std::size_t>(total);
 }
 
 ImageCreateResult make_rgba8_image(const std::uint32_t width, const std::uint32_t height) {
+    if (width == 0U || height == 0U) {
+        return ImageCreateResult{
+            std::nullopt,
+            make_error(ImageErrorCode::invalid_dimensions, "canonical image width and height must both be non-zero")};
+    }
+
+    const std::uint64_t stride = static_cast<std::uint64_t>(width) * kBytesPerPixel;
+    if (stride != 0U && static_cast<std::uint64_t>(height) <= std::numeric_limits<std::uint64_t>::max() / stride) {
+        const std::uint64_t total = stride * static_cast<std::uint64_t>(height);
+        if (exceeds_resource_limit(total)) {
+            return ImageCreateResult{
+                std::nullopt,
+                make_error(
+                    ImageErrorCode::resource_limit,
+                    "canonical RGBA8 image exceeds the 512 MiB v1 allocation limit; use a smaller source or an explicit proxy for exploration")};
+        }
+    }
+
     const auto byte_size = canonical_rgba8_byte_size(width, height);
     if (!byte_size.has_value()) {
         return ImageCreateResult{
             std::nullopt,
-            make_error(ImageErrorCode::size_overflow, "image dimensions are zero or exceed the canonical RGBA8 size limit")};
+            make_error(ImageErrorCode::size_overflow, "image dimensions overflow the canonical RGBA8 size contract")};
     }
 
     ImageBuffer image;
@@ -86,9 +109,19 @@ std::optional<ImageError> validate_canonical_image(const ImageBuffer& image) {
     if (image.format != PixelFormat::rgba8_unorm) {
         return make_error(ImageErrorCode::unsupported_format, "canonical image format must be RGBA8 UNORM");
     }
+    if (image.width == 0U || image.height == 0U) {
+        return make_error(ImageErrorCode::invalid_dimensions, "canonical image dimensions must be non-zero");
+    }
+    const std::uint64_t stride = static_cast<std::uint64_t>(image.width) * kBytesPerPixel;
+    if (stride != 0U && static_cast<std::uint64_t>(image.height) <= std::numeric_limits<std::uint64_t>::max() / stride) {
+        const std::uint64_t total = stride * static_cast<std::uint64_t>(image.height);
+        if (exceeds_resource_limit(total)) {
+            return make_error(ImageErrorCode::resource_limit, "canonical RGBA8 image exceeds the 512 MiB v1 allocation limit");
+        }
+    }
     const auto byte_size = canonical_rgba8_byte_size(image.width, image.height);
     if (!byte_size.has_value()) {
-        return make_error(ImageErrorCode::invalid_dimensions, "canonical image dimensions are invalid or overflow the size contract");
+        return make_error(ImageErrorCode::invalid_dimensions, "canonical image dimensions overflow the size contract");
     }
     const std::uint64_t expected_stride = static_cast<std::uint64_t>(image.width) * kBytesPerPixel;
     if (image.row_stride != expected_stride) {
