@@ -32,7 +32,7 @@ The FM-015 audit retained the accepted architecture rather than introducing para
 The hardening pass additionally makes the following release boundaries explicit:
 
 - canonical image buffers are limited to 512 MiB per RGBA8 image allocation and fail explicitly instead of attempting an unbounded allocation;
-- mutation/genome topology uses a 64-operator v1 ceiling; mutation topology cannot exceed that contract;
+- parsed, programmatic and mutation-generated genomes use one 64-operator v1 ceiling;
 - retained lineage state is limited to 4096 specimens and rejects further unique retention with an actionable export/prune message;
 - generic structured JSON parsing retains its bounded 64-level nesting contract, duplicate-key rejection, UTF-8 validation and strict schema checking;
 - the laboratory worker retains a 5 s default deadline and 512 MiB Job Object memory ceiling plus bounded/versioned IPC validation;
@@ -85,6 +85,8 @@ The release regression ceilings are deliberately looser than expected measuremen
 | temporal replay through frame 8 | 15000 ms |
 | canonical batch of 32 descendants | 15000 ms |
 | estimated active pipeline buffers | 64 MiB |
+
+A reference measurement from PR #35 CI run 82 on the GitHub Windows Server 2025 / Visual Studio 2026 hosted image produced: 37.8925 ms canonical 1080p render, 0.557842 ms proxy generation, 1.35013 ms D3D upload/present with hardware D3D (`d3d_warp=false`), 0.167171 ms project round-trip, 473.167 ms temporal frame-8 replay, 42.3048 ms for the 32-descendant batch, and a 23 MiB conservative pipeline-buffer estimate. These are evidence for the chosen tripwires, not promises for user hardware.
 
 The accepted release-candidate workflow stores the exact measured JSON alongside the portable ZIP as CI evidence. These ceilings may only be tightened or changed from subsequent measurement; an optimisation may not alter canonical bytes to satisfy them. Approximate future accelerations must remain explicitly preview-only until exact equivalence is proven.
 
