@@ -119,8 +119,10 @@ void test_still_is_full_resolution_and_manifest_round_trips() {
         if (parsed.ok()) expect_equal(*parsed.manifest, manifest, "manifest exact round-trip preserves all semantic/provenance fields");
 
         std::string missing = text;
-        const std::string needle = "\"application_version\":\"0.12.0\",";
+        const std::string needle =
+            "\"application_version\":\"" + std::string{exporting::kApplicationVersion} + "\",";
         const std::size_t found = missing.find(needle);
+        expect(found != std::string::npos, "missing-field fixture resolves the current application version field");
         if (found != std::string::npos) missing.erase(found, needle.size());
         expect(!exporting::parse_export_manifest(missing, session.registry().schema_registry()).ok(), "manifest parser rejects a missing required field");
 

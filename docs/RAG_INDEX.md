@@ -20,6 +20,7 @@ This is the retrieval entry point for agents and maintainers. Read the documents
 - [`RAG_TEMPORAL.md`](RAG_TEMPORAL.md) — FM-011 explicit frame/tick semantics, model-owned feedback state, integer modulators, temporal faults, timeline-rate metadata and native transport controls.
 - [`RAG_EXPORT.md`](RAG_EXPORT.md) — FM-012 canonical still/contact/sequence export, strict provenance manifests, atomic collision policy and cancellation/partial-output semantics.
 - [`RAG_EXTERNAL_DECODERS.md`](RAG_EXTERNAL_DECODERS.md) — external-decoder isolation, non-canonical decoder behaviour, freeze/materialize rules and laboratory provenance.
+- [`RAG_BATCH_MINING.md`](RAG_BATCH_MINING.md) — FM-014 headless indexed mutation search, descriptor v1, exact/near dedupe, deterministic diversity selection, safe resume and GUI-importable mined provenance.
 - [`RAG_ROADMAP.md`](RAG_ROADMAP.md) — initial plan, review findings, improved dependency-ordered implementation plan and milestones.
 - [`RAG_VERIFICATION.md`](RAG_VERIFICATION.md) — deterministic testing, CI, performance and release verification strategy.
 - [`RAG_ISSUE_PROTOCOL.md`](RAG_ISSUE_PROTOCOL.md) — standard structure and completion protocol used by every `FM-###` GitHub implementation issue.
@@ -68,9 +69,13 @@ This is the retrieval entry point for agents and maintainers. Read the documents
 - **export manifest** — strict versioned FM-012 JSON sidecar binding an export to normalized source identity, embedded canonical genome/identity, seed, operator versions, output dimensions/format and applicable lineage/temporal provenance.
 - **contact sheet** — deterministic presentation artefact made from ordered canonical specimen renders and explicitly marked non-canonical as a final specimen image; its manifest maps cells back to canonical specimen identities/genomes.
 - **frame sequence** — dependency-free canonical animation baseline: atomically written PNGs over an explicit `[begin,end)` semantic-frame range with deterministic filenames and per-frame identities.
+- **batch address** — FM-014 explicit source/parent/mutation-seed/radius/index/frame/render-mode address for one independently reproducible mined descendant.
+- **visual descriptor** — versioned deterministic integer feature vector used only for exact mathematical similarity/diversity search; it is not a subjective quality score.
+- **near duplicate** — an exact-pixel representative whose descriptor distance is within the explicit inclusive FM-014 threshold of an earlier representative.
+- **novelty selection** — deterministic farthest-point coverage over descriptor space with fixed tie-breaking; it selects diversity, not aesthetic preference.
 - **preview** — interactive presentation; it must not silently redefine canonical semantics.
 - **materialized laboratory source** — validated normalized pixels retained from an external-decoder experiment so downstream canonical work does not depend on rerunning decoder-specific recovery behaviour.
 
 ## v1 target
 
-A compact Windows x64 application capable of opening an image, constructing and editing a deterministic fault stack, exploring seeded descendants in a specimen tray, locking/mutating/breeding results, retaining favourites and navigating durable lineage, driving explicit deterministic temporal faults/feedback, saving projects/genomes, and exporting provenance-rich reproducible stills, deterministic contact sheets and canonical temporal image sequences. Advanced codec/binary corruption and batch mining are later v1 phases but are architected from the start as bounded extensions rather than unsafe shortcuts.
+A compact Windows x64 application capable of opening an image, constructing and editing a deterministic fault stack, exploring seeded descendants in a specimen tray, locking/mutating/breeding results, retaining favourites and navigating durable lineage, driving explicit deterministic temporal faults/feedback, saving projects/genomes, exporting provenance-rich reproducible stills/contact sheets/temporal image sequences, running isolated codec/raw-data laboratory experiments, and mining large deterministic descendant ranges headlessly with resumable descriptor-based diversity search. FM-015 hardening/packaging remains the release-readiness phase.
