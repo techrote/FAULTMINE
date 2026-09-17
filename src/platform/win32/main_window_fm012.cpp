@@ -1,15 +1,17 @@
 #include "faultmine/export.hpp"
 
-#define run_application run_application_fm011
+#define FAULTMINE_FM012_LAYER 1
 #include "main_window_fm011.cpp"
-#undef run_application
+#undef FAULTMINE_FM012_LAYER
 
+#include <array>
 #include <charconv>
 #include <cstdint>
 #include <filesystem>
 #include <limits>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace faultmine::platform::win32 {
@@ -33,6 +35,11 @@ constexpr UINT kRangeOk = 2003U;
 constexpr UINT kRangeCancel = 2004U;
 constexpr UINT kProgressCancel = 2010U;
 
+[[nodiscard]] bool smoke_command_line() noexcept {
+    const wchar_t* command_line = GetCommandLineW();
+    return command_line != nullptr && std::wstring_view{command_line}.find(L"--smoke-test") != std::wstring_view::npos;
+}
+
 struct RangeDialogState {
     HWND window{};
     HWND start_edit{};
@@ -48,11 +55,9 @@ struct RangeDialogState {
     const int length = GetWindowTextW(edit, buffer, static_cast<int>(std::size(buffer)));
     if (length <= 0) return false;
     const std::string text = wide_to_utf8(std::wstring_view{buffer, static_cast<std::size_t>(length)});
-    const char* first = text.data();
-    const char* last = first + text.size();
     std::uint64_t parsed{};
-    const auto result = std::from_chars(first, last, parsed, 10);
-    if (result.ec != std::errc{} || result.ptr != last) return false;
+    const auto result = std::from_chars(text.data(), text.data() + text.size(), parsed, 10);
+    if (result.ec != std::errc{} || result.ptr != text.data() + text.size()) return false;
     value = parsed;
     return true;
 }
@@ -68,26 +73,29 @@ LRESULT CALLBACK range_dialog_proc(const HWND window, const UINT message, const 
         }
     }
     if (state == nullptr) return DefWindowProcW(window, message, w_param, l_param);
+
     switch (message) {
         case WM_CREATE: {
-            auto make = [&](const wchar_t* klass, const wchar_t* text, const DWORD style, const UINT id,
-                            const int x, const int y, const int width, const int height) {
-                HWND control = CreateWindowExW(0, klass, text, WS_CHILD | WS_VISIBLE | style,
-                    x, y, width, height, window, reinterpret_cast<HMENU>(static_cast<UINT_PTR>(id)),
-                    GetModuleHandleW(nullptr), nullptr);
-                SendMessageW(control, WM_SETFONT, reinterpret_cast<WPARAM>(GetStockObject(DEFAULT_GUI_FONT)), TRUE);
+            const auto make = [&](const wchar_t* klass, const wchar_t* text, const DWORD style, const UINT id,
+                                  const int x, const int y, const int width, const int height) {
+                HWND control = CreateWindowExW(
+                    0, klass, text, WS_CHILD | WS_VISIBLE | style, x, y, width, height, window,
+                    reinterpret_cast<HMENU>(static_cast<UINT_PTR>(id)), GetModuleHandleW(nullptr), nullptr);
+                if (control != nullptr) {
+                    SendMessageW(control, WM_SETFONT, reinterpret_cast<WPARAM>(GetStockObject(DEFAULT_GUI_FONT)), TRUE);
+                }
                 return control;
             };
-            make(L"STATIC", L"Start frame (inclusive)", SS_LEFT, 0U, 12, 14, 150, 20);
+            (void)make(L"STATIC", L"Start frame (inclusive)", SS_LEFT, 0U, 12, 14, 150, 20);
             state->start_edit = make(L"EDIT", std::to_wstring(state->start).c_str(), ES_AUTOHSCROLL | WS_BORDER,
                 kRangeStartEdit, 170, 10, 180, 24);
-            make(L"STATIC", L"End frame (exclusive)", SS_LEFT, 0U, 12, 48, 150, 20);
+            (void)make(L"STATIC", L"End frame (exclusive)", SS_LEFT, 0U, 12, 48, 150, 20);
             state->end_edit = make(L"EDIT", std::to_wstring(state->end).c_str(), ES_AUTOHSCROLL | WS_BORDER,
                 kRangeEndEdit, 170, 44, 180, 24);
-            make(L"STATIC", L"PNG frames use deterministic -f000000 naming. A provenance manifest is written by default.",
+            (void)make(L"STATIC", L"Deterministic -f000000 PNG names; provenance manifest on by default.",
                 SS_LEFT, 0U, 12, 80, 338, 38);
-            make(L"BUTTON", L"Export", BS_DEFPUSHBUTTON, kRangeOk, 190, 126, 76, 26);
-            make(L"BUTTON", L"Cancel", BS_PUSHBUTTON, kRangeCancel, 274, 126, 76, 26);
+            (void)make(L"BUTTON", L"Export", BS_DEFPUSHBUTTON, kRangeOk, 190, 126, 76, 26);
+            (void)make(L"BUTTON", L"Cancel", BS_PUSHBUTTON, kRangeCancel, 274, 126, 76, 26);
             return 0;
         }
         case WM_COMMAND: {
@@ -132,6 +140,12 @@ LRESULT CALLBACK range_dialog_proc(const HWND window, const UINT message, const 
     const std::uint64_t current_frame,
     std::uint64_t& start,
     std::uint64_t& end) {
+    if (current_frame == std::numeric_limits<std::uint64_t>::max()) {
+        MessageBoxW(owner, L"The maximum uint64 frame cannot start a non-empty end-exclusive range. Seek to an earlier frame first.",
+            kWindowTitle, MB_OK | MB_ICONWARNING);
+        return false;
+    }
+
     WNDCLASSEXW klass{};
     klass.cbSize = static_cast<UINT>(sizeof(klass));
     klass.lpfnWndProc = range_dialog_proc;
@@ -147,16 +161,20 @@ LRESULT CALLBACK range_dialog_proc(const HWND window, const UINT message, const 
     state.end = current_frame > std::numeric_limits<std::uint64_t>::max() - 60U
         ? std::numeric_limits<std::uint64_t>::max() : current_frame + 60U;
     HWND dialog = CreateWindowExW(
-        WS_EX_DLGMODALFRAME,
-        kSequenceDialogClass,
-        L"FAULTMINE frame sequence",
+        WS_EX_DLGMODALFRAME, kSequenceDialogClass, L"FAULTMINE frame sequence",
         WS_CAPTION | WS_SYSMENU | WS_POPUP | WS_VISIBLE,
         CW_USEDEFAULT, CW_USEDEFAULT, 378, 200,
         owner, nullptr, GetModuleHandleW(nullptr), &state);
     if (dialog == nullptr) return false;
+
     EnableWindow(owner, FALSE);
     MSG message{};
-    while (!state.finished && GetMessageW(&message, nullptr, 0U, 0U) > 0) {
+    while (!state.finished) {
+        const BOOL status = GetMessageW(&message, nullptr, 0U, 0U);
+        if (status <= 0) {
+            state.finished = true;
+            break;
+        }
         if (!IsDialogMessageW(dialog, &message)) {
             TranslateMessage(&message);
             DispatchMessageW(&message);
@@ -187,19 +205,20 @@ LRESULT CALLBACK progress_proc(const HWND window, const UINT message, const WPAR
         }
     }
     if (state == nullptr) return DefWindowProcW(window, message, w_param, l_param);
+
     if (message == WM_CREATE) {
         state->label = CreateWindowExW(0, L"STATIC", L"Preparing export...", WS_CHILD | WS_VISIBLE | SS_LEFT,
             12, 14, 346, 24, window, nullptr, GetModuleHandleW(nullptr), nullptr);
         HWND cancel = CreateWindowExW(0, L"BUTTON", L"Cancel", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
             282, 48, 76, 26, window, reinterpret_cast<HMENU>(static_cast<UINT_PTR>(kProgressCancel)),
             GetModuleHandleW(nullptr), nullptr);
-        SendMessageW(state->label, WM_SETFONT, reinterpret_cast<WPARAM>(GetStockObject(DEFAULT_GUI_FONT)), TRUE);
-        SendMessageW(cancel, WM_SETFONT, reinterpret_cast<WPARAM>(GetStockObject(DEFAULT_GUI_FONT)), TRUE);
+        if (state->label != nullptr) SendMessageW(state->label, WM_SETFONT, reinterpret_cast<WPARAM>(GetStockObject(DEFAULT_GUI_FONT)), TRUE);
+        if (cancel != nullptr) SendMessageW(cancel, WM_SETFONT, reinterpret_cast<WPARAM>(GetStockObject(DEFAULT_GUI_FONT)), TRUE);
         return 0;
     }
     if (message == WM_COMMAND && static_cast<UINT>(LOWORD(w_param)) == kProgressCancel) {
         state->cancelled = true;
-        SetWindowTextW(state->label, L"Cancelling after the current atomic frame write...");
+        if (state->label != nullptr) SetWindowTextW(state->label, L"Cancelling after the current atomic frame write...");
         return 0;
     }
     if (message == WM_CLOSE) {
@@ -212,17 +231,14 @@ LRESULT CALLBACK progress_proc(const HWND window, const UINT message, const WPAR
 
 class ExportUi {
 public:
-    ExportUi(MainWindow& owner, ExplorerTrayPanel& tray) : owner_(owner), tray_(tray) {}
-
-    ~ExportUi() {
-        if (owner_.hwnd_ != nullptr && IsWindow(owner_.hwnd_) != FALSE) {
-            RemovePropW(owner_.hwnd_, kExportPropertyName);
-            if (old_proc_ != nullptr) SetWindowLongPtrW(owner_.hwnd_, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(old_proc_));
-        }
-    }
+    explicit ExportUi(MainWindow& owner) : owner_(owner) {}
 
     [[nodiscard]] bool attach(std::string* error) {
         HMENU export_menu = CreatePopupMenu();
+        if (export_menu == nullptr) {
+            if (error != nullptr) *error = "could not create FM-012 Export menu";
+            return false;
+        }
         AppendMenuW(export_menu, MF_STRING, kCommandExportStill, L"Canonical &still + manifest\tCtrl+E");
         AppendMenuW(export_menu, MF_STRING, kCommandExportContact, L"Retained specimen &contact sheet\tCtrl+Shift+E");
         AppendMenuW(export_menu, MF_STRING, kCommandExportSequence, L"Temporal frame &sequence...\tCtrl+Alt+E");
@@ -231,8 +247,8 @@ public:
         AppendMenuW(owner_.menu_, MF_POPUP, reinterpret_cast<UINT_PTR>(export_menu), L"E&xport");
         DrawMenuBar(owner_.hwnd_);
 
-        RegisterHotKey(owner_.hwnd_, kHotkeyExportContact, MOD_CONTROL | MOD_SHIFT | MOD_NOREPEAT, 'E');
-        RegisterHotKey(owner_.hwnd_, kHotkeyExportSequence, MOD_CONTROL | MOD_ALT | MOD_NOREPEAT, 'E');
+        (void)RegisterHotKey(owner_.hwnd_, kHotkeyExportContact, MOD_CONTROL | MOD_SHIFT | MOD_NOREPEAT, 'E');
+        (void)RegisterHotKey(owner_.hwnd_, kHotkeyExportSequence, MOD_CONTROL | MOD_ALT | MOD_NOREPEAT, 'E');
         SetPropW(owner_.hwnd_, kExportPropertyName, reinterpret_cast<HANDLE>(this));
         SetLastError(ERROR_SUCCESS);
         old_proc_ = reinterpret_cast<WNDPROC>(SetWindowLongPtrW(
@@ -245,32 +261,10 @@ public:
         return true;
     }
 
-    [[nodiscard]] bool smoke_export(std::string* error) {
-        const std::filesystem::path root = std::filesystem::temp_directory_path() /
-            (L"faultmine-fm012-smoke-" + std::to_wstring(static_cast<unsigned long>(GetCurrentProcessId())));
-        std::error_code fs_error;
-        std::filesystem::remove_all(root, fs_error);
-        fs_error.clear();
-        std::filesystem::create_directories(root, fs_error);
-        if (fs_error) {
-            if (error != nullptr) *error = "could not create FM-012 native smoke export directory";
-            return false;
-        }
-        const app::ExportResult still = app::export_canonical_still(owner_.session_, root / L"still.png");
-        if (!still.success) {
-            if (error != nullptr) *error = still.error;
-            return false;
-        }
-        app::SequenceOptions sequence;
-        sequence.frame_start_inclusive = 0U;
-        sequence.frame_end_exclusive = 2U;
-        const app::ExportResult frames = app::export_frame_sequence(owner_.session_, root / L"sequence.png", sequence);
-        if (!frames.success) {
-            if (error != nullptr) *error = frames.error;
-            return false;
-        }
-        std::filesystem::remove_all(root, fs_error);
-        return true;
+    [[nodiscard]] bool maybe_run_smoke(std::string* error) {
+        if (!smoke_command_line() || smoke_attempted_ || !owner_.session_.has_source()) return true;
+        smoke_attempted_ = true;
+        return smoke_export(error);
     }
 
 private:
@@ -281,6 +275,13 @@ private:
         const LPARAM l_param) {
         auto* self = reinterpret_cast<ExportUi*>(GetPropW(window, kExportPropertyName));
         if (self == nullptr || self->old_proc_ == nullptr) return DefWindowProcW(window, message, w_param, l_param);
+
+        std::string smoke_error;
+        if (!self->maybe_run_smoke(&smoke_error)) {
+            show_error_box(window, L"FAULTMINE canonical export smoke failed:\n" + utf8_to_wide(smoke_error));
+            PostQuitMessage(EXIT_FAILURE);
+            return 0;
+        }
 
         if (message == WM_COMMAND) {
             const UINT command = static_cast<UINT>(LOWORD(w_param));
@@ -324,12 +325,17 @@ private:
                 return 0;
             }
         }
+
         if (message == WM_DESTROY) {
             UnregisterHotKey(window, kHotkeyExportContact);
             UnregisterHotKey(window, kHotkeyExportSequence);
-            RemovePropW(window, kExportPropertyName);
         }
-        return CallWindowProcW(self->old_proc_, window, message, w_param, l_param);
+        const LRESULT result = CallWindowProcW(self->old_proc_, window, message, w_param, l_param);
+        if (message == WM_NCDESTROY) {
+            RemovePropW(window, kExportPropertyName);
+            delete self;
+        }
+        return result;
     }
 
     [[nodiscard]] std::optional<std::filesystem::path> choose_png_path(const std::wstring& suggested) const {
@@ -347,10 +353,18 @@ private:
         return std::filesystem::path{filename.data()};
     }
 
-    [[nodiscard]] app::ExportOverwritePolicy confirmed_policy(const std::filesystem::path& path) const {
-        if (!std::filesystem::exists(path) && !std::filesystem::exists(app::companion_manifest_path(path))) {
-            return app::ExportOverwritePolicy::fail_if_exists;
-        }
+    [[nodiscard]] std::optional<app::ExportOverwritePolicy> confirm_overwrite_policy(
+        const std::filesystem::path& path,
+        const bool sequence_wide) const {
+        const bool image_or_base_exists = std::filesystem::exists(path);
+        const bool manifest_exists = std::filesystem::exists(app::companion_manifest_path(path));
+        if (!image_or_base_exists && !manifest_exists) return app::ExportOverwritePolicy::fail_if_exists;
+
+        const wchar_t* text = sequence_wide
+            ? L"One or more export names may already exist. Replace colliding sequence files and the companion manifest atomically?"
+            : L"The selected PNG or its companion provenance manifest already exists. Replace the existing export artefact(s) atomically?";
+        const int answer = MessageBoxW(owner_.hwnd_, text, kWindowTitle, MB_YESNO | MB_ICONWARNING | MB_DEFBUTTON2);
+        if (answer != IDYES) return std::nullopt;
         return app::ExportOverwritePolicy::replace_existing;
     }
 
@@ -373,10 +387,16 @@ private:
             show_error_box(owner_.hwnd_, L"Load an image before exporting.");
             return;
         }
+        if (owner_.session_.current_frame() == std::numeric_limits<std::uint64_t>::max()) {
+            show_error_box(owner_.hwnd_, L"The maximum uint64 frame cannot be represented as a one-frame [start,end) manifest range. Seek to an earlier frame before exporting.");
+            return;
+        }
         const auto path = choose_png_path(owner_.session_.source_path().stem().wstring() + L"-faultmine.png");
         if (!path.has_value()) return;
+        const auto policy = confirm_overwrite_policy(*path, false);
+        if (!policy.has_value()) return;
         app::ExportOptions options;
-        options.overwrite_policy = confirmed_policy(*path);
+        options.overwrite_policy = *policy;
         report_result(app::export_canonical_still(owner_.session_, *path, options),
             "Exported full-resolution canonical PNG plus provenance manifest.");
     }
@@ -408,21 +428,27 @@ private:
             show_error_box(owner_.hwnd_, L"Load an image before exporting a contact sheet.");
             return;
         }
+        if (owner_.session_.current_frame() == std::numeric_limits<std::uint64_t>::max()) {
+            show_error_box(owner_.hwnd_, L"The maximum uint64 frame cannot be represented as a one-frame [start,end) manifest range. Seek to an earlier frame before exporting.");
+            return;
+        }
         std::vector<app::SpecimenTrayItem> items = retained_mutation_items();
         if (items.empty()) {
             show_error_box(owner_.hwnd_,
-                L"No retained mutation specimens are available. Favourite or promote tray specimens first; the contact-sheet command exports that user-selected retained subset in lineage order.");
+                L"No retained mutation specimens are available. Favourite or promote tray specimens first; the contact-sheet command exports that retained subset in lineage order.");
             return;
         }
         const auto path = choose_png_path(owner_.session_.source_path().stem().wstring() + L"-faultmine-contact.png");
         if (!path.has_value()) return;
+        const auto policy = confirm_overwrite_policy(*path, false);
+        if (!policy.has_value()) return;
         app::ExportOptions options;
-        options.overwrite_policy = confirmed_policy(*path);
+        options.overwrite_policy = *policy;
         report_result(app::export_contact_sheet(owner_.session_, items, *path, {}, options),
             "Exported deterministic retained-specimen contact sheet plus cell provenance manifest.");
     }
 
-    [[nodiscard]] bool create_progress_window(ProgressWindowState& state) {
+    [[nodiscard]] bool create_progress_window(ProgressWindowState& state) const {
         WNDCLASSEXW klass{};
         klass.cbSize = static_cast<UINT>(sizeof(klass));
         klass.lpfnWndProc = progress_proc;
@@ -439,7 +465,7 @@ private:
         return state.window != nullptr;
     }
 
-    void pump_progress(ProgressWindowState& state, const app::ExportProgress& progress) {
+    static void pump_progress(ProgressWindowState& state, const app::ExportProgress& progress) {
         if (state.label != nullptr) {
             const std::wstring text = L"Frame " + std::to_wstring(progress.current_frame) + L" | " +
                 std::to_wstring(progress.completed) + L" / " + std::to_wstring(progress.total) + L" committed";
@@ -483,14 +509,13 @@ private:
                     return !progress.cancelled;
                 });
         };
+
         app::ExportResult result = run(app::ExportOverwritePolicy::fail_if_exists);
         if (!result.success && !result.cancelled && result.error.find("collision") != std::string::npos) {
-            const int answer = MessageBoxW(owner_.hwnd_,
-                L"One or more deterministic sequence frame/manifest names already exist. Replace colliding outputs atomically?",
-                kWindowTitle, MB_YESNO | MB_ICONWARNING);
-            if (answer == IDYES) {
+            const auto replacement = confirm_overwrite_policy(*base, true);
+            if (replacement.has_value()) {
                 progress.cancelled = false;
-                result = run(app::ExportOverwritePolicy::replace_existing);
+                result = run(*replacement);
             }
         }
         progress_ = nullptr;
@@ -498,53 +523,50 @@ private:
         report_result(result, "Exported canonical temporal PNG sequence plus per-frame audit manifest.");
     }
 
+    [[nodiscard]] bool smoke_export(std::string* error) {
+        const std::filesystem::path root = std::filesystem::temp_directory_path() /
+            (L"faultmine-fm012-smoke-" + std::to_wstring(static_cast<unsigned long>(GetCurrentProcessId())));
+        std::error_code fs_error;
+        std::filesystem::remove_all(root, fs_error);
+        fs_error.clear();
+        std::filesystem::create_directories(root, fs_error);
+        if (fs_error) {
+            if (error != nullptr) *error = "could not create FM-012 native smoke export directory";
+            return false;
+        }
+        const app::ExportResult still = app::export_canonical_still(owner_.session_, root / L"still.png");
+        if (!still.success) {
+            if (error != nullptr) *error = still.error;
+            return false;
+        }
+        app::SequenceOptions sequence;
+        sequence.frame_start_inclusive = 0U;
+        sequence.frame_end_exclusive = 2U;
+        const app::ExportResult frames = app::export_frame_sequence(owner_.session_, root / L"sequence.png", sequence);
+        if (!frames.success) {
+            if (error != nullptr) *error = frames.error;
+            return false;
+        }
+        std::filesystem::remove_all(root, fs_error);
+        return true;
+    }
+
     MainWindow& owner_;
-    ExplorerTrayPanel& tray_;
     WNDPROC old_proc_{};
     ProgressWindowState* progress_{};
+    bool smoke_attempted_{};
 };
 
-}  // namespace
-
-int run_application(const HINSTANCE instance, const int show_command, const bool smoke_test) {
-    MainWindow window{instance};
-    if (!window.create()) return EXIT_FAILURE;
-
-    ExplorerTrayPanel tray{window};
+void fm012_install_export_ui(MainWindow& owner) {
+    if (owner.hwnd_ == nullptr || GetPropW(owner.hwnd_, kExportPropertyName) != nullptr) return;
+    auto* ui = new ExportUi(owner);
     std::string error;
-    if (!tray.attach(&error)) {
-        show_error_box(nullptr, L"FAULTMINE exploration/lineage panel initialization failed:\n" + utf8_to_wide(error));
-        return EXIT_FAILURE;
+    if (!ui->attach(&error)) {
+        delete ui;
+        show_error_box(owner.hwnd_, L"FAULTMINE export UI initialization failed:\n" + utf8_to_wide(error));
+        if (smoke_command_line()) PostQuitMessage(EXIT_FAILURE);
     }
-
-    ExportUi export_ui{window, tray};
-    if (!export_ui.attach(&error)) {
-        show_error_box(nullptr, L"FAULTMINE export UI initialization failed:\n" + utf8_to_wide(error));
-        return EXIT_FAILURE;
-    }
-
-    if (smoke_test) {
-        if (!window.smoke_present()) {
-            show_error_box(nullptr, L"FAULTMINE D3D11/session smoke presentation failed.");
-            return EXIT_FAILURE;
-        }
-        if (!tray.smoke_explore(&error)) {
-            show_error_box(nullptr, L"FAULTMINE mutation/crossover/lineage smoke failed:\n" + utf8_to_wide(error));
-            return EXIT_FAILURE;
-        }
-        if (!export_ui.smoke_export(&error)) {
-            show_error_box(nullptr, L"FAULTMINE canonical export smoke failed:\n" + utf8_to_wide(error));
-            return EXIT_FAILURE;
-        }
-        PostMessageW(nullptr, WM_NULL, 0U, 0U);
-    } else {
-        window.show(show_command);
-    }
-    if (smoke_test) {
-        HWND target = FindWindowW(kWindowClassName, kWindowTitle);
-        if (target != nullptr) PostMessageW(target, WM_CLOSE, 0U, 0U);
-    }
-    return window.message_loop();
 }
 
+}  // namespace
 }  // namespace faultmine::platform::win32
