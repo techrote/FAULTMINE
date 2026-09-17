@@ -146,11 +146,11 @@ void test_project_roundtrip_and_source_classification() {
     }
 
     std::string future = canonical;
-    const std::string token = "\"project_version\":1";
+    const std::string token = "\"project_version\":2";
     const std::size_t position = future.find(token);
     expect(position != std::string::npos, "project version token located");
     if (position != std::string::npos) {
-        future.replace(position, token.size(), "\"project_version\":2");
+        future.replace(position, token.size(), "\"project_version\":3");
         expect(!app::parse_project(future, editor.registry().schema_registry()).ok(), "future project version is rejected clearly");
     }
 
