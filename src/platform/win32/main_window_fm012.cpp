@@ -267,7 +267,7 @@ void install_temporal_ui(MainWindow& owner) {
 
     g_temporal_ui.export_menu = CreatePopupMenu();
     AppendMenuW(g_temporal_ui.export_menu, MF_STRING, kCommandExportStill, L"Canonical &still + provenance...\tCtrl+E");
-    AppendMenuW(g_temporal_ui.export_menu, MF_STRING, kCommandExportContact, L"Retained exploration &contact sheet...");
+    AppendMenuW(g_temporal_ui.export_menu, MF_STRING, kCommandExportContact, L"Current tray / retained &contact sheet...");
     AppendMenuW(g_temporal_ui.export_menu, MF_STRING, kCommandExportSequence, L"Canonical frame &sequence...");
     AppendMenuW(g_temporal_ui.export_menu, MF_SEPARATOR, 0U, nullptr);
     AppendMenuW(g_temporal_ui.export_menu, MF_STRING | MF_CHECKED, kCommandExportManifest, L"Write provenance &manifest");
@@ -375,8 +375,28 @@ void export_still_ui(MainWindow& owner) {
     owner.update_status();
 }
 
-[[nodiscard]] std::vector<exporting::ContactSheetSpecimen> retained_contact_specimens(MainWindow& owner) {
+[[nodiscard]] std::vector<exporting::ContactSheetSpecimen> current_contact_specimens(
+    MainWindow& owner,
+    bool& used_current_tray) {
     std::vector<exporting::ContactSheetSpecimen> specimens;
+    used_current_tray = false;
+    auto* tray_panel = reinterpret_cast<ExplorerTrayPanel*>(GetPropW(owner.hwnd_, kTrayPropertyName));
+    if (tray_panel != nullptr) {
+        const auto& items = tray_panel->tray_model().items();
+        if (!items.empty()) {
+            specimens.reserve(items.size());
+            for (std::size_t index = 0U; index < items.size(); ++index) {
+                const app::SpecimenTrayItem& item = items[index];
+                specimens.push_back(exporting::ContactSheetSpecimen{
+                    static_cast<std::uint64_t>(index),
+                    item.genome,
+                    core::genome_identity_hex(item.genome)});
+            }
+            used_current_tray = true;
+            return specimens;
+        }
+    }
+
     const auto& records = owner.session_.lineage().records();
     specimens.reserve(std::max<std::size_t>(records.size(), 1U));
     for (const app::SpecimenRecord& record : records) {
@@ -403,9 +423,10 @@ void export_contact_ui(MainWindow& owner) {
     const std::wstring default_name = owner.session_.source_path().stem().wstring() + L"-faultmine-contact.png";
     if (!choose_export_png(owner, default_name, destination)) return;
 
+    bool used_current_tray = false;
     exporting::ContactSheetRequest request;
     request.destination = destination;
-    request.specimens = retained_contact_specimens(owner);
+    request.specimens = current_contact_specimens(owner, used_current_tray);
     request.columns = 4U;
     request.cell_width = 320U;
     request.cell_height = 240U;
@@ -432,7 +453,9 @@ void export_contact_ui(MainWindow& owner) {
     if (result.cancelled) {
         owner.transient_status_ = "Contact-sheet export cancelled before final commit; no incomplete final PNG was left.";
     } else {
-        owner.transient_status_ = "Exported deterministic retained-exploration contact sheet";
+        owner.transient_status_ = used_current_tray
+            ? "Exported deterministic current-tray contact sheet"
+            : "Exported deterministic retained-selection contact sheet";
         owner.transient_status_ += request.write_manifest ? " + cell mapping manifest." : ".";
     }
     owner.update_status();
