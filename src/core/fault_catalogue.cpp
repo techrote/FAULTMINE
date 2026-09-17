@@ -4,6 +4,7 @@
 #include "faultmine/memory_addressing_operators.hpp"
 #include "faultmine/representation_bit_operators.hpp"
 #include "faultmine/starter_operators.hpp"
+#include "faultmine/temporal.hpp"
 
 #include <cstdint>
 #include <stdexcept>
@@ -109,6 +110,7 @@ FaultRegistry make_default_fault_registry() {
     register_memory_addressing_faults(registry);
     register_representation_bit_faults(registry);
     register_colour_faults(registry);
+    register_temporal_faults(registry);
     return registry;
 }
 
