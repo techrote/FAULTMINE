@@ -15,6 +15,7 @@ LRESULT temporal_call_window_proc(WNDPROC previous, HWND window, UINT message, W
 #include <cstdint>
 #include <limits>
 #include <string>
+#include <string_view>
 
 namespace faultmine::platform::win32 {
 namespace {
@@ -196,7 +197,10 @@ LRESULT temporal_call_window_proc(
     if (owner != nullptr) {
         install_temporal_ui(*owner);
 #ifdef FAULTMINE_FM012_LAYER
-        fm012_install_export_ui(*owner);
+        const wchar_t* command_line = GetCommandLineW();
+        const bool smoke_test = command_line != nullptr &&
+            std::wstring_view{command_line}.find(L"--smoke-test") != std::wstring_view::npos;
+        if (!smoke_test) fm012_install_export_ui(*owner);
 #endif
         if (message == WM_COMMAND && handle_temporal_command(*owner, static_cast<UINT>(LOWORD(w_param)))) return 0;
         if (message == WM_HOTKEY && handle_temporal_hotkey(*owner, static_cast<int>(w_param))) return 0;
