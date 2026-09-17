@@ -5,10 +5,12 @@
 #include <windows.h>
 
 #include <algorithm>
+#include <charconv>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <limits>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -89,7 +91,8 @@ using core::json::ValueType;
     const char* begin = version->text.data();
     const char* end = begin + version->text.size();
     const auto conversion = std::from_chars(begin, end, parsed, 10);
-    if (conversion.ec != std::errc{} || conversion.ptr != end || parsed > UINT32_MAX) return std::nullopt;
+    if (conversion.ec != std::errc{} || conversion.ptr != end ||
+        parsed > std::numeric_limits<std::uint32_t>::max()) return std::nullopt;
     return static_cast<std::uint32_t>(parsed);
 }
 
