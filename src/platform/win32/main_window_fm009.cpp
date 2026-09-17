@@ -187,6 +187,10 @@ public:
         return owner_.session_.ensure_preview(error);
     }
 
+    [[nodiscard]] const app::SpecimenTrayModel& tray_model() const noexcept {
+        return tray_;
+    }
+
 private:
     static LRESULT CALLBACK panel_proc(
         const HWND window,
