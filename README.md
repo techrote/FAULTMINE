@@ -37,7 +37,17 @@ FM-011 adds deterministic temporal work without making wall clock part of the ar
 - `SessionModel` exposes exact seek/step/reset and full render-at-frame while keeping preview playback rate separate from semantic frame/rate;
 - the native Timeline transport provides play/pause, exact stepping, reset/seek, preview-rate control and a visible current-frame/rate/play-state display.
 
-The byte-level deterministic rules are documented in [`docs/RAG_DETERMINISM.md`](docs/RAG_DETERMINISM.md), canonical image/operator semantics in [`docs/RAG_IMAGE_PIPELINE.md`](docs/RAG_IMAGE_PIPELINE.md), session/presentation boundaries in [`docs/RAG_SESSION_PRESENTATION.md`](docs/RAG_SESSION_PRESENTATION.md), fault-family contracts in the corresponding RAG documents, manual editor/project foundations in [`docs/RAG_PROJECT_EDITOR.md`](docs/RAG_PROJECT_EDITOR.md), mutation search in [`docs/RAG_MUTATION_SEARCH.md`](docs/RAG_MUTATION_SEARCH.md), crossover/lineage/project-v2 semantics in [`docs/RAG_LINEAGE_CROSSOVER.md`](docs/RAG_LINEAGE_CROSSOVER.md), and temporal semantics in [`docs/RAG_TEMPORAL.md`](docs/RAG_TEMPORAL.md).
+FM-012 turns capture into a provenance-bearing deterministic output pipeline:
+
+- full-resolution canonical still PNG export is isolated from proxy/canvas/tray presentation buffers;
+- strict export-manifest schema v1 embeds the canonical genome and binds source/genome/seed/operator/output identity plus retained lineage derivation where available;
+- PNG and manifest outputs are written to adjacent temporary files and only committed to final paths after successful completion, with explicit fail-if-exists or overwrite policy;
+- deterministic contact sheets preserve explicit specimen ordering and map every presentation cell back to complete specimen genome identity/canonical genome/render identity;
+- temporal image-sequence export uses explicit `[begin,end)` frames, stable zero-padded naming, semantic rational rate metadata and per-frame canonical pixel/frame identities;
+- cancellation occurs between atomic frame writes, preserving completed files and optionally committing a truthful partial manifest;
+- the native Export menu exposes provenance on/off, explicit overwrite, canonical stills, retained-exploration contact sheets and explicit frame-range sequences with progress/Escape cancellation.
+
+The byte-level deterministic rules are documented in [`docs/RAG_DETERMINISM.md`](docs/RAG_DETERMINISM.md), canonical image/operator semantics in [`docs/RAG_IMAGE_PIPELINE.md`](docs/RAG_IMAGE_PIPELINE.md), session/presentation boundaries in [`docs/RAG_SESSION_PRESENTATION.md`](docs/RAG_SESSION_PRESENTATION.md), fault-family contracts in the corresponding RAG documents, manual editor/project foundations in [`docs/RAG_PROJECT_EDITOR.md`](docs/RAG_PROJECT_EDITOR.md), mutation search in [`docs/RAG_MUTATION_SEARCH.md`](docs/RAG_MUTATION_SEARCH.md), crossover/lineage/project-v2 semantics in [`docs/RAG_LINEAGE_CROSSOVER.md`](docs/RAG_LINEAGE_CROSSOVER.md), temporal semantics in [`docs/RAG_TEMPORAL.md`](docs/RAG_TEMPORAL.md), and export/provenance semantics in [`docs/RAG_EXPORT.md`](docs/RAG_EXPORT.md).
 
 ## Prerequisites
 
@@ -107,6 +117,8 @@ The Timeline menu adds temporal presentation controls. These alter only which ex
 
 The window title shows current semantic frame, rational semantic rate, preview multiplier and play/pause state. Add/edit `temporal.timeline-rate` in the normal stack editor when a project needs explicit semantic rate metadata other than the default presentation assumption of 30/1.
 
+The Export menu adds the FM-012 capture surface. `Ctrl+E` now routes through the atomic canonical-still exporter. **Write provenance manifest** is enabled by default. **Allow explicit overwrite** is opt-in; otherwise an existing target is rejected. Contact-sheet export uses retained exploration specimens in durable creation order. Frame-sequence export prompts for inclusive begin and exclusive end frames, then a destination/naming stem; the status bar reports progress and Escape requests cancellation between completed files.
+
 Mutation locks do **not** block deliberate manual edits. They protect search operations and remain outside canonical genome identity. A primary whole-operator lock is also a crossover topology anchor. Manual edit history and specimen lineage remain intentionally separate.
 
 ## Project files and source relinking
@@ -114,6 +126,8 @@ Mutation locks do **not** block deliberate manual edits. They protect search ope
 `.fmproj` schema v2 is strict human-readable JSON. It embeds the active canonical genome and records source provenance, active-genome mutation locks, durable specimen lineage/favourites, proxy/session state, selected operator and separately identified non-semantic canvas view state.
 
 FM-011 does not introduce a parallel temporal project schema. Temporal fault parameters and optional rational semantic-rate metadata are ordinary canonical genome parameters and therefore survive existing project/lineage persistence. Current playback frame and preview-speed multiplier remain session/presentation state rather than specimen identity.
+
+FM-012 likewise does not change project schema. Export manifests are output-side audit records, not mutable project state. A manifest embeds the active canonical genome and identities needed to audit/reproduce the exported result without making the export operation part of specimen identity.
 
 Lineage records retain complete typed genomes plus canonical genome/source identities and explicit derivation metadata. Mutation nodes store parent identity, mutation-policy version, seed, descendant index and radius. Crossover nodes store ordered parent identities, crossover-policy version and crossover seed. Rendered thumbnail/full-resolution pixels are never lineage authority.
 
@@ -131,11 +145,11 @@ The narrow developer CLI remains available:
 .\build\Debug\FAULTMINE-render.exe input.png genome.json output.png
 ```
 
-It validates the genome against the **default** registry, normalizes the input through WIC, executes the canonical CPU stack at frame 0, writes a PNG, and prints normalized source/output identities. Temporal sequence export is FM-012 scope; the canonical core already exposes explicit render-at-frame semantics for that work.
+It validates the genome against the **default** registry, normalizes the input through WIC, executes the canonical CPU stack at frame 0, writes a PNG, and prints normalized source/output identities. Provenance-rich still/contact/sequence capture is owned by the FM-012 export service used by the native application; FM-014 will reuse that service rather than inventing a second batch-export truth.
 
 ## Authoritative development documentation
 
-Start with [`docs/RAG_INDEX.md`](docs/RAG_INDEX.md). It indexes the product, architecture, deterministic contracts, image/pipeline contracts, session/presentation boundaries, fault-family contracts, mutation/search/crossover/lineage/temporal contracts, project semantics, roadmap, verification and autonomous-issue execution rules.
+Start with [`docs/RAG_INDEX.md`](docs/RAG_INDEX.md). It indexes the product, architecture, deterministic contracts, image/pipeline contracts, session/presentation boundaries, fault-family contracts, mutation/search/crossover/lineage/temporal/export contracts, project semantics, roadmap, verification and autonomous-issue execution rules.
 
 Implementation work is tracked as GitHub issues prefixed `FM-###`. Each implementation issue is intended to be executable autonomously: inspect current `main`, implement the stated scope, test it, reconcile documentation, open a PR, repair CI, merge after required checks pass, verify the merge landed on `main`, and only then close the issue when its acceptance criteria are satisfied.
 
@@ -143,10 +157,11 @@ Implementation work is tracked as GitHub issues prefixed `FM-###`. Each implemen
 
 - C++20
 - CMake + MSVC
-- Win32 desktop shell and generic native stack/exploration/timeline editor
+- Win32 desktop shell and generic native stack/exploration/timeline/export editor
 - pure-core deterministic genome/entropy/SHA-256 substrate
 - canonical RGBA8 CPU fault pipeline with explicit temporal replay
 - application/session/editor/project/lineage models and deterministic proxy preprocessing
+- provenance-rich canonical still/contact/image-sequence export service
 - D3D11 / DXGI presentation
 - Windows Imaging Component (WIC) image I/O
 - GitHub Actions on `windows-latest`
