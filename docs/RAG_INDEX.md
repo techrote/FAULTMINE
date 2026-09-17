@@ -14,8 +14,9 @@ This is the retrieval entry point for agents and maintainers. Read the documents
 - [`RAG_MEMORY_ADDRESSING.md`](RAG_MEMORY_ADDRESSING.md) — shared logical-address policies, FM-005 memory/addressing operators, bounded-work rules and mutation descriptor hints.
 - [`RAG_REPRESENTATION_BITS.md`](RAG_REPRESENTATION_BITS.md) — FM-006 channel/word/packed/planar/signed/bit semantics, structured bit bursts and host-independent representation rules.
 - [`RAG_COLOUR.md`](RAG_COLOUR.md) — FM-007 palette/LUT assets, colour mapping, integer quantisation/dither, seeded palette generation and colour mutation domains.
-- [`RAG_PROJECT_EDITOR.md`](RAG_PROJECT_EDITOR.md) — FM-008 generic stack editor, mutation locks, edit history, project-v1 persistence and source relink contract.
+- [`RAG_PROJECT_EDITOR.md`](RAG_PROJECT_EDITOR.md) — FM-008 generic stack editor, mutation locks, edit history, project persistence/source relink contract; project schema v2 is extended by FM-010.
 - [`RAG_MUTATION_SEARCH.md`](RAG_MUTATION_SEARCH.md) — FM-009 independently addressed descendants, typed mutation radius, topology/lock semantics, specimen tray and promotion contract.
+- [`RAG_LINEAGE_CROSSOVER.md`](RAG_LINEAGE_CROSSOVER.md) — FM-010 typed multi-parent crossover, durable specimen DAG, favourites, provenance UI and explicit project-v1 → project-v2 migration.
 - [`RAG_EXTERNAL_DECODERS.md`](RAG_EXTERNAL_DECODERS.md) — external-decoder isolation, non-canonical decoder behaviour, freeze/materialize rules and laboratory provenance.
 - [`RAG_ROADMAP.md`](RAG_ROADMAP.md) — initial plan, review findings, improved dependency-ordered implementation plan and milestones.
 - [`RAG_VERIFICATION.md`](RAG_VERIFICATION.md) — deterministic testing, CI, performance and release verification strategy.
@@ -43,22 +44,24 @@ This is the retrieval entry point for agents and maintainers. Read the documents
 - **LUT asset** — four explicit 256-entry byte lookup tables for canonical RGBA channels, with versioned canonical serialization and content identity.
 - **fault stack / pipeline** — ordered operator graph for a specimen; v1 begins as a serial stack but serialization must permit future typed expansion.
 - **genome** — complete serializable description of pipeline topology and parameters, excluding incidental UI state.
-- **project** — versioned human-readable continuation state containing source provenance, active genome, mutation locks and clearly separated session/UI state; defined in `RAG_PROJECT_EDITOR.md`.
-- **edit history** — undo/redo snapshots of deliberate manual genome/lock edits, distinct from future artistic specimen lineage.
+- **project** — versioned human-readable continuation state containing source provenance, active genome, mutation locks, durable specimen lineage/favourites and clearly separated session/UI state. FM-010 project schema v2 is defined by `RAG_LINEAGE_CROSSOVER.md` and migrates schema v1 explicitly.
+- **edit history** — undo/redo snapshots of deliberate manual genome/lock edits, distinct from specimen lineage.
 - **seed** — explicit 64-bit root deterministic entropy used to derive named random streams under `RAG_DETERMINISM.md`.
 - **operator instance ID** — stable persisted 128-bit identity independent of list position.
-- **mutation descriptor** — non-persisted typed operator/parameter metadata used by later deterministic search; it never changes canonical render identity by itself.
-- **session** — non-canonical application state connecting one normalized source, a genome, preview cache, proxy state and view state; defined in `RAG_SESSION_PRESENTATION.md` and extended by FM-008 project/editor state.
+- **mutation descriptor** — non-persisted typed operator/parameter metadata used by deterministic search; it never changes canonical render identity by itself.
+- **session** — non-canonical application state connecting one normalized source, a genome, preview cache, proxy state, view state and durable project lineage state.
 - **proxy preview** — deterministic nearest-neighbour preprocessing used only for interactive responsiveness; visibly non-canonical as a final-resolution result and never substituted for export.
-- **specimen** — rendered result from source + genome + seed + engine version (+ explicit tick for temporal work).
+- **specimen** — retained/searchable canonical genome for a particular source plus explicit derivation metadata; rendered pixels are disposable products, not specimen lineage authority.
 - **gene** — mutable unit of genome state used by exploration controls.
-- **lock** — mutation protection applied to one or more genes/operators; locks are project state and do not block deliberate manual editing. Under FM-009 a whole-operator lock is also a topology anchor preserving that instance's stack position during mutation.
+- **lock** — mutation/crossover protection applied to genes/operators; locks are project state and do not block deliberate manual editing. Under FM-009 a whole-operator lock is a topology anchor during mutation; FM-010 preserves primary-parent anchors during crossover.
 - **mutation radius** — categorical typed mutation locality/topology policy (`low`, `medium`, `high`) defined by `RAG_MUTATION_SEARCH.md`, not a generic scalar multiplier.
-- **lineage** — parent/child/crossover provenance among specimens.
+- **lineage** — durable acyclic parent/child/crossover provenance among retained canonical specimens, distinct from editor undo/redo; defined in `RAG_LINEAGE_CROSSOVER.md`.
+- **favourite** — durable non-semantic retained-specimen flag persisted by project schema v2; tray pins are the interactive presentation of that state.
+- **crossover** — deterministic typed multi-parent recombination under policy v1. Parent selection order is semantic; the first parent is the primary topology scaffold.
 - **canonical output** — result of the authoritative deterministic CPU engine.
 - **preview** — interactive presentation; it must not silently redefine canonical semantics.
 - **materialized laboratory source** — validated normalized pixels retained from an external-decoder experiment so downstream canonical work does not depend on rerunning decoder-specific recovery behaviour.
 
 ## v1 target
 
-A compact Windows x64 application capable of opening an image, constructing and editing a deterministic fault stack, exploring seeded descendants in a specimen tray, locking/mutating/breeding results, saving projects/genomes, and exporting reproducible still or animated output. Advanced codec/binary corruption and batch mining are later v1 phases but are architected from the start as bounded extensions rather than unsafe shortcuts.
+A compact Windows x64 application capable of opening an image, constructing and editing a deterministic fault stack, exploring seeded descendants in a specimen tray, locking/mutating/breeding results, retaining favourites and navigating durable lineage, saving projects/genomes, and exporting reproducible still or animated output. Advanced codec/binary corruption and batch mining are later v1 phases but are architected from the start as bounded extensions rather than unsafe shortcuts.
