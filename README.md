@@ -8,7 +8,7 @@ The core interaction is evolutionary exploration: generate a tray of related gli
 
 ## Product principles
 
-- **Reproducibility is a contract.** A saved genome is evidence sufficient to reconstruct the same canonical result.
+- **Reproducibility is a contract.** A saved genome is evidence sufficient to reconstruct the same canonical result when combined with the explicit source and, for temporal work, explicit frame index.
 - **Faults are simulated safely.** Artistic memory corruption must never rely on C/C++ undefined behaviour or unsafe host memory access.
 - **The CPU reference engine is authoritative.** GPU rendering accelerates presentation, but does not silently change canonical output.
 - **Standalone means standalone.** v1 targets Windows x64 using C++20, Win32, D3D11/DXGI and WIC, with no required package manager, web runtime or external application framework.
@@ -24,17 +24,20 @@ FM-005 added bounded memory/addressing faults; FM-006 added host-independent rep
 
 FM-009 added deterministic independently addressed mutation descendants, typed low/medium/high mutation radius, topology-aware lock protection, proxy specimen thumbnails, reroll/pin/compare controls and canonical full-source promotion.
 
-FM-010 adds the durable evolutionary layer:
+FM-010 added the durable evolutionary layer: deterministic typed ordered-parent crossover, a durable acyclic specimen lineage graph, explicit mutation/crossover provenance, durable favourites, lineage navigation/provenance inspection, and `.fmproj` project schema v2 with conservative history-free migration from project v1.
 
-- deterministic typed crossover for 2–8 **ordered** parents, with the first parent as the primary topology scaffold;
-- conservative operator alignment, typed gene inheritance and deterministic new instance IDs for inherited unmatched operators;
-- a durable acyclic lineage graph keyed by canonical genome identity, distinct from manual editor undo/redo;
-- explicit mutation/crossover provenance, source identity and parent edges for retained specimens;
-- durable favourites that survive tray rerolls and project reload;
-- lineage navigation back to retained ancestors/descendants plus provenance inspection;
-- `.fmproj` project schema v2 with lineage/favourites and explicit history-free migration from project v1.
+FM-011 adds deterministic temporal work without making wall clock part of the artwork:
 
-The byte-level deterministic rules are documented in [`docs/RAG_DETERMINISM.md`](docs/RAG_DETERMINISM.md), canonical image/operator semantics in [`docs/RAG_IMAGE_PIPELINE.md`](docs/RAG_IMAGE_PIPELINE.md), session/presentation boundaries in [`docs/RAG_SESSION_PRESENTATION.md`](docs/RAG_SESSION_PRESENTATION.md), fault-family contracts in the corresponding RAG documents, manual editor/project foundations in [`docs/RAG_PROJECT_EDITOR.md`](docs/RAG_PROJECT_EDITOR.md), mutation search in [`docs/RAG_MUTATION_SEARCH.md`](docs/RAG_MUTATION_SEARCH.md), and crossover/lineage/project-v2 semantics in [`docs/RAG_LINEAGE_CROSSOVER.md`](docs/RAG_LINEAGE_CROSSOVER.md).
+- canonical rendering accepts an explicit unsigned frame/tick and defines frame N by deterministic replay from the frame-0 initial state;
+- feedback state is pipeline/model-owned and isolated per operator rather than stored in Win32/D3D/global presentation state;
+- exact integer triangle/saw/square/ramp, sample-and-hold and frame-keyed modulators;
+- feedback blend/displacement, partial refresh, trail accumulation, phase drift, tearing-phase and channel-phase fault operators;
+- typed temporal parameters participate in the existing FM-009 mutation and FM-010 crossover/lineage machinery;
+- optional `temporal.timeline-rate` positive rational metadata persists semantic frame rate in ordinary canonical genome/project state;
+- `SessionModel` exposes exact seek/step/reset and full render-at-frame while keeping preview playback rate separate from semantic frame/rate;
+- the native Timeline transport provides play/pause, exact stepping, reset/seek, preview-rate control and a visible current-frame/rate/play-state display.
+
+The byte-level deterministic rules are documented in [`docs/RAG_DETERMINISM.md`](docs/RAG_DETERMINISM.md), canonical image/operator semantics in [`docs/RAG_IMAGE_PIPELINE.md`](docs/RAG_IMAGE_PIPELINE.md), session/presentation boundaries in [`docs/RAG_SESSION_PRESENTATION.md`](docs/RAG_SESSION_PRESENTATION.md), fault-family contracts in the corresponding RAG documents, manual editor/project foundations in [`docs/RAG_PROJECT_EDITOR.md`](docs/RAG_PROJECT_EDITOR.md), mutation search in [`docs/RAG_MUTATION_SEARCH.md`](docs/RAG_MUTATION_SEARCH.md), crossover/lineage/project-v2 semantics in [`docs/RAG_LINEAGE_CROSSOVER.md`](docs/RAG_LINEAGE_CROSSOVER.md), and temporal semantics in [`docs/RAG_TEMPORAL.md`](docs/RAG_TEMPORAL.md).
 
 ## Prerequisites
 
@@ -94,11 +97,23 @@ The Explore panel adds deterministic mutation/search controls:
 - Lineage **Activate** — navigate to any retained specimen without treating navigation as undo/redo;
 - **Provenance** — report derivation kind, source/genome identity, parent identities and mutation/crossover address data.
 
+The Timeline menu adds temporal presentation controls. These alter only which explicit semantic frame is requested and how quickly playback requests successive frames; they do not add wall-clock state to canonical pixels:
+
+- `Ctrl+Alt+Space` — play/pause;
+- `Ctrl+Alt+,` / `Ctrl+Alt+.` — exact one-frame backward/forward step;
+- `Ctrl+Alt+Home` — reset to frame 0;
+- `Ctrl+Alt+PageUp` / `Ctrl+Alt+PageDown` — seek -10/+10 frames;
+- `Ctrl+Alt+Down` / `Ctrl+Alt+Up` — halve/double preview playback rate.
+
+The window title shows current semantic frame, rational semantic rate, preview multiplier and play/pause state. Add/edit `temporal.timeline-rate` in the normal stack editor when a project needs explicit semantic rate metadata other than the default presentation assumption of 30/1.
+
 Mutation locks do **not** block deliberate manual edits. They protect search operations and remain outside canonical genome identity. A primary whole-operator lock is also a crossover topology anchor. Manual edit history and specimen lineage remain intentionally separate.
 
 ## Project files and source relinking
 
 `.fmproj` schema v2 is strict human-readable JSON. It embeds the active canonical genome and records source provenance, active-genome mutation locks, durable specimen lineage/favourites, proxy/session state, selected operator and separately identified non-semantic canvas view state.
+
+FM-011 does not introduce a parallel temporal project schema. Temporal fault parameters and optional rational semantic-rate metadata are ordinary canonical genome parameters and therefore survive existing project/lineage persistence. Current playback frame and preview-speed multiplier remain session/presentation state rather than specimen identity.
 
 Lineage records retain complete typed genomes plus canonical genome/source identities and explicit derivation metadata. Mutation nodes store parent identity, mutation-policy version, seed, descendant index and radius. Crossover nodes store ordered parent identities, crossover-policy version and crossover seed. Rendered thumbnail/full-resolution pixels are never lineage authority.
 
@@ -116,11 +131,11 @@ The narrow developer CLI remains available:
 .\build\Debug\FAULTMINE-render.exe input.png genome.json output.png
 ```
 
-It validates the genome against the **default** registry, normalizes the input through WIC, executes the canonical CPU stack, writes a PNG, and prints normalized source/output identities. Example genomes under `examples/` cover the accepted addressing, representation/bit and colour families; `examples/fm007-rust.fmpal` demonstrates the canonical human-editable palette format.
+It validates the genome against the **default** registry, normalizes the input through WIC, executes the canonical CPU stack at frame 0, writes a PNG, and prints normalized source/output identities. Temporal sequence export is FM-012 scope; the canonical core already exposes explicit render-at-frame semantics for that work.
 
 ## Authoritative development documentation
 
-Start with [`docs/RAG_INDEX.md`](docs/RAG_INDEX.md). It indexes the product, architecture, deterministic contracts, image/pipeline contracts, session/presentation boundaries, fault-family contracts, mutation/search/crossover/lineage contracts, project semantics, roadmap, verification and autonomous-issue execution rules.
+Start with [`docs/RAG_INDEX.md`](docs/RAG_INDEX.md). It indexes the product, architecture, deterministic contracts, image/pipeline contracts, session/presentation boundaries, fault-family contracts, mutation/search/crossover/lineage/temporal contracts, project semantics, roadmap, verification and autonomous-issue execution rules.
 
 Implementation work is tracked as GitHub issues prefixed `FM-###`. Each implementation issue is intended to be executable autonomously: inspect current `main`, implement the stated scope, test it, reconcile documentation, open a PR, repair CI, merge after required checks pass, verify the merge landed on `main`, and only then close the issue when its acceptance criteria are satisfied.
 
@@ -128,9 +143,9 @@ Implementation work is tracked as GitHub issues prefixed `FM-###`. Each implemen
 
 - C++20
 - CMake + MSVC
-- Win32 desktop shell and generic native stack/exploration editor
+- Win32 desktop shell and generic native stack/exploration/timeline editor
 - pure-core deterministic genome/entropy/SHA-256 substrate
-- canonical RGBA8 CPU fault pipeline
+- canonical RGBA8 CPU fault pipeline with explicit temporal replay
 - application/session/editor/project/lineage models and deterministic proxy preprocessing
 - D3D11 / DXGI presentation
 - Windows Imaging Component (WIC) image I/O
