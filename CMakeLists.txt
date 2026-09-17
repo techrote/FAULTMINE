@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.25)
 
-project(FAULTMINE VERSION 0.13.0 LANGUAGES CXX)
+project(FAULTMINE VERSION 0.14.0 LANGUAGES CXX)
 
 if(NOT WIN32)
     message(FATAL_ERROR "FAULTMINE supports Windows x64 only.")
@@ -40,6 +40,7 @@ function(faultmine_project_defaults target_name)
 endfunction()
 
 add_library(faultmine_core STATIC
+    src/core/batch.cpp
     src/core/colour.cpp
     src/core/colour_operators.cpp
     src/core/core.cpp
@@ -214,6 +215,22 @@ target_link_libraries(faultmine_render
 
 faultmine_project_defaults(faultmine_render)
 
+add_executable(faultmine_batch
+    src/tools/batch_cli.cpp
+)
+
+set_target_properties(faultmine_batch PROPERTIES OUTPUT_NAME "FAULTMINE-batch")
+
+target_link_libraries(faultmine_batch
+    PRIVATE
+        faultmine_core
+        faultmine_wic
+        faultmine_session
+        faultmine_export
+)
+
+faultmine_project_defaults(faultmine_batch)
+
 add_executable(faultmine_lab_worker
     src/worker/laboratory_worker_main.cpp
 )
@@ -384,4 +401,16 @@ if(BUILD_TESTING)
     faultmine_project_defaults(faultmine_laboratory_tests)
     add_dependencies(faultmine_laboratory_tests faultmine_lab_worker)
     add_test(NAME isolated_laboratory_contracts COMMAND faultmine_laboratory_tests)
+
+    add_executable(faultmine_batch_tests
+        tests/batch_tests.cpp
+    )
+
+    target_link_libraries(faultmine_batch_tests
+        PRIVATE
+            faultmine_core
+            faultmine_session
+    )
+    faultmine_project_defaults(faultmine_batch_tests)
+    add_test(NAME deterministic_batch_mining_contracts COMMAND faultmine_batch_tests)
 endif()
