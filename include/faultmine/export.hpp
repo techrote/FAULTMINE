@@ -17,7 +17,7 @@
 namespace faultmine::exporting {
 
 inline constexpr std::uint32_t kExportManifestSchemaVersion = 1U;
-inline constexpr std::string_view kApplicationVersion = "0.12.0";
+inline constexpr std::string_view kApplicationVersion = "0.14.0";
 
 enum class ExportKind {
     still,
