@@ -97,6 +97,13 @@ public:
     [[nodiscard]] bool project_dirty() const noexcept;
     void mark_project_saved() noexcept;
 
+    // Adopt a generated child as the new active parent. The candidate is
+    // rendered once against the full canonical source before adoption so a
+    // thumbnail/proxy can never become the authoritative promoted result.
+    [[nodiscard]] bool promote_exploration_genome(
+        const core::Genome& genome,
+        std::string* error = nullptr);
+
     void set_selected_operator(std::optional<std::size_t> operator_index) noexcept;
     [[nodiscard]] std::optional<std::size_t> selected_operator() const noexcept;
 
