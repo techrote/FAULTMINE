@@ -14,6 +14,7 @@ This is the retrieval entry point for agents and maintainers. Read the documents
 - [`RAG_MEMORY_ADDRESSING.md`](RAG_MEMORY_ADDRESSING.md) — shared logical-address policies, FM-005 memory/addressing operators, bounded-work rules and mutation descriptor hints.
 - [`RAG_REPRESENTATION_BITS.md`](RAG_REPRESENTATION_BITS.md) — FM-006 channel/word/packed/planar/signed/bit semantics, structured bit bursts and host-independent representation rules.
 - [`RAG_COLOUR.md`](RAG_COLOUR.md) — FM-007 palette/LUT assets, colour mapping, integer quantisation/dither, seeded palette generation and colour mutation domains.
+- [`RAG_PROJECT_EDITOR.md`](RAG_PROJECT_EDITOR.md) — FM-008 generic stack editor, mutation locks, edit history, project-v1 persistence and source relink contract.
 - [`RAG_EXTERNAL_DECODERS.md`](RAG_EXTERNAL_DECODERS.md) — external-decoder isolation, non-canonical decoder behaviour, freeze/materialize rules and laboratory provenance.
 - [`RAG_ROADMAP.md`](RAG_ROADMAP.md) — initial plan, review findings, improved dependency-ordered implementation plan and milestones.
 - [`RAG_VERIFICATION.md`](RAG_VERIFICATION.md) — deterministic testing, CI, performance and release verification strategy.
@@ -41,14 +42,16 @@ This is the retrieval entry point for agents and maintainers. Read the documents
 - **LUT asset** — four explicit 256-entry byte lookup tables for canonical RGBA channels, with versioned canonical serialization and content identity.
 - **fault stack / pipeline** — ordered operator graph for a specimen; v1 begins as a serial stack but serialization must permit future typed expansion.
 - **genome** — complete serializable description of pipeline topology and parameters, excluding incidental UI state.
+- **project** — versioned human-readable continuation state containing source provenance, active genome, mutation locks and clearly separated session/UI state; defined in `RAG_PROJECT_EDITOR.md`.
+- **edit history** — undo/redo snapshots of deliberate manual genome/lock edits, distinct from future artistic specimen lineage.
 - **seed** — explicit 64-bit root deterministic entropy used to derive named random streams under `RAG_DETERMINISM.md`.
 - **operator instance ID** — stable persisted 128-bit identity independent of list position.
 - **mutation descriptor** — non-persisted typed operator/parameter metadata used by later deterministic search; it never changes canonical render identity by itself.
-- **session** — non-canonical application state connecting one normalized source, a genome, preview cache, proxy state and view state; defined in `RAG_SESSION_PRESENTATION.md`.
+- **session** — non-canonical application state connecting one normalized source, a genome, preview cache, proxy state and view state; defined in `RAG_SESSION_PRESENTATION.md` and extended by FM-008 project/editor state.
 - **proxy preview** — deterministic nearest-neighbour preprocessing used only for interactive responsiveness; visibly non-canonical as a final-resolution result and never substituted for export.
 - **specimen** — rendered result from source + genome + seed + engine version (+ explicit tick for temporal work).
 - **gene** — mutable unit of genome state used by exploration controls.
-- **lock** — mutation protection applied to one or more genes/operators.
+- **lock** — mutation protection applied to one or more genes/operators; locks are project state and do not block deliberate manual editing.
 - **mutation radius** — magnitude/topological freedom allowed while producing descendants.
 - **lineage** — parent/child/crossover provenance among specimens.
 - **canonical output** — result of the authoritative deterministic CPU engine.

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.25)
 
-project(FAULTMINE VERSION 0.7.0 LANGUAGES CXX)
+project(FAULTMINE VERSION 0.8.0 LANGUAGES CXX)
 
 if(NOT WIN32)
     message(FATAL_ERROR "FAULTMINE supports Windows x64 only.")
@@ -46,6 +46,7 @@ add_library(faultmine_core STATIC
     src/core/determinism.cpp
     src/core/fault_catalogue.cpp
     src/core/genome.cpp
+    src/core/genome_registry_access.cpp
     src/core/image.cpp
     src/core/json.cpp
     src/core/json.hpp
@@ -85,6 +86,8 @@ target_link_libraries(faultmine_wic
 faultmine_project_defaults(faultmine_wic)
 
 add_library(faultmine_session STATIC
+    src/app/editor.cpp
+    src/app/project.cpp
     src/app/session.cpp
 )
 
@@ -219,4 +222,16 @@ if(BUILD_TESTING)
     target_link_libraries(faultmine_colour_tests PRIVATE faultmine_core)
     faultmine_project_defaults(faultmine_colour_tests)
     add_test(NAME colour_lut_contracts COMMAND faultmine_colour_tests)
+
+    add_executable(faultmine_editor_project_tests
+        tests/editor_project_tests.cpp
+    )
+
+    target_link_libraries(faultmine_editor_project_tests
+        PRIVATE
+            faultmine_core
+            faultmine_session
+    )
+    faultmine_project_defaults(faultmine_editor_project_tests)
+    add_test(NAME editor_project_contracts COMMAND faultmine_editor_project_tests)
 endif()

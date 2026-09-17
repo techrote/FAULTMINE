@@ -24,51 +24,22 @@ FM-002 established versioned genomes, stable operator identities, named determin
 
 FM-003 established the canonical straight-RGBA8 visual CPU path, content-based source identity, WIC still I/O, the serial canonical pipeline, starter deterministic faults, visual goldens and `FAULTMINE-render.exe`.
 
-FM-004 established the first interactively useful desktop shell:
+FM-004 established D3D11/DXGI presentation, WIC open/export, deterministic proxy preview, native canvas controls and semantic render scheduling outside `WM_PAINT`.
 
-- D3D11/DXGI presentation of already-rendered CPU pixels, with hardware device + WARP fallback;
-- native WIC file-open and canonical PNG export;
-- explicit application/session state separate from canonical genome state;
-- fit, 1:1, zoom, pan and before/after canvas interaction;
-- deterministic nearest-neighbour proxy previews for large sources, visibly marked `PROXY`;
-- full-resolution canonical export even while a proxy is displayed;
-- compact starter-fault controls without requiring JSON editing;
-- semantic render scheduling outside `WM_PAINT`;
-- D3D device-recreation handling that does not mutate canonical state.
+FM-005 adds the bounded memory/addressing family; FM-006 adds host-independent representation/bit faults; FM-007 adds deterministic palettes, LUTs, quantisation, Bayer/noise dither and generated palettes.
 
-FM-005 adds the first substantial memory/addressing family while preserving host-memory safety:
+FM-008 turns those catalogues into a practical native manual instrument:
 
-- one shared logical-address boundary abstraction (`wrap`, `clamp`, `fill`);
-- linear address offset and combined XOR/AND/OR address-bit faults;
-- coordinate swap/XOR/offset remapping;
-- deterministic affine tile permutation with explicit partial-edge behavior;
-- line/band repeat/remap faults;
-- deterministic named-stream burst-address faults with bounded work;
-- typed mutation-domain hints in operator descriptors for later FM-009 search;
-- a composed default registry used by the non-GUI renderer while the original FM-003 starter registry remains compatibility-focused.
+- a descriptor-driven right-side stack editor over the full default registry;
+- add/remove/duplicate/reorder/bypass for registered operators;
+- generic exact typed parameter editing, descriptor choices, numeric nudges and palette/LUT asset loading;
+- separate whole-operator and per-parameter mutation locks;
+- snapshot-based undo/redo with coalesced keyboard nudges and stable instance IDs;
+- versioned `.fmproj` project save/load containing source provenance, genome, locks, proxy/session state and separately identified UI view state;
+- explicit missing/moved/changed source handling with identity-checked relinking;
+- keyboard-first stack navigation/edit controls.
 
-FM-006 adds a representation/bit family that models data being misunderstood rather than merely recoloured:
-
-- arbitrary channel routing, duplication, drop/fill and selected-channel spatial delay;
-- explicit 2/4-byte logical word lane reversal/rotation;
-- host-independent RGB565/BGR565/RGBA4444/ARGB1555 packing and endian disagreement;
-- planar/interleaved layout mismatch;
-- explicit signed-byte reinterpretation modes;
-- zero-fill shifts, nibble swaps, bitplane exchange and stuck-at masks;
-- structured named-stream block bit bursts with bounded work;
-- typed mutation domains for every new parameter.
-
-FM-007 adds deterministic colour synthesis for constraining structural glitches into coherent visual families:
-
-- versioned embedded RGBA palette and four-channel 256-entry LUT assets with canonical JSON and SHA-256 identity;
-- nearest-palette and integer luminance-gradient mapping;
-- exact per-channel LUT mapping and round-half-up channel quantisation;
-- fixed Bayer 2x2/4x4/8x8 ordered dithering;
-- independently named per-pixel/channel seeded-noise dithering;
-- deterministic endpoint-ramp palette generation with seeded interior RGB jitter;
-- structured `colour_rgba`, `palette`, and `lut` mutation domains for later FM-009 search.
-
-The byte-level deterministic rules are documented in [`docs/RAG_DETERMINISM.md`](docs/RAG_DETERMINISM.md), canonical image/operator semantics in [`docs/RAG_IMAGE_PIPELINE.md`](docs/RAG_IMAGE_PIPELINE.md), interactive session/presentation boundaries in [`docs/RAG_SESSION_PRESENTATION.md`](docs/RAG_SESSION_PRESENTATION.md), memory/addressing semantics in [`docs/RAG_MEMORY_ADDRESSING.md`](docs/RAG_MEMORY_ADDRESSING.md), representation/bit semantics in [`docs/RAG_REPRESENTATION_BITS.md`](docs/RAG_REPRESENTATION_BITS.md), and colour semantics/assets in [`docs/RAG_COLOUR.md`](docs/RAG_COLOUR.md).
+The byte-level deterministic rules are documented in [`docs/RAG_DETERMINISM.md`](docs/RAG_DETERMINISM.md), canonical image/operator semantics in [`docs/RAG_IMAGE_PIPELINE.md`](docs/RAG_IMAGE_PIPELINE.md), interactive session/presentation boundaries in [`docs/RAG_SESSION_PRESENTATION.md`](docs/RAG_SESSION_PRESENTATION.md), memory/addressing semantics in [`docs/RAG_MEMORY_ADDRESSING.md`](docs/RAG_MEMORY_ADDRESSING.md), representation/bit semantics in [`docs/RAG_REPRESENTATION_BITS.md`](docs/RAG_REPRESENTATION_BITS.md), colour semantics/assets in [`docs/RAG_COLOUR.md`](docs/RAG_COLOUR.md), and editor/project semantics in [`docs/RAG_PROJECT_EDITOR.md`](docs/RAG_PROJECT_EDITOR.md).
 
 ## Prerequisites
 
@@ -113,24 +84,48 @@ Build outputs are generated under `build/`; the desktop executable is `build/Deb
 
 ## Interactive controls
 
-After launching `FAULTMINE.exe`:
+The native right-side editor exposes the registered fault catalogue and selected operator parameters directly. Baseline shortcuts are:
 
 - `Ctrl+O` — open a WIC-supported image;
+- `Ctrl+Shift+O` — open a `.fmproj` project;
+- `Ctrl+S` / `Ctrl+Shift+S` — save / save-as project;
 - `Ctrl+E` — export the current genome against the **full-resolution canonical source** as PNG;
+- `Ctrl+Z` / `Ctrl+Y` — undo / redo manual project edits;
+- `Ctrl+Insert` — add the currently selected registered operator type;
+- `Ctrl+D` — duplicate selected stack operator with a new stable instance ID;
+- `Delete` — remove selected operator;
+- `Ctrl+Up` / `Ctrl+Down` — select previous/next operator;
+- `Alt+Up` / `Alt+Down` — reorder selected operator;
+- `X` — bypass/enable selected operator;
+- `L` — toggle selected operator mutation lock;
+- `Ctrl+L` — toggle selected parameter mutation lock;
+- `[` / `]` — small selected numeric-parameter nudge;
+- `Shift+[` / `Shift+]` — large nudge;
+- `Space` — enable/disable the whole stack;
+- `R` — deterministically reroll the explicit root seed;
+- `F5` — rerender;
 - `F` — fit image to the canvas;
 - `1` — 1:1 display;
 - mouse wheel — zoom relative to fit;
 - left-button drag or arrow keys — pan;
 - `B` — before/after;
-- `P` — toggle deterministic proxy preview;
-- `Space` — enable/disable the starter fault stack;
-- `[` / `]` — row-offset -1 / +1;
-- `-` / `=` — jitter magnitude -1 / +1;
-- `R` — deterministically reroll the explicit root seed.
+- `P` — toggle deterministic proxy preview.
 
-The bottom status line identifies full versus proxy preview, source/preview dimensions, before/result state, starter parameters, seed prefix and D3D11 hardware/WARP mode.
+Mutation locks do **not** block deliberate manual edits; they are protection state for the FM-009 descendant mutation engine. Locks, project UI state and edit history never change canonical genome identity by themselves.
 
-FM-004 intentionally keeps these controls compact. The generic data-driven stack editor is FM-008 work; FM-005/FM-006/FM-007 operators are currently exercised through canonical genomes/the CLI until that editor lands.
+## Project files and source relinking
+
+`.fmproj` v1 is strict human-readable JSON. It embeds the canonical genome object and records:
+
+- source path metadata plus the normalized FM-003 source identity;
+- mutation locks;
+- proxy/session state;
+- selected operator;
+- separately identified non-semantic canvas view state.
+
+If the recorded source is moved, FAULTMINE accepts an explicitly relinked file only when its normalized content identity is identical. Missing sources and changed content are distinguished; changed content at the old path is never silently accepted as the same provenance.
+
+FM-007 palettes/LUTs remain embedded canonical asset JSON inside the operator parameters that use them, so project v1 requires no second asset serialization system.
 
 ## Non-GUI canonical render hook
 
@@ -146,7 +141,7 @@ Example genomes under `examples/` include the FM-003 starter stack, FM-005 addre
 
 ## Authoritative development documentation
 
-Start with [`docs/RAG_INDEX.md`](docs/RAG_INDEX.md). It indexes the product, architecture, deterministic contracts, image/pipeline contracts, session/presentation boundaries, fault-family contracts, roadmap, verification and autonomous-issue execution rules.
+Start with [`docs/RAG_INDEX.md`](docs/RAG_INDEX.md). It indexes the product, architecture, deterministic contracts, image/pipeline contracts, session/presentation boundaries, fault-family contracts, project/editor contracts, roadmap, verification and autonomous-issue execution rules.
 
 Implementation work is tracked as GitHub issues prefixed `FM-###`. Each implementation issue is intended to be executable autonomously: inspect current `main`, implement the stated scope, test it, reconcile documentation, open a PR, repair CI, merge after required checks pass, verify the merge landed on `main`, and only then close the issue when its acceptance criteria are satisfied.
 
@@ -154,10 +149,10 @@ Implementation work is tracked as GitHub issues prefixed `FM-###`. Each implemen
 
 - C++20
 - CMake + MSVC
-- Win32 desktop shell
+- Win32 desktop shell and generic native stack editor
 - pure-core deterministic genome/entropy/SHA-256 substrate
 - canonical RGBA8 CPU fault pipeline
-- application/session model and deterministic proxy preprocessing
+- application/session/editor/project models and deterministic proxy preprocessing
 - D3D11 / DXGI presentation
 - Windows Imaging Component (WIC) image I/O
 - GitHub Actions on `windows-latest`
