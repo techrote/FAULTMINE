@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.25)
 
-project(FAULTMINE VERSION 0.9.0 LANGUAGES CXX)
+project(FAULTMINE VERSION 0.10.0 LANGUAGES CXX)
 
 if(NOT WIN32)
     message(FATAL_ERROR "FAULTMINE supports Windows x64 only.")
@@ -43,6 +43,7 @@ add_library(faultmine_core STATIC
     src/core/colour.cpp
     src/core/colour_operators.cpp
     src/core/core.cpp
+    src/core/crossover.cpp
     src/core/determinism.cpp
     src/core/fault_catalogue.cpp
     src/core/genome.cpp
@@ -88,10 +89,12 @@ faultmine_project_defaults(faultmine_wic)
 
 add_library(faultmine_session STATIC
     src/app/editor.cpp
+    src/app/lineage.cpp
     src/app/project.cpp
     src/app/session.cpp
     src/app/session_exploration.cpp
     src/app/specimen_tray.cpp
+    src/app/specimen_tray_lineage.cpp
 )
 
 target_include_directories(faultmine_session
@@ -250,4 +253,16 @@ if(BUILD_TESTING)
     )
     faultmine_project_defaults(faultmine_mutation_tests)
     add_test(NAME deterministic_mutation_tray_contracts COMMAND faultmine_mutation_tests)
+
+    add_executable(faultmine_lineage_tests
+        tests/lineage_crossover_tests.cpp
+    )
+
+    target_link_libraries(faultmine_lineage_tests
+        PRIVATE
+            faultmine_core
+            faultmine_session
+    )
+    faultmine_project_defaults(faultmine_lineage_tests)
+    add_test(NAME deterministic_crossover_lineage_contracts COMMAND faultmine_lineage_tests)
 endif()
