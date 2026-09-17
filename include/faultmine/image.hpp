@@ -9,6 +9,8 @@
 
 namespace faultmine::core {
 
+inline constexpr std::size_t kMaxCanonicalImageBytes = 512U * 1024U * 1024U;
+
 enum class PixelFormat : std::uint32_t {
     rgba8_unorm = 1,
 };
@@ -26,6 +28,7 @@ struct ImageBuffer {
 enum class ImageErrorCode {
     invalid_dimensions,
     size_overflow,
+    resource_limit,
     invalid_stride,
     byte_count_mismatch,
     unsupported_format,
