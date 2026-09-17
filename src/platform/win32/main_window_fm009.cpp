@@ -595,7 +595,7 @@ private:
             dc,
             rect.left + 2,
             rect.top + 2,
-            std::max(1, rect.right - rect.left - 4),
+            std::max<LONG>(1, rect.right - rect.left - 4),
             52,
             0,
             0,
