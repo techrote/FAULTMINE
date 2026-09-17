@@ -136,11 +136,12 @@ void test_project_roundtrip_and_source_classification() {
 
     const std::string canonical = app::serialize_project_canonical(project);
     const auto parsed = app::parse_project(canonical, editor.registry().schema_registry());
-    expect(parsed.ok(), "canonical project v2 parses");
+    expect(parsed.ok(), "canonical project v3 parses");
     if (parsed.ok()) {
         expect_equal(app::serialize_project_canonical(*parsed.project), canonical, "project parse/serialize is exactly canonical");
         expect_equal(parsed.project->locks, project.locks, "lock state survives project reload");
         expect_equal(parsed.project->lineage, project.lineage, "lineage root survives project reload");
+        expect(!parsed.project->laboratory_source.has_value(), "ordinary v3 project has explicit null laboratory source");
         expect_equal(
             std::get<std::string>(parsed.project->genome.operators[0].parameters.at("palette")),
             std::get<std::string>(project.genome.operators[0].parameters.at("palette")),
@@ -148,7 +149,7 @@ void test_project_roundtrip_and_source_classification() {
     }
 
     std::string future = canonical;
-    const std::string token = "\"project_version\":2";
+    const std::string token = "\"project_version\":3";
     const std::size_t position = future.find(token);
     expect(position != std::string::npos, "project version token located");
     if (position != std::string::npos) {
