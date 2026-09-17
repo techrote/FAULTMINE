@@ -38,6 +38,13 @@ struct PreviewState {
     std::uint64_t render_generation{};
 };
 
+struct TimelineRate {
+    std::uint64_t numerator{30U};
+    std::uint64_t denominator{1U};
+
+    bool operator==(const TimelineRate&) const = default;
+};
+
 class SessionModel {
 public:
     SessionModel();
@@ -99,8 +106,6 @@ public:
     [[nodiscard]] bool project_dirty() const noexcept;
     void mark_project_saved() noexcept;
 
-    // Compatibility promotion for callers without derivation metadata. It is
-    // retained as a history-free manual root rather than fabricating ancestry.
     [[nodiscard]] bool promote_exploration_genome(
         const core::Genome& genome,
         std::string* error = nullptr);
@@ -132,8 +137,24 @@ public:
     void set_selected_operator(std::optional<std::size_t> operator_index) noexcept;
     [[nodiscard]] std::optional<std::size_t> selected_operator() const noexcept;
 
+    // The normal preview/export entry points render the explicit current frame.
     [[nodiscard]] bool ensure_preview(std::string* error = nullptr);
     [[nodiscard]] std::optional<core::ImageBuffer> render_full(std::string* error = nullptr) const;
+    // Legacy implementations are retained internally by session_fm011.cpp so
+    // accepted non-temporal behaviour can be regression-checked without copy/paste.
+    [[nodiscard]] bool ensure_preview_legacy(std::string* error = nullptr);
+    [[nodiscard]] std::optional<core::ImageBuffer> render_full_legacy(std::string* error = nullptr) const;
+    [[nodiscard]] std::optional<core::ImageBuffer> render_full_at_frame(
+        std::uint64_t frame_index,
+        std::string* error = nullptr) const;
+    void seek_frame(std::uint64_t frame_index) noexcept;
+    [[nodiscard]] bool step_frame_forward() noexcept;
+    [[nodiscard]] bool step_frame_backward() noexcept;
+    void reset_timeline() noexcept;
+    [[nodiscard]] std::uint64_t current_frame() const noexcept;
+    [[nodiscard]] TimelineRate semantic_timeline_rate() const noexcept;
+    void set_preview_rate_milli(std::uint32_t rate_milli) noexcept;
+    [[nodiscard]] std::uint32_t preview_rate_milli() const noexcept;
     [[nodiscard]] PreviewState preview_state() const;
     [[nodiscard]] std::uint64_t render_generation() const noexcept;
     [[nodiscard]] bool preview_dirty() const noexcept;
@@ -184,6 +205,9 @@ private:
     bool preview_is_proxy_{};
     std::string active_proxy_key_;
     std::uint64_t render_generation_{};
+
+    std::uint64_t current_frame_{};
+    std::uint32_t preview_rate_milli_{1000U};
 
     CanvasViewState view_{};
     std::string selected_instance_id_;
