@@ -103,3 +103,42 @@ Real malformed-codec smoke tests may exist, but their decoder-dependent pixel ou
 Raw arbitrary-binary-to-image interpretation does **not** require the worker merely because the data is unusual. If FAULTMINE can interpret the bytes through its own bounded logical-buffer rules, that path belongs in the deterministic core and is canonical.
 
 Use the worker only when an external decoder/parser or other risky subsystem genuinely creates a containment boundary.
+
+## FM-013 implementation contract
+
+FM-013 implements the boundary with two executables plus pure-core support:
+
+- `FAULTMINE-lab-worker.exe` is the only new code path that feeds laboratory encoded bytes to WIC. The editor/host never performs that malformed decode in-process.
+- `faultmine_laboratory_host` launches a fresh suspended worker for each experiment, assigns it to a one-process Windows Job Object before resuming it, applies kill-on-job-close and a practical job-memory limit, and terminates the job on cancellation or deadline expiry.
+- IPC v1 is file-backed but structurally narrow: request/response control records have fixed magic, protocol version, message type and explicit little-endian lengths. Encoded bytes and returned RGBA payloads are bounded separately. No pointer, object address or native C++ struct representation crosses the process boundary.
+- Host admission validates response control length, dimensions, tight RGBA8 stride, exact byte count and global pixel cap before constructing a canonical `ImageBuffer`. Crash, timeout, cancellation, decode failure and rejected-response remain distinct outcomes.
+- Synthetic worker modes cover success, decode failure, crash, hang, oversized payload, malformed response, invalid dimensions, invalid stride and invalid byte count. They are the canonical CI containment fixtures; malformed real-codec pixels are deliberately not golden data.
+
+### Deterministic encoded-byte mutation
+
+The pure core owns the exact mutated encoded stream. `ByteMutationPlan` contains a 64-bit root seed, an explicit protected prefix and an ordered operation list. FM-013 supports deterministic bit flips plus explicit XOR, duplicate and drop ranges. Mutations are bounded to 64 MiB and reject any operation crossing the protected prefix or current stream extent. The canonical recipe, original encoded SHA-256 identity and mutated encoded SHA-256 identity are retained independently of decoder behaviour.
+
+The protected-prefix setting is a user-controlled safety/artistic parameter, not a promise that the remaining bytes form a valid codec stream.
+
+### Materialization and project persistence
+
+A worker success is not canonical merely because its input mutation was deterministic. The host first validates and hashes the normalized returned pixels. Only then may it form a `MaterializedSource` whose provenance outcome is `success` and whose recorded materialized source identity exactly matches those pixels.
+
+Project schema v2 gains an optional FM-013 `source.laboratory` extension. When present it embeds the frozen normalized RGBA8 pixels together with the external-decoder provenance. Ordinary v1/v2 projects remain accepted unchanged. Session save/load preserves the extension; downstream fault rendering continues to use the ordinary canonical source buffer. A project therefore does not need the original malformed encoded stream or another decoder run to substantiate its canonical downstream source identity.
+
+The FM-012 export-manifest v1 grammar likewise has an optional FM-013 top-level `laboratory` extension. Exported pixels remain described by the existing canonical source/genome/frame fields; the laboratory block describes only how that normalized source was originally obtained. This is intentionally provenance, not part of genome identity.
+
+### Advanced laboratory surface
+
+`FAULTMINE-lab.exe` is the initial advanced/laboratory surface. It deliberately keeps risky work out of the normal editor path and prints the canonical/external distinction explicitly.
+
+- `decode <encoded-input> <materialized.png> [seed] [flip-count] [protected-prefix]` deterministically mutates encoded bytes, runs the isolated worker, then on success writes the materialized PNG, an `.fmlabsource.json` frozen-source bundle and a provenance-bearing `.fmproj`.
+- `reuse <bundle> <materialized.png>` reconstructs the normalized source from frozen pixels without launching the worker.
+- `reuse-project <project.fmproj> <materialized.png>` reconstructs a project-embedded laboratory source without launching the worker.
+- `raw ...` interprets arbitrary binary data through FAULTMINE's own checked logical rules and therefore remains a canonical in-process core operation.
+
+A rerun is always a new external-decoder experiment even when the mutated encoded bytes are identical. Reuse means loading the frozen normalized pixels whose identity is already recorded.
+
+### Canonical arbitrary-binary interpretation
+
+`RawBinarySpec` explicitly controls width, optional/derived height, byte offset, stride, bytes-per-pixel format (`gray8`, `rgb8`, `rgba8`, `bgra8`) and `drop`, `wrap` or `fill` boundary policy. All row/pixel address arithmetic is checked before use, allocation goes through the canonical RGBA8 image constructor, and the laboratory pixel cap still applies. This path never calls WIC or the worker.

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "faultmine/editor.hpp"
+#include "faultmine/laboratory.hpp"
 #include "faultmine/lineage.hpp"
 #include "faultmine/proxy.hpp"
 
@@ -17,6 +18,10 @@ inline constexpr std::uint32_t kProjectSchemaVersion = 2U;
 struct ProjectSourceReference {
     std::string path_utf8;
     std::string source_identity;
+    // FM-013 optional v2 extension. When present, the normalized pixels are
+    // embedded alongside external-decoder provenance so project reopening does
+    // not require rerunning the malformed-codec experiment.
+    std::optional<laboratory::MaterializedSource> laboratory;
 
     bool operator==(const ProjectSourceReference&) const = default;
 };
@@ -86,8 +91,8 @@ enum class SourceReferenceStatus {
     changed,
 };
 
-// Serialization always emits project schema v2. Parsing accepts v1 and
-// explicitly migrates it to one history-free migrated-project lineage root.
+// Serialization emits project schema v2 plus the optional FM-013 laboratory
+// source extension. Parsing accepts v1, ordinary v2, and v2 with that extension.
 [[nodiscard]] std::string serialize_project_canonical(const ProjectDocument& project);
 [[nodiscard]] ProjectParseResult parse_project(
     std::string_view text,
