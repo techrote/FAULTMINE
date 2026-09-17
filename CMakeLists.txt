@@ -368,6 +368,11 @@ if(BUILD_TESTING)
         tests/laboratory_tests.cpp
     )
 
+    target_include_directories(faultmine_laboratory_tests
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
+
     target_link_libraries(faultmine_laboratory_tests
         PRIVATE
             faultmine_core
