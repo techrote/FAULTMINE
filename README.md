@@ -58,7 +58,17 @@ FM-006 adds a representation/bit family that models data being misunderstood rat
 - structured named-stream block bit bursts with bounded work;
 - typed mutation domains for every new parameter.
 
-The byte-level deterministic rules are documented in [`docs/RAG_DETERMINISM.md`](docs/RAG_DETERMINISM.md), canonical image/operator semantics in [`docs/RAG_IMAGE_PIPELINE.md`](docs/RAG_IMAGE_PIPELINE.md), interactive session/presentation boundaries in [`docs/RAG_SESSION_PRESENTATION.md`](docs/RAG_SESSION_PRESENTATION.md), memory/addressing semantics in [`docs/RAG_MEMORY_ADDRESSING.md`](docs/RAG_MEMORY_ADDRESSING.md), and representation/bit semantics in [`docs/RAG_REPRESENTATION_BITS.md`](docs/RAG_REPRESENTATION_BITS.md).
+FM-007 adds deterministic colour synthesis for constraining structural glitches into coherent visual families:
+
+- versioned embedded RGBA palette and four-channel 256-entry LUT assets with canonical JSON and SHA-256 identity;
+- nearest-palette and integer luminance-gradient mapping;
+- exact per-channel LUT mapping and round-half-up channel quantisation;
+- fixed Bayer 2x2/4x4/8x8 ordered dithering;
+- independently named per-pixel/channel seeded-noise dithering;
+- deterministic endpoint-ramp palette generation with seeded interior RGB jitter;
+- structured `colour_rgba`, `palette`, and `lut` mutation domains for later FM-009 search.
+
+The byte-level deterministic rules are documented in [`docs/RAG_DETERMINISM.md`](docs/RAG_DETERMINISM.md), canonical image/operator semantics in [`docs/RAG_IMAGE_PIPELINE.md`](docs/RAG_IMAGE_PIPELINE.md), interactive session/presentation boundaries in [`docs/RAG_SESSION_PRESENTATION.md`](docs/RAG_SESSION_PRESENTATION.md), memory/addressing semantics in [`docs/RAG_MEMORY_ADDRESSING.md`](docs/RAG_MEMORY_ADDRESSING.md), representation/bit semantics in [`docs/RAG_REPRESENTATION_BITS.md`](docs/RAG_REPRESENTATION_BITS.md), and colour semantics/assets in [`docs/RAG_COLOUR.md`](docs/RAG_COLOUR.md).
 
 ## Prerequisites
 
@@ -120,7 +130,7 @@ After launching `FAULTMINE.exe`:
 
 The bottom status line identifies full versus proxy preview, source/preview dimensions, before/result state, starter parameters, seed prefix and D3D11 hardware/WARP mode.
 
-FM-004 intentionally keeps these controls compact. The generic data-driven stack editor is FM-008 work; FM-005/FM-006 operators are currently exercised through canonical genomes/the CLI until that editor lands.
+FM-004 intentionally keeps these controls compact. The generic data-driven stack editor is FM-008 work; FM-005/FM-006/FM-007 operators are currently exercised through canonical genomes/the CLI until that editor lands.
 
 ## Non-GUI canonical render hook
 
@@ -130,9 +140,9 @@ The narrow developer CLI remains available:
 .\build\Debug\FAULTMINE-render.exe input.png genome.json output.png
 ```
 
-It validates the genome against the **default** registry (starter faults plus accepted memory/addressing and representation/bit families), normalizes the input through WIC, executes the canonical CPU stack, writes a PNG, and prints normalized source/output identities.
+It validates the genome against the **default** registry (starter faults plus accepted memory/addressing, representation/bit and colour families), normalizes the input through WIC, executes the canonical CPU stack, writes a PNG, and prints normalized source/output identities.
 
-Example genomes under `examples/` include the FM-003 starter stack, an FM-005 addressing stack, and an FM-006 representation/bit stack.
+Example genomes under `examples/` include the FM-003 starter stack, FM-005 addressing stack, FM-006 representation/bit stack and FM-007 colour stack. `examples/fm007-rust.fmpal` demonstrates the canonical human-editable FAULTMINE palette format.
 
 ## Authoritative development documentation
 
