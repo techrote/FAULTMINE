@@ -3,6 +3,7 @@
 #include "faultmine/laboratory.hpp"
 #include "faultmine/laboratory_worker.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
