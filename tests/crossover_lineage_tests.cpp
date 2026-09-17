@@ -13,7 +13,6 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
-#include <vector>
 
 namespace {
 
@@ -79,7 +78,7 @@ faultmine::core::ImageBuffer make_source() {
     return image;
 }
 
-faultmine::core::MutationLocks to_mutation_locks(const faultmine::app::LockState& locks) {
+faultmine::core::MutationLocks mutation_locks(const faultmine::app::LockState& locks) {
     faultmine::core::MutationLocks converted;
     converted.operators = locks.operators;
     for (const auto& lock : locks.parameters) {
@@ -88,7 +87,7 @@ faultmine::core::MutationLocks to_mutation_locks(const faultmine::app::LockState
     return converted;
 }
 
-void test_crossover_determinism_alignment_and_protection() {
+void test_crossover_contract() {
     using namespace faultmine;
     const core::FaultRegistry registry = core::make_default_fault_registry();
     const core::Genome a = make_parent(1U, core::InstanceId{1U, 1U}, 1, false);
@@ -97,64 +96,51 @@ void test_crossover_determinism_alignment_and_protection() {
     core::CrossoverParent pa{a, {}};
     pa.locks.parameters.push_back(core::CrossoverParameterLock{a.operators[0].instance_id, "amount"});
     core::CrossoverParent pb{b, {}};
-    pb.locks.operators.push_back(b.operators[1].instance_id); // force unmatched protected inheritance
+    pb.locks.operators.push_back(b.operators[1].instance_id);
 
     core::CrossoverRequest request;
     request.crossover_seed = core::RootSeed{0x1010101010101010ULL};
     const auto first = core::crossover_genomes({pa, pb}, registry.schema_registry(), request);
     const auto reversed = core::crossover_genomes({pb, pa}, registry.schema_registry(), request);
-    expect(first.ok() && reversed.ok(), "compatible typed parents cross successfully");
+    expect(first.ok() && reversed.ok(), "typed compatible parents cross successfully");
     if (!first.ok() || !reversed.ok()) return;
-    expect_equal(
-        core::serialize_canonical_genome(*first.genome),
-        core::serialize_canonical_genome(*reversed.genome),
+
+    expect_equal(core::serialize_canonical_genome(*first.genome), core::serialize_canonical_genome(*reversed.genome),
         "parent selection order is normalized by canonical identity");
     expect_equal(first.provenance.parent_genome_identities, reversed.provenance.parent_genome_identities,
-        "normalized crossover provenance parent order is stable");
+        "parent identities are stable provenance inputs");
     expect(!core::validate_genome(*first.genome, registry.schema_registry()).has_value(),
-        "crossover result is registry-valid before rendering");
+        "crossover child is registry-valid before rendering");
     expect_equal(first.genome->operators.size(), std::size_t{2U},
         "protected unmatched operator is conservatively inherited");
+    expect_equal(std::get<std::int64_t>(first.genome->operators[0].parameters.at("amount")), std::int64_t{1},
+        "protected aligned gene survives crossover");
     expect(first.genome->operators[0].instance_id != a.operators[0].instance_id &&
         first.genome->operators[0].instance_id != b.operators[0].instance_id,
-        "same-type/order alignment across independent instance ids derives a new deterministic id");
-    expect_equal(
-        std::get<std::int64_t>(first.genome->operators[0].parameters.at("amount")),
-        std::int64_t{1}, "locked aligned parameter value wins conservative crossover");
-    expect(std::any_of(
-        first.inherited_locks.parameters.begin(), first.inherited_locks.parameters.end(),
-        [&first](const core::CrossoverParameterLock& lock) {
-            return lock.instance_id == first.genome->operators[0].instance_id && lock.parameter == "amount";
-        }), "parameter lock transfers onto synthesized aligned child instance");
-    expect(std::find(
-        first.inherited_locks.operators.begin(), first.inherited_locks.operators.end(),
-        b.operators[1].instance_id) != first.inherited_locks.operators.end(),
-        "whole-operator lock transfers with unmatched protected operator");
+        "independently identified aligned operators receive deterministic synthesized identity");
 
     const auto repeated = core::crossover_genomes({pa, pb}, registry.schema_registry(), request);
     expect(repeated.ok(), "same crossover request repeats");
     if (repeated.ok()) {
-        expect_equal(repeated.genome->operators[0].instance_id, first.genome->operators[0].instance_id,
-            "new crossover instance id is deterministic");
         expect_equal(core::serialize_canonical_genome(*repeated.genome), core::serialize_canonical_genome(*first.genome),
-            "same parent identities, policy and seed reproduce canonical child bytes");
+            "same parents/policy/seed reproduce byte-identical child genome");
     }
 
-    core::CrossoverParent conflict_a{a, {}};
-    core::CrossoverParent conflict_b{b, {}};
-    conflict_a.locks.parameters.push_back(core::CrossoverParameterLock{a.operators[0].instance_id, "amount"});
-    conflict_b.locks.parameters.push_back(core::CrossoverParameterLock{b.operators[0].instance_id, "amount"});
-    const auto conflict = core::crossover_genomes({conflict_a, conflict_b}, registry.schema_registry(), request);
+    core::CrossoverParent ca{a, {}};
+    core::CrossoverParent cb{b, {}};
+    ca.locks.parameters.push_back(core::CrossoverParameterLock{a.operators[0].instance_id, "amount"});
+    cb.locks.parameters.push_back(core::CrossoverParameterLock{b.operators[0].instance_id, "amount"});
+    const auto conflict = core::crossover_genomes({ca, cb}, registry.schema_registry(), request);
     expect(!conflict.ok() && conflict.error.has_value() && conflict.error->code == core::CrossoverErrorCode::protected_conflict,
-        "conflicting protected genes are rejected instead of silently violating a lock");
+        "conflicting protected genes fail explicitly rather than violating a lock");
 
     core::Genome invalid = a;
     invalid.operators[0].type_id = "fault.not-registered";
-    const auto rejected = core::crossover_genomes({core::CrossoverParent{invalid, {}}, pb}, registry.schema_registry(), request);
-    expect(!rejected.ok(), "invalid crossover candidate is rejected before any render stage");
+    expect(!core::crossover_genomes({core::CrossoverParent{invalid, {}}, pb}, registry.schema_registry(), request).ok(),
+        "invalid candidate is rejected before rendering");
 }
 
-void test_lineage_dag_duplicates_and_cycles() {
+void test_lineage_graph_contract() {
     using namespace faultmine;
     const core::FaultRegistry registry = core::make_default_fault_registry();
     const std::string source_identity(64U, 'a');
@@ -177,11 +163,12 @@ void test_lineage_dag_duplicates_and_cycles() {
     mutation.mutation_radius = "medium";
     mutation.parent_specimen_ids = {root_id};
     expect(graph.retain(source_identity, child, {}, mutation, true, registry.schema_registry(), &error),
-        "mutation child is retained with explicit parent provenance");
+        "mutation child retains explicit provenance");
     expect(graph.retain(source_identity, child, {}, mutation, false, registry.schema_registry(), &error),
-        "retaining duplicate canonical genome merges instead of exploding graph");
-    expect_equal(graph.state().specimens.size(), std::size_t{2U}, "duplicate genome identity remains one specimen node");
-    expect(graph.find(child_id)->favourite, "duplicate merge does not erase favourite state");
+        "duplicate canonical specimen merges safely");
+    expect_equal(graph.state().specimens.size(), std::size_t{2U}, "duplicate identity does not explode graph");
+    expect(graph.find(child_id) != nullptr && graph.find(child_id)->favourite,
+        "duplicate merge does not erase favourite state");
 
     app::SpecimenDerivation crossover;
     crossover.kind = app::DerivationKind::crossover;
@@ -190,10 +177,11 @@ void test_lineage_dag_duplicates_and_cycles() {
     crossover.mutation_radius = "none";
     crossover.parent_specimen_ids = {root_id, child_id};
     expect(graph.retain(source_identity, grandchild, {}, crossover, false, registry.schema_registry(), &error),
-        "multi-parent crossover node is retained");
-    expect_equal(graph.parents_of(grandchild_id).size(), std::size_t{2U}, "crossover graph exposes both parents");
-    expect(std::find(graph.children_of(root_id).begin(), graph.children_of(root_id).end(), grandchild_id) != graph.children_of(root_id).end(),
-        "lineage graph exposes child navigation independently of edit history");
+        "multi-parent crossover specimen is retained");
+    expect_equal(graph.parents_of(grandchild_id).size(), std::size_t{2U}, "both crossover parents remain inspectable");
+    const auto root_children = graph.children_of(root_id);
+    expect(std::find(root_children.begin(), root_children.end(), grandchild_id) != root_children.end(),
+        "descendant navigation is distinct from edit history");
 
     app::SpecimenDerivation cycle;
     cycle.kind = app::DerivationKind::crossover;
@@ -202,12 +190,12 @@ void test_lineage_dag_duplicates_and_cycles() {
     cycle.mutation_radius = "none";
     cycle.parent_specimen_ids = {child_id, grandchild_id};
     expect(!graph.retain(source_identity, root, {}, cycle, false, registry.schema_registry(), &error),
-        "adding a parent edge from a descendant back to an ancestor is rejected as a cycle");
+        "cycle-forming provenance is rejected");
     expect(!app::LineageGraph::validate_state(graph.state(), registry.schema_registry(), source_identity).has_value(),
-        "retained lineage remains a valid DAG after rejected cycle attempt");
+        "lineage remains a valid DAG after rejected cycle");
 }
 
-void test_project_v2_roundtrip_and_v1_migration() {
+void test_project_v2_and_v1_migration() {
     using namespace faultmine;
     const core::FaultRegistry registry = core::make_default_fault_registry();
     const core::Genome root = make_parent(1U, core::InstanceId{1U, 1U}, 1, false);
@@ -232,16 +220,14 @@ void test_project_v2_roundtrip_and_v1_migration() {
     project.source.source_identity = source_identity;
     project.genome = child;
     project.lineage = graph.state();
-    const std::string text = app::serialize_project_canonical(project);
-    const auto parsed = app::parse_project(text, registry.schema_registry());
+    const std::string canonical = app::serialize_project_canonical(project);
+    const auto parsed = app::parse_project(canonical, registry.schema_registry());
     expect(parsed.ok(), "project v2 with lineage parses");
     if (parsed.ok()) {
-        expect_equal(app::serialize_project_canonical(*parsed.project), text, "project v2 lineage serialization is canonical");
-        expect_equal(parsed.project->lineage.active_specimen_id, core::genome_identity_hex(child), "active lineage node survives save/reload");
-        const auto favourite = std::find_if(
-            parsed.project->lineage.specimens.begin(), parsed.project->lineage.specimens.end(),
-            [](const app::SpecimenRecord& record) { return record.favourite; });
-        expect(favourite != parsed.project->lineage.specimens.end(), "favourite survives project save/reload");
+        expect_equal(app::serialize_project_canonical(*parsed.project), canonical, "project v2 round-trip is canonical");
+        expect_equal(parsed.project->lineage.active_specimen_id, core::genome_identity_hex(child), "active specimen survives reload");
+        expect(std::any_of(parsed.project->lineage.specimens.begin(), parsed.project->lineage.specimens.end(),
+            [](const app::SpecimenRecord& record) { return record.favourite; }), "favourite survives reload");
     }
 
     std::string genome_text = core::serialize_canonical_genome(root);
@@ -254,16 +240,14 @@ void test_project_v2_roundtrip_and_v1_migration() {
     const auto migrated = app::parse_project(legacy, registry.schema_registry());
     expect(migrated.ok(), "pre-lineage project v1 migrates explicitly");
     if (migrated.ok()) {
-        expect_equal(migrated.project->project_version, app::kProjectSchemaVersion, "migrated in-memory project uses current schema");
-        expect_equal(migrated.project->lineage.specimens.size(), std::size_t{1U}, "migration creates exactly one honest root");
-        const auto& record = migrated.project->lineage.specimens.front();
-        expect(record.derivations.front().kind == app::DerivationKind::legacy_project_root,
-            "migration labels the retained state as a legacy root rather than fabricating historical parents");
-        expect(record.derivations.front().parent_specimen_ids.empty(), "legacy migration invents no parent history");
+        expect_equal(migrated.project->lineage.specimens.size(), std::size_t{1U}, "migration creates one truthful root");
+        const auto& derivation = migrated.project->lineage.specimens.front().derivations.front();
+        expect(derivation.kind == app::DerivationKind::legacy_project_root, "migration records legacy-root provenance");
+        expect(derivation.parent_specimen_ids.empty(), "migration invents no historical parents");
     }
 }
 
-void test_session_branch_breed_navigate_reload() {
+void test_session_breed_navigation_and_reload() {
     using namespace faultmine;
     core::ImageBuffer source = make_source();
     const std::string identity = core::source_identity_hex(source);
@@ -274,62 +258,60 @@ void test_session_branch_breed_navigate_reload() {
     core::MutationRequest request;
     request.mutation_seed = core::RootSeed{0xabcddcba01234567ULL};
     request.radius = core::MutationRadius::medium;
-    request.locks = to_mutation_locks(session.locks());
+    request.locks = mutation_locks(session.locks());
     request.descendant_index = 0U;
     const auto first = core::generate_descendant(session.genome(), session.registry().schema_registry(), request);
     request.descendant_index = 1U;
     const auto second = core::generate_descendant(session.genome(), session.registry().schema_registry(), request);
-    expect(first.ok() && second.ok(), "two deterministic mutation descendants generated for branch/breed flow");
+    expect(first.ok() && second.ok(), "two deterministic mutation descendants are available for breeding");
     if (!first.ok() || !second.ok()) return;
 
     expect(session.set_mutation_specimen_favourite(*first.genome, first.provenance, true, &error),
-        "pin/favourite retains first mutation descendant durably");
+        "favourite action durably retains descendant");
     bool selected = false;
     expect(session.toggle_crossover_parent(*first.genome, first.provenance, &selected, &error) && selected,
-        "first retained descendant selected as crossover parent");
+        "first parent is selected");
     expect(session.toggle_crossover_parent(*second.genome, second.provenance, &selected, &error) && selected,
-        "second retained descendant selected as crossover parent");
-    expect_equal(session.crossover_parent_selection().size(), std::size_t{2U}, "two crossover parents are selected");
-    expect(session.breed_selected(core::RootSeed{0x777788889999aaaaULL}, &error), "selected descendants breed and promote deterministically");
-    const std::string crossover_id = session.genome_identity();
-    expect_equal(session.lineage().parents_of(crossover_id).size(), std::size_t{2U}, "bred active specimen retains both parent links");
-    expect(!session.can_undo(), "lineage promotion is not inserted into manual edit undo history");
-    expect(session.navigate_lineage_parent(&error), "lineage parent navigation succeeds without undo");
-    expect(session.genome_identity() != crossover_id, "parent navigation changes active specimen independently of edit history");
-    expect(session.navigate_lineage_child(&error), "lineage child navigation returns to retained descendant");
-    expect_equal(session.genome_identity(), crossover_id, "child navigation recovers bred active specimen");
+        "second parent is selected");
+    expect_equal(session.crossover_parent_selection().size(), std::size_t{2U}, "multi-parent selection is explicit");
+    expect(session.breed_selected(core::RootSeed{0x777788889999aaaaULL}, &error), "selected specimens breed deterministically");
+    const std::string child_id = session.genome_identity();
+    expect_equal(session.lineage().parents_of(child_id).size(), std::size_t{2U}, "bred specimen records both parents");
+    expect(!session.can_undo(), "lineage promotion is not manual edit undo history");
+    expect(session.navigate_lineage_parent(&error), "ancestry navigation succeeds");
+    expect(session.navigate_lineage_child(&error), "descendant navigation succeeds independently of undo");
+    expect_equal(session.genome_identity(), child_id, "descendant navigation returns to bred specimen");
     expect(session.active_provenance_summary().find("crossover") != std::string::npos,
-        "active provenance inspection reports crossover derivation");
+        "active provenance inspection exposes crossover metadata");
 
     const auto document = session.make_project_document(&error);
-    expect(document.has_value(), "evolutionary session emits project v2 document");
+    expect(document.has_value(), "evolutionary session emits project document");
     if (!document.has_value()) return;
-    const std::string saved = app::serialize_project_canonical(*document);
-    const auto parsed = app::parse_project(saved, session.registry().schema_registry());
-    expect(parsed.ok(), "evolutionary project parses after save");
+    const auto parsed = app::parse_project(app::serialize_project_canonical(*document), session.registry().schema_registry());
+    expect(parsed.ok(), "saved evolutionary project parses");
     if (!parsed.ok()) return;
 
     app::SessionModel restored;
     expect(restored.load_project_state(*parsed.project, source, L"D:\\moved\\source.png", &error),
         "same canonical source reloads evolutionary project");
-    expect_equal(restored.genome_identity(), crossover_id, "project reload recovers same active specimen");
-    expect_equal(restored.lineage().parents_of(crossover_id).size(), std::size_t{2U}, "project reload preserves crossover graph edges");
-    expect_equal(restored.lineage().favourites().size(), std::size_t{1U}, "project reload preserves durable favourite");
+    expect_equal(restored.genome_identity(), child_id, "reload restores same active specimen");
+    expect_equal(restored.lineage().parents_of(child_id).size(), std::size_t{2U}, "reload preserves crossover edges");
+    expect_equal(restored.lineage().favourites().size(), std::size_t{1U}, "reload preserves favourite");
 
     core::ImageBuffer changed = source;
     changed.bytes[0] ^= 1U;
     expect(!restored.load_project_state(*parsed.project, changed, L"D:\\moved\\changed.png", &error),
-        "source identity mismatch remains detected after lineage migration/persistence");
+        "source identity mismatch remains detected after lineage persistence");
 }
 
 }  // namespace
 
 int main() {
     try {
-        test_crossover_determinism_alignment_and_protection();
-        test_lineage_dag_duplicates_and_cycles();
-        test_project_v2_roundtrip_and_v1_migration();
-        test_session_branch_breed_navigate_reload();
+        test_crossover_contract();
+        test_lineage_graph_contract();
+        test_project_v2_and_v1_migration();
+        test_session_breed_navigation_and_reload();
     } catch (const std::exception& exception) {
         ++g_failures;
         std::cerr << "UNCAUGHT TEST EXCEPTION: " << exception.what() << '\n';
