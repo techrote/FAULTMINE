@@ -1,6 +1,7 @@
 #pragma once
 
 #include "faultmine/genome.hpp"
+#include "faultmine/laboratory.hpp"
 #include "faultmine/lineage.hpp"
 #include "faultmine/session.hpp"
 
@@ -16,7 +17,7 @@
 namespace faultmine::exporting {
 
 inline constexpr std::uint32_t kExportManifestSchemaVersion = 1U;
-inline constexpr std::string_view kApplicationVersion = "0.12.0";
+inline constexpr std::string_view kApplicationVersion = "0.13.0";
 
 enum class ExportKind {
     still,
@@ -86,6 +87,10 @@ struct ExportManifest {
     std::string output_format{"png-rgba8"};
     std::string output_image_identity;
     std::optional<DerivationManifest> derivation;
+    // Optional FM-013 extension. It records the external-decoder derivation of
+    // the normalized source while leaving downstream canonical output semantics
+    // bound to source_identity and the embedded canonical genome.
+    std::optional<laboratory::LaboratoryProvenance> laboratory;
 
     std::optional<std::uint64_t> still_frame;
 
