@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.25)
 
-project(FAULTMINE VERSION 0.11.0 LANGUAGES CXX)
+project(FAULTMINE VERSION 0.12.0 LANGUAGES CXX)
 
 if(NOT WIN32)
     message(FATAL_ERROR "FAULTMINE supports Windows x64 only.")
@@ -111,6 +111,25 @@ target_link_libraries(faultmine_session
 
 faultmine_project_defaults(faultmine_session)
 
+add_library(faultmine_export STATIC
+    src/app/export.cpp
+)
+
+target_include_directories(faultmine_export
+    PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
+target_link_libraries(faultmine_export
+    PUBLIC
+        faultmine_core
+        faultmine_session
+    PRIVATE
+        faultmine_wic
+)
+
+faultmine_project_defaults(faultmine_export)
+
 add_library(faultmine_d3d11 STATIC
     src/render/d3d11/canvas_renderer.cpp
     src/render/d3d11/canvas_renderer.hpp
@@ -137,7 +156,7 @@ faultmine_project_defaults(faultmine_d3d11)
 
 add_executable(faultmine WIN32
     src/app/main.cpp
-    src/platform/win32/main_window_fm011.cpp
+    src/platform/win32/main_window_fm012.cpp
 )
 
 set_target_properties(faultmine PROPERTIES OUTPUT_NAME "FAULTMINE")
@@ -152,6 +171,7 @@ target_link_libraries(faultmine
         faultmine_core
         faultmine_wic
         faultmine_session
+        faultmine_export
         faultmine_d3d11
         user32
         gdi32
@@ -279,4 +299,18 @@ if(BUILD_TESTING)
     )
     faultmine_project_defaults(faultmine_temporal_tests)
     add_test(NAME deterministic_temporal_contracts COMMAND faultmine_temporal_tests)
+
+    add_executable(faultmine_export_tests
+        tests/export_tests.cpp
+    )
+
+    target_link_libraries(faultmine_export_tests
+        PRIVATE
+            faultmine_core
+            faultmine_wic
+            faultmine_session
+            faultmine_export
+    )
+    faultmine_project_defaults(faultmine_export_tests)
+    add_test(NAME canonical_export_contracts COMMAND faultmine_export_tests)
 endif()
