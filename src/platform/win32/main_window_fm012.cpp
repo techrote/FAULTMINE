@@ -18,6 +18,7 @@ LRESULT temporal_call_window_proc(WNDPROC previous, HWND window, UINT message, W
 #include <array>
 #include <cerrno>
 #include <cstdint>
+#include <cwchar>
 #include <filesystem>
 #include <limits>
 #include <string>
@@ -150,8 +151,10 @@ LRESULT CALLBACK frame_range_proc(
     GetWindowRect(owner.hwnd_, &owner_rect);
     const int width = 420;
     const int height = 190;
-    const int x = owner_rect.left + std::max(0, (owner_rect.right - owner_rect.left - width) / 2);
-    const int y = owner_rect.top + std::max(0, (owner_rect.bottom - owner_rect.top - height) / 2);
+    const LONG owner_width = owner_rect.right - owner_rect.left;
+    const LONG owner_height = owner_rect.bottom - owner_rect.top;
+    const int x = static_cast<int>(owner_rect.left + std::max<LONG>(0L, (owner_width - static_cast<LONG>(width)) / 2L));
+    const int y = static_cast<int>(owner_rect.top + std::max<LONG>(0L, (owner_height - static_cast<LONG>(height)) / 2L));
     HWND prompt = CreateWindowExW(
         WS_EX_DLGMODALFRAME,
         kRangeWindowClass,
