@@ -12,6 +12,8 @@
 
 namespace faultmine::app {
 
+inline constexpr std::size_t kMaximumLineageSpecimens = 4096U;
+
 enum class DerivationKind {
     manual_root,
     mutation,
@@ -54,6 +56,7 @@ struct LineageState {
 
 enum class LineageErrorCode {
     invalid_record,
+    resource_limit,
     duplicate_identity,
     missing_parent,
     cycle,
@@ -81,9 +84,6 @@ public:
         const core::OperatorRegistry& registry,
         std::string* error = nullptr);
 
-    // Duplicate genome identities deliberately collapse to the existing node.
-    // The first accepted derivation remains authoritative; favourite=true may
-    // promote the retained node to a favourite. Conflicting content is rejected.
     [[nodiscard]] bool retain(
         SpecimenRecord record,
         const core::OperatorRegistry& registry,
