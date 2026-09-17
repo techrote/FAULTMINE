@@ -49,6 +49,37 @@ std::int64_t scaled_milli(const double value) noexcept {
     return static_cast<std::int64_t>(std::llround(bounded * 1000.0));
 }
 
+LineageState project_lineage_snapshot(
+    const LineageGraph& lineage,
+    const std::string& source_identity,
+    const core::Genome& genome,
+    const LockState& locks) {
+    LineageState state = lineage.state();
+    const std::string current_id = core::genome_identity_hex(genome);
+    auto current = std::find_if(
+        state.specimens.begin(), state.specimens.end(),
+        [&current_id](const SpecimenRecord& record) { return record.specimen_id == current_id; });
+    if (current == state.specimens.end()) {
+        std::uint64_t ordinal = 0U;
+        for (const SpecimenRecord& record : state.specimens) {
+            ordinal = std::max(ordinal, record.creation_ordinal + 1U);
+        }
+        SpecimenRecord root;
+        root.specimen_id = current_id;
+        root.source_identity = source_identity;
+        root.genome = genome;
+        root.locks = locks;
+        root.derivations.push_back(SpecimenDerivation{
+            DerivationKind::manual_root, 0U, core::RootSeed{}, 0U, "none", {}});
+        root.creation_ordinal = ordinal;
+        state.specimens.push_back(std::move(root));
+    } else {
+        current->locks = locks;
+    }
+    state.active_specimen_id = current_id;
+    return state;
+}
+
 }  // namespace
 
 SessionModel::SessionModel()
@@ -91,16 +122,12 @@ bool SessionModel::set_source(
     std::filesystem::path source_path,
     std::string* error) {
     if (const auto validation = core::validate_canonical_image(image); validation.has_value()) {
-        if (error != nullptr) {
-            *error = validation->message;
-        }
+        if (error != nullptr) *error = validation->message;
         return false;
     }
     const std::string actual_identity = core::source_identity_hex(image);
     if (source_identity != actual_identity) {
-        if (error != nullptr) {
-            *error = "source identity does not match canonical source bytes";
-        }
+        if (error != nullptr) *error = "source identity does not match canonical source bytes";
         return false;
     }
 
@@ -112,6 +139,13 @@ bool SessionModel::set_source(
     preview_is_proxy_ = false;
     active_proxy_key_.clear();
     editor_.mark_external_change();
+    std::string lineage_error;
+    if (!lineage_.reset_root(source_identity_, editor_.genome(), editor_.locks(), DerivationKind::manual_root, &lineage_error)) {
+        if (error != nullptr) *error = lineage_error;
+        return false;
+    }
+    crossover_parent_selection_.clear();
+    exploration_dirty_ = false;
     mark_preview_dirty();
     set_fit_view();
     return true;
@@ -123,23 +157,22 @@ bool SessionModel::load_project_state(
     std::filesystem::path resolved_source_path,
     std::string* error) {
     if (const auto validation = core::validate_canonical_image(source); validation.has_value()) {
-        if (error != nullptr) {
-            *error = validation->message;
-        }
+        if (error != nullptr) *error = validation->message;
         return false;
     }
     const std::string actual_identity = core::source_identity_hex(source);
     if (actual_identity != project.source.source_identity) {
-        if (error != nullptr) {
-            *error = "resolved source content does not match the project source identity";
-        }
+        if (error != nullptr) *error = "resolved source content does not match the project source identity";
+        return false;
+    }
+
+    LineageGraph next_lineage;
+    if (!next_lineage.replace_state(project.lineage, editor_.registry().schema_registry(), actual_identity, error)) {
         return false;
     }
     EditResult edit = editor_.replace_state(project.genome, project.locks, true);
     if (!edit.ok()) {
-        if (error != nullptr) {
-            *error = edit.error->message;
-        }
+        if (error != nullptr) *error = edit.error->message;
         return false;
     }
 
@@ -153,6 +186,10 @@ bool SessionModel::load_project_state(
     preview_is_proxy_ = false;
     active_proxy_key_.clear();
     selected_instance_id_ = project.session.selected_instance_id;
+    lineage_ = std::move(next_lineage);
+    crossover_parent_selection_.clear();
+    exploration_dirty_ = false;
+    editor_.mark_saved();
 
     if (project.ui.mode == "actual") {
         view_.mode = ViewMode::actual_size;
@@ -171,9 +208,7 @@ bool SessionModel::load_project_state(
 
 std::optional<ProjectDocument> SessionModel::make_project_document(std::string* error) const {
     if (!source_.has_value()) {
-        if (error != nullptr) {
-            *error = "a project requires a loaded canonical source";
-        }
+        if (error != nullptr) *error = "a project requires a loaded canonical source";
         return std::nullopt;
     }
     ProjectDocument project;
@@ -181,6 +216,12 @@ std::optional<ProjectDocument> SessionModel::make_project_document(std::string* 
     project.source.source_identity = source_identity_;
     project.genome = editor_.genome();
     project.locks = editor_.locks();
+    project.lineage = project_lineage_snapshot(lineage_, source_identity_, editor_.genome(), editor_.locks());
+    if (const auto validation = LineageGraph::validate_state(
+            project.lineage, editor_.registry().schema_registry(), source_identity_); validation.has_value()) {
+        if (error != nullptr) *error = validation->message;
+        return std::nullopt;
+    }
     project.session.proxy_enabled = proxy_enabled_;
     project.session.proxy_spec = proxy_spec_;
     project.session.selected_instance_id = selected_instance_id_;
@@ -210,12 +251,8 @@ const core::OperatorDescriptor* SessionModel::descriptor_for_operator(const std:
 const core::ParameterDescriptor* SessionModel::descriptor_for_parameter(const std::size_t index, const std::string_view name) const noexcept { return editor_.descriptor_for_parameter(index, name); }
 
 const core::ImageBuffer* SessionModel::preview_source() const noexcept {
-    if (!source_) {
-        return nullptr;
-    }
-    if (preview_is_proxy_ && proxy_cache_) {
-        return &proxy_cache_->image;
-    }
+    if (!source_) return nullptr;
+    if (preview_is_proxy_ && proxy_cache_) return &proxy_cache_->image;
     return &*source_;
 }
 
@@ -224,9 +261,7 @@ const core::ImageBuffer* SessionModel::display_image() const noexcept {
 }
 
 void SessionModel::after_semantic_edit(const EditResult& result) noexcept {
-    if (result.ok()) {
-        mark_preview_dirty();
-    }
+    if (result.ok()) mark_preview_dirty();
 }
 
 EditResult SessionModel::add_operator(const std::string_view type_id, const std::size_t insert_index) {
@@ -237,9 +272,7 @@ EditResult SessionModel::add_operator(const std::string_view type_id, const std:
 EditResult SessionModel::remove_operator(const std::size_t index) {
     EditResult result = editor_.remove_operator(index);
     after_semantic_edit(result);
-    if (selected_operator() == std::nullopt) {
-        selected_instance_id_.clear();
-    }
+    if (selected_operator() == std::nullopt) selected_instance_id_.clear();
     return result;
 }
 EditResult SessionModel::duplicate_operator(const std::size_t index) {
@@ -279,23 +312,22 @@ bool SessionModel::operator_locked(const std::size_t index) const noexcept { ret
 bool SessionModel::parameter_locked(const std::size_t index, const std::string_view name) const noexcept { return editor_.parameter_locked(index, name); }
 
 bool SessionModel::undo() {
-    if (!editor_.undo()) {
-        return false;
-    }
+    if (!editor_.undo()) return false;
     mark_preview_dirty();
     return true;
 }
 bool SessionModel::redo() {
-    if (!editor_.redo()) {
-        return false;
-    }
+    if (!editor_.redo()) return false;
     mark_preview_dirty();
     return true;
 }
 bool SessionModel::can_undo() const noexcept { return editor_.can_undo(); }
 bool SessionModel::can_redo() const noexcept { return editor_.can_redo(); }
-bool SessionModel::project_dirty() const noexcept { return editor_.project_dirty(); }
-void SessionModel::mark_project_saved() noexcept { editor_.mark_saved(); }
+bool SessionModel::project_dirty() const noexcept { return editor_.project_dirty() || exploration_dirty_; }
+void SessionModel::mark_project_saved() noexcept {
+    editor_.mark_saved();
+    exploration_dirty_ = false;
+}
 
 void SessionModel::set_selected_operator(const std::optional<std::size_t> operator_index) noexcept {
     if (!operator_index.has_value() || *operator_index >= genome().operators.size()) {
@@ -306,36 +338,26 @@ void SessionModel::set_selected_operator(const std::optional<std::size_t> operat
 }
 
 std::optional<std::size_t> SessionModel::selected_operator() const noexcept {
-    if (selected_instance_id_.empty()) {
-        return std::nullopt;
-    }
+    if (selected_instance_id_.empty()) return std::nullopt;
     for (std::size_t index = 0U; index < genome().operators.size(); ++index) {
-        if (genome().operators[index].instance_id.to_string() == selected_instance_id_) {
-            return index;
-        }
+        if (genome().operators[index].instance_id.to_string() == selected_instance_id_) return index;
     }
     return std::nullopt;
 }
 
 const core::ImageBuffer* SessionModel::choose_preview_source(std::string* error) {
     if (!source_) {
-        if (error != nullptr) {
-            *error = "no source image is loaded";
-        }
+        if (error != nullptr) *error = "no source image is loaded";
         return nullptr;
     }
     preview_is_proxy_ = false;
     active_proxy_key_.clear();
-    if (!proxy_enabled_) {
-        return &*source_;
-    }
+    if (!proxy_enabled_) return &*source_;
     const std::string wanted_key = core::proxy_cache_key(source_identity_, proxy_spec_);
     if (!proxy_cache_ || proxy_cache_->cache_key != wanted_key) {
         core::ProxyResult generated = core::make_nearest_proxy(*source_, source_identity_, proxy_spec_);
         if (!generated.ok()) {
-            if (error != nullptr) {
-                *error = generated.error->message;
-            }
+            if (error != nullptr) *error = generated.error->message;
             return nullptr;
         }
         proxy_cache_ = std::move(*generated.proxy);
@@ -346,18 +368,12 @@ const core::ImageBuffer* SessionModel::choose_preview_source(std::string* error)
 }
 
 bool SessionModel::ensure_preview(std::string* error) {
-    if (!preview_dirty_ && preview_result_) {
-        return true;
-    }
+    if (!preview_dirty_ && preview_result_) return true;
     const core::ImageBuffer* input = choose_preview_source(error);
-    if (input == nullptr) {
-        return false;
-    }
+    if (input == nullptr) return false;
     core::RenderResult rendered = core::render_pipeline(*input, editor_.genome(), editor_.registry());
     if (!rendered.ok()) {
-        if (error != nullptr) {
-            *error = rendered.error ? pipeline_error_text(*rendered.error) : std::string{"pipeline render failed"};
-        }
+        if (error != nullptr) *error = rendered.error ? pipeline_error_text(*rendered.error) : std::string{"pipeline render failed"};
         return false;
     }
     preview_result_ = std::move(*rendered.image);
@@ -368,16 +384,12 @@ bool SessionModel::ensure_preview(std::string* error) {
 
 std::optional<core::ImageBuffer> SessionModel::render_full(std::string* error) const {
     if (!source_) {
-        if (error != nullptr) {
-            *error = "no source image is loaded";
-        }
+        if (error != nullptr) *error = "no source image is loaded";
         return std::nullopt;
     }
     core::RenderResult rendered = core::render_pipeline(*source_, editor_.genome(), editor_.registry());
     if (!rendered.ok()) {
-        if (error != nullptr) {
-            *error = rendered.error ? pipeline_error_text(*rendered.error) : std::string{"full-resolution pipeline render failed"};
-        }
+        if (error != nullptr) *error = rendered.error ? pipeline_error_text(*rendered.error) : std::string{"full-resolution pipeline render failed"};
         return std::nullopt;
     }
     return std::move(*rendered.image);
@@ -423,26 +435,20 @@ bool SessionModel::effects_enabled() const noexcept {
 
 std::optional<std::size_t> SessionModel::find_operator_type(const std::string_view type_id) const noexcept {
     for (std::size_t index = 0U; index < genome().operators.size(); ++index) {
-        if (genome().operators[index].type_id == type_id) {
-            return index;
-        }
+        if (genome().operators[index].type_id == type_id) return index;
     }
     return std::nullopt;
 }
 
 void SessionModel::adjust_row_offset(const std::int64_t delta) {
     const auto index = find_operator_type(core::kFaultRowOffset);
-    if (!index.has_value()) {
-        return;
-    }
+    if (!index.has_value()) return;
     const EditResult result = editor_.nudge_parameter(*index, "amount", delta < 0 ? -1 : 1, false, false);
     after_semantic_edit(result);
 }
 void SessionModel::adjust_jitter(const std::int64_t delta) {
     const auto index = find_operator_type(core::kFaultScanlineJitter);
-    if (!index.has_value()) {
-        return;
-    }
+    if (!index.has_value()) return;
     const EditResult result = editor_.nudge_parameter(*index, "max_shift", delta < 0 ? -1 : 1, false, false);
     after_semantic_edit(result);
 }
@@ -452,18 +458,14 @@ void SessionModel::reroll_seed() {
 }
 std::int64_t SessionModel::row_offset_amount() const noexcept {
     const auto index = find_operator_type(core::kFaultRowOffset);
-    if (!index.has_value()) {
-        return 0;
-    }
+    if (!index.has_value()) return 0;
     const auto parameter = genome().operators[*index].parameters.find("amount");
     const auto* value = parameter == genome().operators[*index].parameters.end() ? nullptr : std::get_if<std::int64_t>(&parameter->second);
     return value != nullptr ? *value : 0;
 }
 std::uint64_t SessionModel::jitter_max_shift() const noexcept {
     const auto index = find_operator_type(core::kFaultScanlineJitter);
-    if (!index.has_value()) {
-        return 0U;
-    }
+    if (!index.has_value()) return 0U;
     const auto parameter = genome().operators[*index].parameters.find("max_shift");
     const auto* value = parameter == genome().operators[*index].parameters.end() ? nullptr : std::get_if<std::uint64_t>(&parameter->second);
     return value != nullptr ? *value : 0U;
@@ -477,9 +479,7 @@ void SessionModel::set_actual_view() noexcept {
     view_.pan_y = 0.0;
 }
 void SessionModel::zoom_by(const double factor) noexcept {
-    if (!(factor > 0.0)) {
-        return;
-    }
+    if (!(factor > 0.0)) return;
     view_.mode = ViewMode::custom;
     view_.zoom = std::clamp(view_.zoom * factor, 0.05, 64.0);
 }

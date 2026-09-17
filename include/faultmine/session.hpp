@@ -1,6 +1,8 @@
 #pragma once
 
+#include "faultmine/crossover.hpp"
 #include "faultmine/editor.hpp"
+#include "faultmine/lineage.hpp"
 #include "faultmine/project.hpp"
 #include "faultmine/proxy.hpp"
 
@@ -97,12 +99,38 @@ public:
     [[nodiscard]] bool project_dirty() const noexcept;
     void mark_project_saved() noexcept;
 
-    // Adopt a generated child as the new active parent. The candidate is
-    // rendered once against the full canonical source before adoption so a
-    // thumbnail/proxy can never become the authoritative promoted result.
+    // FM-009 promotion without derivation metadata remains available for callers
+    // that deliberately establish a fresh manual lineage root.
     [[nodiscard]] bool promote_exploration_genome(
         const core::Genome& genome,
         std::string* error = nullptr);
+
+    [[nodiscard]] const LineageGraph& lineage() const noexcept;
+    [[nodiscard]] const std::vector<std::string>& crossover_parent_selection() const noexcept;
+    [[nodiscard]] bool retain_mutation_specimen(
+        const core::Genome& genome,
+        const core::DescendantProvenance& provenance,
+        bool favourite,
+        std::string* error = nullptr);
+    [[nodiscard]] bool promote_mutation_specimen(
+        const core::Genome& genome,
+        const core::DescendantProvenance& provenance,
+        std::string* error = nullptr);
+    [[nodiscard]] bool set_mutation_specimen_favourite(
+        const core::Genome& genome,
+        const core::DescendantProvenance& provenance,
+        bool favourite,
+        std::string* error = nullptr);
+    [[nodiscard]] bool toggle_crossover_parent(
+        const core::Genome& genome,
+        const core::DescendantProvenance& provenance,
+        bool* selected = nullptr,
+        std::string* error = nullptr);
+    [[nodiscard]] bool breed_selected(core::RootSeed crossover_seed, std::string* error = nullptr);
+    [[nodiscard]] bool activate_lineage_specimen(std::string_view specimen_id, std::string* error = nullptr);
+    [[nodiscard]] bool navigate_lineage_parent(std::string* error = nullptr);
+    [[nodiscard]] bool navigate_lineage_child(std::string* error = nullptr);
+    [[nodiscard]] std::string active_provenance_summary() const;
 
     void set_selected_operator(std::optional<std::size_t> operator_index) noexcept;
     [[nodiscard]] std::optional<std::size_t> selected_operator() const noexcept;
@@ -157,6 +185,9 @@ private:
 
     CanvasViewState view_{};
     std::string selected_instance_id_;
+    LineageGraph lineage_;
+    std::vector<std::string> crossover_parent_selection_;
+    bool exploration_dirty_{};
 };
 
 }  // namespace faultmine::app

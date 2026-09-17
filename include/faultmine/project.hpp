@@ -1,6 +1,7 @@
 #pragma once
 
 #include "faultmine/editor.hpp"
+#include "faultmine/lineage.hpp"
 #include "faultmine/proxy.hpp"
 
 #include <cstdint>
@@ -10,7 +11,8 @@
 
 namespace faultmine::app {
 
-inline constexpr std::uint32_t kProjectSchemaVersion = 1U;
+inline constexpr std::uint32_t kProjectSchemaVersion = 2U;
+inline constexpr std::uint32_t kLegacyProjectSchemaVersion = 1U;
 
 struct ProjectSourceReference {
     std::string path_utf8;
@@ -42,6 +44,7 @@ struct ProjectDocument {
     ProjectSourceReference source;
     core::Genome genome;
     LockState locks;
+    LineageState lineage;
     ProjectSessionState session;
     ProjectViewState ui;
 
@@ -58,6 +61,7 @@ enum class ProjectErrorCode {
     unsupported_version,
     invalid_genome,
     invalid_lock,
+    invalid_lineage,
 };
 
 struct ProjectError {
