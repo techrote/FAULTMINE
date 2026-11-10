@@ -1,0 +1,103 @@
+param(
+    [ValidateSet('Debug', 'Release')]
+    [string]$Configuration = 'Release',
+    [string]$BuildDir = 'build'
+)
+
+$ErrorActionPreference = 'Stop'
+# Expected negative CLI results are asserted from exit codes, not PowerShell's
+# treatment of a native process writing to stderr.
+$PSNativeCommandUseErrorActionPreference = $false
+
+$repoRoot = Split-Path -Parent $PSScriptRoot
+$renderExecutable = Join-Path $repoRoot "$BuildDir/$Configuration/FAULTMINE-render.exe"
+if (-not (Test-Path $renderExecutable)) {
+    throw "Missing native renderer: $renderExecutable"
+}
+
+function Invoke-RenderExpectedExit {
+    param(
+        [Parameter(Mandatory = $true)]
+        [int]$ExpectedCode,
+        [Parameter(Mandatory = $true)]
+        [string[]]$Arguments,
+        [Parameter(Mandatory = $true)]
+        [string]$Label
+    )
+    $lines = @(& $renderExecutable @Arguments)
+    if ($LASTEXITCODE -ne $ExpectedCode) {
+        throw "$Label returned $LASTEXITCODE; expected $ExpectedCode."
+    }
+    return $lines
+}
+
+$tempRoot = Join-Path ([IO.Path]::GetTempPath()) ("FAULTMINE-render-verify-" + [guid]::NewGuid().ToString('N'))
+New-Item -Path $tempRoot -ItemType Directory -Force | Out-Null
+try {
+    $source = Join-Path $tempRoot 'source.bmp'
+    $different = Join-Path $tempRoot 'different.bmp'
+    $genome = Join-Path $tempRoot 'canonical-genome.json'
+    $badGenome = Join-Path $tempRoot 'bad-genome.json'
+    $rendered = Join-Path $tempRoot 'rendered.png'
+    $frameTwo = Join-Path $tempRoot 'frame-2.png'
+
+    # A tiny 2x2 24-bit BMP with four distinct pixels (no downloaded assets).
+    $sourceBytes = [Convert]::FromBase64String(
+        'Qk1GAAAAAAAAADYAAAAoAAAAAgAAAAIAAAABABgAAAAAABAAAAATCwAAEwsAAAAAAAAAAAAA/wAAAP8AAAAAAP////8AAA==')
+    [IO.File]::WriteAllBytes($source, $sourceBytes)
+    $differentBytes = [byte[]]::new($sourceBytes.Length)
+    [Array]::Copy($sourceBytes, $differentBytes, $sourceBytes.Length)
+    $differentBytes[54] = 0
+    [IO.File]::WriteAllBytes($different, $differentBytes)
+
+    $utf8 = [Text.UTF8Encoding]::new($false)
+    [IO.File]::WriteAllText(
+        $genome,
+        '{"schema_version":1,"engine_contract_version":1,"root_seed":"0123456789abcdef","operators":[]}' + "`n",
+        $utf8)
+    [IO.File]::WriteAllText(
+        $badGenome,
+        '{"schema_version":2,"engine_contract_version":1,"root_seed":"0123456789abcdef","operators":[]}' + "`n",
+        $utf8)
+
+    $normal = @(Invoke-RenderExpectedExit 0 @($source, $genome, $rendered) 'frame-zero render')
+    if (-not (Test-Path $rendered) -or
+        @($normal | Where-Object { $_ -match '^source_identity=[0-9a-f]{64}$' }).Count -ne 1 -or
+        @($normal | Where-Object { $_ -match '^output_identity=[0-9a-f]{64}$' }).Count -ne 1) {
+        throw 'Normal render did not produce a PNG and canonical identity records.'
+    }
+
+    $beforeVerify = (Get-FileHash -Algorithm SHA256 -Path $rendered).Hash
+    $verified = @(Invoke-RenderExpectedExit 0 @('--verify', $source, $genome, $rendered) 'frame-zero read-only verification')
+    if ($verified -notcontains 'verification=passed' -or $verified -notcontains 'frame=0') {
+        throw 'Read-only verification did not report an explicit passing frame.'
+    }
+    if ((Get-FileHash -Algorithm SHA256 -Path $rendered).Hash -ne $beforeVerify) {
+        throw 'Read-only verification modified the expected image.'
+    }
+
+    $explicit = @(Invoke-RenderExpectedExit 0 @('--frame', '2', $source, $genome, $frameTwo) 'explicit frame render')
+    if ($explicit -notcontains 'frame=2') {
+        throw 'Explicit-frame render did not report frame=2.'
+    }
+    $explicitVerify = @(Invoke-RenderExpectedExit 0 @('--verify', '--frame', '2', $source, $genome, $frameTwo) 'explicit frame verification')
+    if ($explicitVerify -notcontains 'verification=passed' -or $explicitVerify -notcontains 'frame=2') {
+        throw 'Explicit frame canonical replay verification did not pass.'
+    }
+
+    # These failures are mandatory: accepting a different decoded pixel,
+    # missing image, unsupported genome schema or invalid frame is unsafe.
+    Invoke-RenderExpectedExit 10 @('--verify', $source, $genome, $different) 'pixel mismatch' | Out-Null
+    Invoke-RenderExpectedExit 9 @('--verify', $source, $genome, (Join-Path $tempRoot 'absent.png')) 'missing reference' | Out-Null
+    Invoke-RenderExpectedExit 5 @('--verify', $source, $badGenome, $rendered) 'unsupported schema' | Out-Null
+    Invoke-RenderExpectedExit 2 @('--frame', '-1', $source, $genome, $rendered) 'negative frame rejection' | Out-Null
+    Invoke-RenderExpectedExit 2 @('--frame', '18446744073709551616', $source, $genome, $rendered) 'overflow frame rejection' | Out-Null
+
+    if ((Get-FileHash -Algorithm SHA256 -Path $rendered).Hash -ne $beforeVerify) {
+        throw 'Negative verification unexpectedly modified the canonical image.'
+    }
+    Write-Host "Canonical renderer CLI acceptance PASS ($Configuration): frame 0/2 replay, pixel mismatch, schema rejection, invalid frame, read-only output."
+}
+finally {
+    Remove-Item $tempRoot -Recurse -Force -ErrorAction SilentlyContinue
+}
