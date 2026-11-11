@@ -4,6 +4,7 @@ No external photographs, fonts, clip art, randomness or network.
 """
 import argparse
 import hashlib
+import math
 import pathlib
 import struct
 
@@ -59,7 +60,7 @@ for cx,cy,rad in ((293,104,56),(293,104,80),(290,105,108)):
         dx=x-cx
         rr=rad*rad-dx*dx
         if rr<0:continue
-        yoff=int(rr**0.5)
+        yoff=math.isqrt(rr)
         for y in (cy-yoff,cy+yoff):
             if 0<=y<H and (x//9)%5!=1 and (x+2*y)%13<9:dot(x,y,C['halo'])
 
