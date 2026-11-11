@@ -16,6 +16,14 @@ ARCHIVE_SHAS = {
     '5135f36d2cfca6baa91b27d7b84e0eefea689e95a38232bb112a73f1bb655b8d',
     # Same 286 entries preserved, with three extra noncanonical owner audit files.
     '323c81905c675f55ed12e1274ed6faa6a5212cacc90b0a2e6cd09841ec82f1eb',
+    # Newest owner evaluation ZIP: the 289 original files remain byte-identical;
+    # three more standalone read-only native-replay files, never canonical substitutes.
+    '8cb1ef4789aa2266c905d8ca53a010f4c48f8cb8c842e322f564b93474d5903a',
+}
+ARCHIVE_COUNTS = {
+    '5135f36d2cfca6baa91b27d7b84e0eefea689e95a38232bb112a73f1bb655b8d': 286,
+    '323c81905c675f55ed12e1274ed6faa6a5212cacc90b0a2e6cd09841ec82f1eb': 289,
+    '8cb1ef4789aa2266c905d8ca53a010f4c48f8cb8c842e322f564b93474d5903a': 292,
 }
 PROJECT_SHA = '06e6d8f3a14ee17f7b314fa9d591dfa8c5f4e1714b1bba2a13b9e50c9c20049f'
 CONTACT_SHA = '70f7f437e263072ad37b1537e0d839c03cdf801a2b9efe9865fed6db48d97c0d'
@@ -94,8 +102,14 @@ def diff_rgb(a, b):
 
 def audit(path):
     archive_sha = sha(path.read_bytes())
-    assert archive_sha in ARCHIVE_SHAS, 'not either pinned qualified Integration ZIP; do not mix source heads'
+    assert archive_sha in ARCHIVE_SHAS, 'not a pinned qualified Integration ZIP; do not mix source heads'
     with zipfile.ZipFile(path) as z:
+        # Each qualified variant is an additive packaging revision. Guard member
+        # multiplicity/paths separately to reject accidental unsafe repacks.
+        names = z.namelist()
+        assert len(names) == ARCHIVE_COUNTS[archive_sha], 'qualified archive member count drift'
+        assert len(names) == len(set(names)), 'duplicate ZIP member names'
+        assert all(not name.startswith('/') and '..' not in name.split('/') for name in names), 'unsafe ZIP member path'
         member = lambda name: z.read(PREFIX + name)
         assert sha(member('batch.fmbatch.json')) == BATCH_SHA, 'native batch receipt drift'
         assert sha(member('batch.fmproj')) == PROJECT_SHA, 'native GUI import project drift'
