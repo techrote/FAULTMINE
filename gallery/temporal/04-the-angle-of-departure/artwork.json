@@ -1,0 +1,32 @@
+{
+  "artwork_manifest_version": 1,
+  "title": "The Angle of Departure \u2014 Misfolded Cartography",
+  "created_date": "2026-11-11",
+  "source_file": "source.bmp",
+  "source_encoding_sha256": "7fdf2e80da19a28fe41b15d25599e790aee6ca231ae0fd580df87ad66daecd52",
+  "source_identity": "332cf105a6625bf25949b68b053f4c8ac748b16a9aa9b86b734ee683c459b497",
+  "genome_file": "genome.json",
+  "genome_identity": "851824bb7e806b75f0e819ddb9b1f902e763e5a2700421fdee9cc5951a55b680",
+  "project_file": "the-angle-of-departure.fmproj",
+  "genome_schema_version": 1,
+  "engine_contract_version": 1,
+  "project_version": 2,
+  "root_seed": "b64a7c291d0ee305",
+  "frame_begin": 0,
+  "frame_end_exclusive": 36,
+  "rate_num": 12,
+  "rate_den": 1,
+  "recommended_key_frames": [
+    0,
+    4,
+    8,
+    12,
+    16,
+    20,
+    24,
+    28,
+    35
+  ],
+  "canonical_frame_status": "pending-native-windows-cpu-render",
+  "note": "Original 320x192 BMP source visually inspected; no native post-fault frames claimed."
+}
