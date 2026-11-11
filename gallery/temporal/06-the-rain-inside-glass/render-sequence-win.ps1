@@ -57,6 +57,6 @@ try {
 } catch { $audit.failure=$_.Exception.Message; throw }
 finally {
  $name=if($audit.complete){'native-cli-replay-audit.json'}else{'native-cli-replay-PARTIAL.json'}
- [IO.File]::WriteAllText((Join-Path $OutputDirectory $name),($audit|ConvertTo-Json -Depth 8)+"\n",[Text.UTF8Encoding]::new($false))
+ [IO.File]::WriteAllText((Join-Path $OutputDirectory $name),($audit|ConvertTo-Json -Depth 8)+([string][char]10),[Text.UTF8Encoding]::new($false))
 }
 Write-Host 'PASS: 24 native canonical PNGs and six nonchronological read-only replays'
