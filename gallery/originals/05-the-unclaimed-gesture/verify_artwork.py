@@ -119,16 +119,16 @@ def verify(canonical=None):
     assert (a['source_encoding_sha256'],a['source_identity'],a['genome_identity'],a['project_encoding_sha256'])==(S,SI,GI,P)
     assert (a['root_seed'],a['explicit_frame'],a['operator_count'])==(SEED,0,7)
     assert a['source_dimensions']==[W,H]
-    assert a['native_render_status']=='windows-native-cli-release-debug-replayed-external-proof'
+    assert a['native_render_status']=='windows-native-cli-release-debug-replayed-archived'
     assert a['canonical_output_identity']==OI and a['canonical_output_encoded_sha256']==OH
-    assert a['canonical_output_file'] is None, 'Native PNG has not been committed into this Draft'
+    assert a['canonical_output_file']=='unclaimed-gesture-canonical.png', 'Archived canonical artwork path is required'
     assert a['visual_evidence']=='archived-native-cpu-image-inspected-not-owner-accepted'
     evidence=a['canonical_evidence']
     assert evidence=={'run_id':42990696670,'artifact_id':13841447863,
         'artifact_member':'original-05-native/unclaimed-gesture-canonical.png',
         'receipt_member':'original-05-native/native-replay-receipt.json',
         'pinned_author_head':'962e55a3906e256e0a9ad407fdd56c44ecdbce53',
-        'retention':'Exact native PNG available in workflow artifact / owner review ZIP; NOT committed on PR #61'}
+        'retention':'Exact Windows-native encoded PNG committed unmodified to artwork subtree and independently retrievable from the original Windows Actions artifact'}
     assert sha((D/'native-replay-receipt.json').read_bytes())=='09371ca0192c7f13115c88a4fea22682e5521d9905412ffba2e0d48826b17631', 'Original Windows receipt transport changed'
     receipt=load_json('native-replay-receipt.json')
     assert receipt=={'audit_version':1,'kind':'author-cli-replay-not-FM012',
@@ -136,21 +136,27 @@ def verify(canonical=None):
         'root_seed':SEED,'frame':0,'output_identity':OI,'encoded_png_sha256':OH,
         'release_verify':'passed','debug_verify':'passed',
         'output_file':'unclaimed-gesture-canonical.png'}, 'Native receipt drift'
-    if canonical is not None:
-        blob=Path(canonical).read_bytes()
-        assert sha(blob)==OH, 'External native PNG container hash mismatch'
+    # The committed native proof is mandatory on every run; --canonical provides an additional comparison.
+    archived=D/a['canonical_output_file']
+    assert archived.is_file(), 'Missing committed Windows-native canonical PNG'
+    native=archived.read_bytes()
+    def check_native(blob):
+        assert sha(blob)==OH, 'Native PNG container SHA mismatch'
         assert blob.startswith(b'\x89PNG\r\n\x1a\n')
         width,height,depth,colour,compress,filter_method,interlace=struct.unpack_from('>IIBBBBB',blob,16)
         assert (width,height,depth,colour,compress,filter_method,interlace)==(W,H,8,6,0,0,0), 'Expected native straight RGBA8 PNG'
         w,h,rgba=png_pixels(blob)
-        assert (w,h)==(W,H) and source_id(w,h,rgba)==OI, 'External native decoded pixel identity mismatch'
+        assert (w,h)==(W,H) and source_id(w,h,rgba)==OI, 'Native decoded pixel identity mismatch'
         damaged=bytearray(blob);damaged[200]^=1
         try:png_pixels(damaged)
         except (AssertionError,ValueError,zlib.error):pass
         else:raise AssertionError('Corrupted native PNG was accepted')
-        print('PASS: actual Windows-native PNG SHA, strict CRC/decode, canonical RGBA8 output identity and corruption rejection')
-    else:
-        print('PASS: pinned native Windows receipt and provenance; decoded native pixels NOT checked without --canonical PATH')
+    check_native(native)
+    if canonical is not None:
+        external=Path(canonical).read_bytes()
+        assert external==native, 'External native proof is not byte-identical to the committed PNG'
+        check_native(external)
+    print('PASS: committed original Windows-native PNG SHA, strict CRC/decode, canonical RGBA8 output identity and corruption rejection')
     print('PASS: source PNG, canonical genome/project bytes, typed stack, root seed and lineage. Physical Win32 GUI/art acceptance remains pending.')
 
 def negative():
