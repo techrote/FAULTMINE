@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Fail-closed, read-only replay of *archived* FM-014 evidence; does not mine or render.
 
-Usage: python verify_native_admission.py FOUR_FAMILY_ZIP EVOLUTION_REVIEW_ZIP [SEISMIC_NATIVE_ZIP]
+Usage: python verify_native_admission.py FOUR_FAMILY_ZIP\n       python verify_native_admission.py FOUR_FAMILY_ZIP EVOLUTION_REVIEW_ZIP [SEISMIC_NATIVE_ZIP]
 
 Optional third archive is the genuine Windows #57 CI artifact; it enables
 independent verification of all 128 candidate PNGs against strict FM-014 rows.
@@ -128,6 +128,25 @@ def audit(blob,family):
  check(rows[selected]['selected'] and rows[selected]['pixel_identity']==winner,'wrong selected winner')
  return doc
 
+def verify_one_archive(four):
+ """Standalone Shearwing admission replay from the existing owner Windows ZIP.
+
+ The current four-family ZIP contains all 96 actual full-resolution cached
+ Shearwing candidates; a second review ZIP is not needed to check them.
+ """
+ with zipfile.ZipFile(four) as native:
+  blob=native.read(PREFIX+'batch.fmbatch.json')
+  doc=audit(blob,'shearwing')
+  wh=SPEC['shearwing'][4]
+  for row in doc['candidates']:
+   i=row['descendant_index']
+   png=native.read(PREFIX+f'candidates/candidate_{i:020}.png')
+   check(pixel_identity(png,wh,row['descriptor'])==row['pixel_identity'],
+         f'Shearwing native candidate {i} pixels/descriptor mismatch')
+  winner=native.read(PREFIX+'selected/candidate_00000000000000000065.png')
+  check(pixel_identity(winner,wh)==SPEC['shearwing'][-1],'Shearwing winner mismatch')
+ print('PASS standalone Shearwing: 96/96 native pixels/descriptors, 70 near representatives, 0 failures')
+
 def verify(four,review,seismic_native=None):
  with zipfile.ZipFile(four) as native,zipfile.ZipFile(review) as desk:
   for family in ('shearwing','seismic'):
@@ -163,6 +182,10 @@ def verify(four,review,seismic_native=None):
  if seismic_native is not None: print('PASS: all 128 Seismic native cache PNGs decoded; descriptor-v1, run-head and winner transport checked')
 
 if __name__=='__main__':
- if len(sys.argv) not in (3,4): sys.exit('usage: python verify_native_admission.py FOUR_FAMILY_ZIP EVOLUTION_REVIEW_ZIP [SEISMIC_NATIVE_ZIP]')
- try: verify(Path(sys.argv[1]),Path(sys.argv[2]),Path(sys.argv[3]) if len(sys.argv)==4 else None)
+ if len(sys.argv) not in (2,3,4): sys.exit('usage: python verify_native_admission.py FOUR_FAMILY_ZIP [EVOLUTION_REVIEW_ZIP [SEISMIC_NATIVE_ZIP]]')
+ try:
+  if len(sys.argv)==2:
+   verify_one_archive(Path(sys.argv[1]))
+  else:
+   verify(Path(sys.argv[1]),Path(sys.argv[2]),Path(sys.argv[3]) if len(sys.argv)==4 else None)
  except (ValueError,KeyError,IndexError,zipfile.BadZipFile,zlib.error,UnicodeDecodeError) as e: sys.exit('FAIL: '+str(e))
