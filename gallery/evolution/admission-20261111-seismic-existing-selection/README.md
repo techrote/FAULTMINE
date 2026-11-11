@@ -40,3 +40,21 @@ Generated offline HTML SHA-256: `da9a05f202cca5a428e803b7d65a7e1fa1f123b2063fcf7
 **Integration/owner gate:** first decide ADMIT / REVISE / REJECT Shearwing #65; then evaluate Seismic #101 against the alternate #102 and decide separately. Before admitting either, verify the exact latest artwork PR head, native project source relink, complete FM-012 export/cancellation and physical Win32 GUI. Static archive identity and Chromium observation do not satisfy those human gates.
 
 No new named artwork, accepted record, engine code, GUI subsystem or original/temporal asset is included in this Draft.
+
+## 11 November 2026 — Independent Shearwing #53 archive qualification
+
+No new mining. The separate `audit_shearwing_native.py` independently decodes **all 96** archived full-resolution Windows CPU canonical candidates from the already distributed four-family review ZIP. It verifies original source BMP **transport SHA and normalized straight-RGBA8 content identity** using a Python-stdlib decoder; the native project v2's source binding; every PNG's actual decoded ID; all 24 descriptor-v1 values; the exact and inclusive-L1 near representative assignments; all eight original selected PNG/genome pairs; and the deterministic farthest-point selection and novelty distances. The original source, genome, selected images, project, manifests and author branches are unchanged.
+
+**Observed source-exact correction:** Shearwing has **96/96 completed**, **zero failures**, **96 unique decoded images**, **zero exact pixel duplicates**, **70 near representatives** and **26 near-redundant unique images** (27.08% at inclusive L1 threshold 8192). The original #53 PR summary's **10 near representatives is inconsistent** with the manifest and independent descriptor replay: do not propagate that count. This is an objective provenance/count correction, not artistic qualification.
+
+Original eight selections by descendant index: `[0,2,8,35,46,65,71,74]`. Independently reconstructed farthest-point novelty **ranking order**: `[0,74,8,2,71,35,46,65]`. The rank order and sorted selected-index order must not be confused. Winner #65 remains the preferred physical selection; no bytes change.
+
+Run, with the existing four-family current-main Windows review ZIP:
+
+```powershell
+python gallery/evolution/admission-20261111-seismic-existing-selection/audit_shearwing_native.py "FAULTMINE-current-main-four-family-review.zip" --negative-test
+```
+
+The genuine batch project's `source.path` still contains the Windows CI machine's absolute path `D:\\a\\FAULTMINE\\FAULTMINE\\gallery\\evolution\\05-shearwing-telemetry\\source.bmp`. The source actually ships under `gallery/evolution/05-shearwing-telemetry/source.bmp`; a portable Win32 project open requires an explicit source re-link/identity check, not silent path rewriting. **Physical GUI and FM-012 full/cancelled export remain outstanding.**
+
+Curatorial order unchanged: **REVIEW #53 Shearwing #65**, then **HOLD #57 Seismic #101**, using real native contact sheets. There is no already-admitted art on main. The independent script is a read-only gate, not acceptance authority.
