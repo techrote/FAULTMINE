@@ -14,7 +14,7 @@
 - Child genome identity: 33d5e6ad5924b3a19fc421ac620386c4e1d232662d1a018d8946889f93f92f78.
 - Canonical output normalized RGBA8 identity: **6f149f34cb9eca441c4206de1b5e7b0f035cab3b2ad958e3401f5a1cef2d9c50**.
 - Native PNG SHA-256: 41a2e7863eecd7ef51d460dd7d7909b220b915ee60941cd2077d5df0bb2a4cf5.
-- First verified Windows native evidence: workflow 42968114370, uploaded artifact 13832600842. Native mining completed **96/96**, failures 0, unique genome identities 96, unique canonical pixel identities 96, near-duplicate representative groups 10, novelty selections 8. This first workflow *failed later* on a PowerShell sidecar-filename assertion, not on rendering; exact-head replay/qualification should be checked again after the focused repair.
+- First verified Windows native evidence: workflow 42968114370, uploaded artifact 13832600842. Native mining completed **96/96**, failures 0, unique genome identities 96, unique canonical pixel identities 96, near-duplicate representative groups 10, novelty selections 8. That initial workflow failed later on a wrong sidecar-filename assertion, not on rendering. Fixed subsequently: Windows native runs #42968866361 and #42969442678 both PASSED complete mining, verified one-thread resume and read-only Debug/Release replay for all 8 selected outputs.
 - Selection 65 is its own exact-genome, exact-pixel and near-dedupe representative; reported diversity novelty distance 111351 (descriptor L1 units). This is not an aesthetic score.
 
 ## Observed visual judgment
@@ -23,11 +23,11 @@ I inspected the genuine native FM-012 eight-panel contact sheet and full native 
 
 Rejected alternatives: **#2** is a striking diagonal staircase of broken parts but loses the concentrated double-wing motif; **#46** is an almost all-red interference blanket that erases the bird/airspace relation; **#71** spreads the wing material into several similarly weighted diagonals; **#74** collapses into black. These are actual inspected post-fault pixels, not inferred source-only judgments.
 
-The selection is a finished *artistic decision*. Native PNG and FM-012 sidecar are preserved in the workflow artifact and should be committed byte-exact to this subtree after read-only replay passes; do not fabricate or hand-reencode them. The batch project, all eight selected native stills/manifests, contact sheet and entire resume cache remain in the Windows artifact as provenance.
+The selection is a finished *artistic decision*. The **exact native PNG and FM-012 sidecar are now committed byte-for-byte** in this subtree, transported from the successful Windows artifact without reencoding. The original BMP and genome are committed too; `verify_selection.py` independently decodes and compares the PNG, source identity, archive checksums, canonical genome and FM-012 mutation lineage. The batch project, all eight selected native stills/manifests, contact sheet and entire resume cache remain in the Windows artifact as provenance.
 
 ## Technical limits and admission
 
 - Genome JSON here is copied exactly from strict native batch manifest candidate 65, including LF; SHA-256 equals the child genome identity above.
-- The first Windows run proved genuine 96-candidate rendering and selection; a contact-sheet sidecar was incorrectly checked as .png.json rather than the actual .png.fmmanifest.json. The PowerShell assertion was repaired; rerun exact-head workflow and confirm full one-worker resume plus dual-build read-only replay.
-- The candidate's decoded PNG was independently verified against the domain-separated RGBA8 identity and matching native FM-012 sidecar in the first artifact.
+- The first Windows run proved 96 real canonical candidates but failed on a misspelled contact-sheet sidecar filename. The corrected workflow #42969442678 PASSED all native gates: Debug/Release suites, 96-candidate batch, one-thread verified resume and 16 read-only selected PNG replays. Latest exact-head verification must also check the archived committed native bytes.
+- The candidate's decoded PNG was independently verified against the domain-separated RGBA8 identity and matching native FM-012 sidecar. The committed read-only verifier rechecks the same identity and compares archived byte-exact output to newly rendered native evidence.
 - No GUI source relink, physical preview, owner artistic admission or merge is claimed. Remain Draft for Integration.
