@@ -1,0 +1,31 @@
+{
+  "artwork_manifest_version": 1,
+  "title": "Signal Mausoleum — Residual Carrier",
+  "created_date": "2026-11-10",
+  "source_file": "source.bmp",
+  "source_encoding_sha256": "cbb58573b44b78a7a162289ede71eb541689d078b795960d0504888e3a8090de",
+  "source_identity": "03502053b9d752dd2db92329108c2d1ed1c769e00db8a08f6ce7b9331992dc75",
+  "genome_file": "genome.json",
+  "genome_identity": "ac6651f58f3ee3b40d3852c6fa9a1435e5de2e6341cd7f5f894306d52695462c",
+  "project_file": "signal-mausoleum.fmproj",
+  "genome_schema_version": 1,
+  "engine_contract_version": 1,
+  "project_version": 2,
+  "root_seed": "a1b2c3d4e5f60718",
+  "frame_begin": 0,
+  "frame_end_exclusive": 32,
+  "rate_num": 12,
+  "rate_den": 1,
+  "recommended_key_frames": [
+    0,
+    4,
+    8,
+    12,
+    16,
+    20,
+    24,
+    28,
+    31
+  ],
+  "canonical_frame_status": "pending-windows-native-export"
+}
