@@ -9,7 +9,7 @@ import struct
 HERE = Path(__file__).resolve().parent
 SOURCE_SHA = '9ffbeb836d5437487d45dce6cdb394d7d2c08992edb9deba387cab8025a1986f'
 SOURCE_ID = '906aaeb14df9d961ae302c641b053e7db5cf5e13305abeb67ea438733d736d60'
-GENOME_ID = '075c3dadcf6b9d4357f8ff6295c066497e7cb97083f91557b52a3ca18dc999f0'
+GENOME_ID = '0a13596eea4f9a872d470f66f9e70ae9dca1ee004d27ff773f45a55c6ecb923e'
 SEED = '67da08c2be71fa30'
 sha = lambda data: hashlib.sha256(data).hexdigest()
 

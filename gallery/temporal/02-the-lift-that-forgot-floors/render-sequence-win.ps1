@@ -19,7 +19,7 @@ if (-not (Test-Path -LiteralPath $RendererPath -PathType Leaf)) {
 }
 $expectedSourceSha = '9ffbeb836d5437487d45dce6cdb394d7d2c08992edb9deba387cab8025a1986f'
 $expectedSourceId = '906aaeb14df9d961ae302c641b053e7db5cf5e13305abeb67ea438733d736d60'
-$expectedGenomeSha = '075c3dadcf6b9d4357f8ff6295c066497e7cb97083f91557b52a3ca18dc999f0'
+$expectedGenomeSha = '0a13596eea4f9a872d470f66f9e70ae9dca1ee004d27ff773f45a55c6ecb923e'
 $rawGenome = [IO.File]::ReadAllText($genome, [Text.UTF8Encoding]::new($false, $true))
 $canonicalGenome = $rawGenome.Replace("`r`n", "`n")
 if ($canonicalGenome.Contains("`r")) { throw 'Malformed genome: bare carriage return' }
