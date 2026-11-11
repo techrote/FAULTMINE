@@ -42,7 +42,7 @@ def sha(data):
     return hashlib.sha256(data).hexdigest()
 
 
-def verify_png(data):
+def verify_png(data, width=384, height=256):
     """Decode 8-bit straight-RGBA PNG scanlines; check CRC, filters and dimensions."""
     assert data[:8] == b'\x89PNG\r\n\x1a\n', 'PNG signature'
     p, header, parts, ended = 8, None, [], False
@@ -62,9 +62,9 @@ def verify_png(data):
             assert n == 0 and p + 12 == len(data), 'PNG trailing content'
             ended = True
         p += 12 + n
-    assert ended and header == (384, 256, 8, 6, 0, 0, 0), 'PNG format/dimensions'
+    assert ended and header == (width, height, 8, 6, 0, 0, 0), 'PNG format/dimensions'
     raw = zlib.decompress(b''.join(parts))
-    stride, height, bpp = 384 * 4, 256, 4
+    stride, bpp = width * 4, 4
     assert len(raw) == (stride + 1) * height, 'PNG inflated byte count'
     previous = bytearray(stride)
     pixels = bytearray()
@@ -166,6 +166,32 @@ def audit(path):
                  (65,81): diff_rgb(decoded[65],decoded[81]),
                  (65,35): diff_rgb(decoded[65],decoded[35]),
                  (65,71): diff_rgb(decoded[65],decoded[71])}
+        # Two other genuinely native, unadmitted families for compositional context.
+        # Re-verify decoded bytes against independently archived native receipts,
+        # rather than using invented thumbnails or noncanonical D3D previews.
+        comparison = [
+            ('bell', 'CANONICAL-REVIEW-EVIDENCE/original-04/silent-bell-canonical.png',
+             'CANONICAL-REVIEW-EVIDENCE/original-04/native-replay-receipt.json',
+             384, 256, 0, 'e9b492eddbc4d16ee528c18a236b0930c278aa8909ecdca3d68ef07c4e1d657a',
+             'd1778bc3d688e5fa5694485954c268cce88c54cc033a6933d3edf2311cf35b8e'),
+            ('angle', 'CANONICAL-REVIEW-EVIDENCE/angle-04-release/angle-departure_000018.png',
+             'CANONICAL-REVIEW-EVIDENCE/angle-04-release/native-cli-replay-audit.json',
+             320, 192, 18, '92e64eee8e4ed7e27d7b61f7ec8cba0a676510209efa96a21ad9bca5fd835475',
+             '88e8f3c2a99fa38ed9a018fd3afd52193c1e68173beb34cc8ea933e2a86a3dbb'),
+        ]
+        base = 'FAULTMINE-1.0.0-win64/'
+        for key, image_path, receipt_path, width, height, frame, encoded_sha, pixel_id in comparison:
+            data = z.read(base + image_path)
+            assert sha(data) == encoded_sha, f'{key} archived image drift'
+            raw = verify_png(data, width, height)
+            calculated = sha(b'FAULTMINE-SOURCE-RGBA8-v1' + struct.pack('<II', width, height) + raw)
+            assert calculated == pixel_id, f'{key} decoded canonical identity drift'
+            receipt = json.loads(z.read(base + receipt_path))
+            record = receipt if frame == 0 else receipt['frames'][frame]
+            assert record.get('frame') == frame, f'{key} frame ordering drift'
+            assert record['encoded_png_sha256'] == encoded_sha, f'{key} native encoded receipt drift'
+            assert record['output_identity'] == pixel_id, f'{key} native pixel receipt drift'
+            originals[key] = data
         result = {'archive_sha256': archive_sha, 'native_project_sha256': PROJECT_SHA,
                   'native_contact_sha256': CONTACT_SHA,
                   'requested':96,'completed':96,'failed':0,'unique_genomes':len(genomes),
@@ -188,17 +214,19 @@ def review_page(output, result, originals):
             ('71','novelty pick, dispersed wing fragments'),
             ('74','novelty pick, spare partial echo'),
             ('24','non-selected wing alternative'),
-            ('81','non-selected near duplicate of 24; reject')]
+            ('81','non-selected near duplicate of 24; reject'),
+            ('bell','SILENT BELL original Draft #64, native frame 0; centered casting, distinct from wing passages'),
+            ('angle','ANGLE temporal Draft #50, native frame 18; folded planes, distinct from wing passages')]
     cards = '\n'.join('<figure><img alt="Native canonical specimen #'+i+'" src="data:image/png;base64,'+
-                      base64.b64encode(originals[int(i)]).decode('ascii')+'"><figcaption><b>#'+i+'</b> — '+html.escape(label)+'</figcaption></figure>' for i,label in info)
+                      base64.b64encode(originals[int(i) if i.isdecimal() else i]).decode('ascii')+'"><figcaption><b>#'+i+'</b> — '+html.escape(label)+'</figcaption></figure>' for i,label in info)
     message = (f"96/96 completed; 0 failures; 96 distinct decoded images; 70 near representatives; "
                f"26 near-redundant unique images across 10 multi-member groups. "
                f"#24 vs #81: {result['changed_rgb_percent']['24-81']}% changed RGB pixels; "
                f"#65 vs #24: {result['changed_rgb_percent']['65-24']}%. "
-               "Pixel difference is not an aesthetic score.")
+               "Pixel difference is not an aesthetic score. Bell and Angle are unadmitted Draft comparators, not accepted art.")
     page = '<!doctype html><html lang="en"><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src \'none\'; img-src data:; style-src \'unsafe-inline\'; base-uri \'none\'; form-action \'none\'"><meta name="viewport" content="width=device-width, initial-scale=1"><title>FAULTMINE native Shearwing admission</title>'
     page += '<style>body{margin:auto;padding:1.2rem;max-width:1150px;background:#12151b;color:#e2e9e8;font:16px/1.5 system-ui}header{margin-bottom:2rem}main{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:1rem}figure{margin:0;border:1px solid #454b52;padding:.6rem;background:#1b2029}img{display:block;width:100%;height:auto;image-rendering:pixelated}figcaption{padding:.5rem 0}p{max-width:72ch}small{color:#b7c5ca}</style>'
-    page += '<header><h1>Shearwing — native admission comparison</h1><p>'+html.escape(message)+'</p><small>Embedded byte-identical archived Windows CPU canonical PNGs, frame 0, 384×256. Static read-only review, not an admitted gallery, new render, or physical GUI acceptance.</small></header><main>'+cards+'</main></html>'
+    page += '<header><h1>Shearwing — native admission comparison with Draft references</h1><p>'+html.escape(message)+'</p><small>Embedded byte-identical Windows CPU canonical PNGs: Shearwing/Bell frame 0 (384×256), Angle frame 18 (320×192). No accepted gallery work represented. Static read-only review, not a new render or physical GUI acceptance.</small></header><main>'+cards+'</main></html>'
     output.write_text(page, encoding='utf-8')
 
 
