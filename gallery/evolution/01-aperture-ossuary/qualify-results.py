@@ -119,15 +119,29 @@ def audit(folder: Path, all_candidates: bool) -> dict:
         assert c['near_representative_index']<=c['descendant_index'], 'near representative after candidate'
     for c in selected:
         assert c['near_representative_index']==c['descendant_index'], 'selected entry is not a near-duplicate representative'
-    to_check=candidates if all_candidates else selected
-    for c in to_check:
+    # Selected stills, and optionally *all* cache PNGs, are distinct files.
+    to_check=[(c,folder/'selected') for c in selected]
+    if all_candidates: to_check.extend((c,folder/'candidates') for c in candidates)
+    for c, directory in to_check:
         i=c['descendant_index']
         stem=f'candidate_{i:020d}.png'
-        path=folder/('candidates' if all_candidates else 'selected')/stem
+        path=directory/stem
         assert path.is_file(), f'missing canonical output {path}'
         iw,ih,rgba=decode_png(path.read_bytes())
         assert (iw,ih)==(w,h), f'wrong dimensions: {path}'
         assert rgba_identity(iw,ih,rgba)==c['pixel_identity'], f'identity mismatch: {path}'
+        if directory.name=='selected':
+            sidecar=path.with_name(path.name+'.fmmanifest.json')
+            assert sidecar.is_file(), f'missing FM-012 provenance sidecar: {sidecar}'
+            export=json.loads(sidecar.read_text('utf-8'))
+            assert export['manifest_version']==1 and export['kind']=='still'
+            assert export['source']['identity']==SRC_ID, 'selected export source identity mismatch'
+            assert export['genome']['identity']==c['genome_identity'], 'selected export genome identity mismatch'
+            out=export['output']
+            assert out['canonical_full_resolution'] is True and out['width']==w and out['height']==h, 'selected export is not a canonical full-resolution still'
+            assert out['image_identity']==c['pixel_identity'], 'selected export output identity mismatch'
+            derivation=export.get('derivation')
+            assert derivation is not None and derivation['descendant_index']==i, 'selected export lineage address mismatch'
     return {'source_identity':SRC_ID,'parent_genome_identity':PARENT_SHA256,'seed':SEED,'requested':COUNT,'completed':len(candidates),'selected':len(selected),'unique_genomes':len({c['genome_identity'] for c in candidates}),'unique_pixels':len({c['pixel_identity'] for c in candidates}),'selected_indices':[c['descendant_index'] for c in selected],'verified_pngs':len(to_check),'all_candidate_caches_checked':all_candidates,'native_replay_independently_verified':False}
 
 def main():
