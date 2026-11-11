@@ -50,6 +50,18 @@ jobs:
         run: |
           .\gallery\evolution\03-punched-glass-index\mine.ps1 -OutputDirectory (Join-Path $PWD 'evidence\quarry03')
           if ($LASTEXITCODE -ne 0) { throw 'Native driver failed' }
+      - name: Independently qualify newly committed curated native specimen
+        shell: pwsh
+        run: |
+          python gallery/evolution/03-punched-glass-index/curated/verify_selection.py --native-dir evidence/quarry03
+          if ($LASTEXITCODE -ne 0) { throw 'Canonical PNG/genome/FM-012 evidence mismatch' }
+          $source = 'gallery/evolution/03-punched-glass-index/source.bmp'
+          $genome = 'gallery/evolution/03-punched-glass-index/curated/punched-glass-147.genome.json'
+          $image = 'gallery/evolution/03-punched-glass-index/curated/punched-glass-147.png'
+          & .\\build\\Release\\FAULTMINE-render.exe --verify --frame 0 $source $genome $image
+          if ($LASTEXITCODE -ne 0) { throw 'Release selected native replay failed' }
+          & .\\build\\Debug\\FAULTMINE-render.exe --verify --frame 0 $source $genome $image
+          if ($LASTEXITCODE -ne 0) { throw 'Debug selected native replay failed' }
       - name: Publish selected native specimen 147 byte-exact handoff in logs
         shell: pwsh
         run: |
