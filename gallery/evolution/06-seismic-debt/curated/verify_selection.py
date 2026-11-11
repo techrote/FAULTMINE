@@ -101,6 +101,7 @@ def verify(native_dir=None):
     assert lineage['seed'] == SEED and lineage['descendant_index'] == INDEX
     assert lineage['mutation_radius'] == 'high' and lineage['policy_version'] == 1
     assert digest((ROOT / 'source.bmp').read_bytes()) == 'c751316e7615d53cf8a43e79e3a8395ec63f49392e7d16e37be16ad5f100f875'
+    record = json.loads((HERE / 'batch.fmbatch.json').read_text('utf8'))
     assert digest((HERE / 'atlas.png').read_bytes()) == 'b0f17a3dfdd8574a04424860ae2b48a355904802dfdde5f9e53d0a5ff4580cc1'
     assert json.loads((HERE / 'atlas.png.fmmanifest.json').read_text('utf8'))['kind'] == 'contact-sheet'
     assert digest((HERE / 'batch.fmbatch.json').read_bytes()) == '85e2faa021132bb803192c2471d2b453f064c71522cfc5bc6beef8551f18cf6d'
