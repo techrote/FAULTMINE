@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read-only source/genome/project verifier. Does not claim a native render."""
+"""Read-only source/genome/project plus archived native CPU output verifier."""
 import hashlib, json, struct, zlib
 from pathlib import Path
 
@@ -112,9 +112,8 @@ def main():
     art=json.loads((HERE/"artwork.json").read_text(encoding="utf8"))
     assert art["source_encoding_sha256"]==SRC and art["source_identity"]==SID
     assert art["genome_identity"]==GID and art["root_seed"]==SEED and art["explicit_frame"]==0
-    assert art["native_render_status"]=="pending-supported-Windows-native-render"
-    assert art["canonical_output_identity"] is None and art["canonical_output_file"] is None
-    print("PASS: 384x256 indexed source PNG CRC, decoded RGBA8 source identity, canonical genome, typed stack and project-v2 lineage")
-    print("PENDING: real Windows CPU canonical output, read-only replay, GUI/FM-012 export and visual acceptance")
+    from verify_native import main as verify_native_main
+    verify_native_main()
+    print("PASS: 384x256 indexed source PNG CRC, decoded RGBA8 source identity, canonical genome, typed stack, project-v2 lineage and archived native output")
 
 if __name__=="__main__": main()
