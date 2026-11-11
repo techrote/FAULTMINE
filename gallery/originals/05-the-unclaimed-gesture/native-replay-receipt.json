@@ -1,0 +1,14 @@
+{
+  "audit_version": 1,
+  "kind": "author-cli-replay-not-FM012",
+  "engine_contract_version": 1,
+  "source_identity": "db8754258a9a788d36f4ac466fc538b021725c0cbc7d293c13f8b4c4a005a108",
+  "genome_identity": "f3493de53d45a4013c64488f16fb9b3d1e666f66113b2e996aca2068b4525da4",
+  "root_seed": "c18e70d453b29a64",
+  "frame": 0,
+  "output_identity": "981bf2f2bb64f69cb8da54a59a343af8b3b9c0c51828bccddff924973b672979",
+  "encoded_png_sha256": "fb3272681ad20147035e9209ed767d1b2d6e4ea26b3a44c7407cf1b27feb07d4",
+  "release_verify": "passed",
+  "debug_verify": "passed",
+  "output_file": "unclaimed-gesture-canonical.png"
+}
