@@ -171,6 +171,8 @@ def main():
     parser.add_argument('zip', type=Path, help='Exact current-main four-family ZIP')
     parser.add_argument('--html', type=Path, help='Generate verified offline contact page')
     args = parser.parse_args()
+    if not __debug__:
+        parser.exit(2, 'FAIL: Python -O disables integrity assertions; rerun without optimization\n')
     try:
         result, originals = audit(args.zip)
         if args.html:
