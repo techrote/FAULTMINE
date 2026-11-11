@@ -14,6 +14,7 @@ P='14880df2f490aed709f998d1d52e004eb344fd9c4245ee9f97f53ed20160bfbe'
 SEED='c18e70d453b29a64'
 OI='981bf2f2bb64f69cb8da54a59a343af8b3b9c0c51828bccddff924973b672979'
 OH='fb3272681ad20147035e9209ed767d1b2d6e4ea26b3a44c7407cf1b27feb07d4'
+AM='7ffc8c0660c8fea3b1b1953346b99e1a6fdcaec7f851130016662bfdec9b71ec'
 W,H=320,224
 
 def sha(b): return hashlib.sha256(b).hexdigest()
@@ -26,6 +27,10 @@ def strict_pairs(pairs):
 
 def load_json(name):
     return json.loads((D/name).read_bytes(),object_pairs_hook=strict_pairs)
+
+def load_manifest(blob):
+    assert sha(blob)==AM, 'artwork manifest SHA drift'
+    return json.loads(blob, object_pairs_hook=strict_pairs)
 
 def png_pixels(blob):
     assert blob.startswith(b'\x89PNG\r\n\x1a\n'), 'PNG signature'
@@ -118,7 +123,7 @@ def verify(canonical=None):
     assert (spec['genome_identity'],spec['source_identity'],spec['genome'])==(GI,SI,genome)
     assert spec['derivation']=={'kind':'manual-root','parents':[],'policy_version':0,'seed':None,'descendant_index':None,'radius':None}
     assert spec['favourite'] is True and spec['creation_ordinal']==0
-    a=load_json('artwork.json')
+    a=load_manifest((D/'artwork.json').read_bytes())
     assert a['artwork_id']=='ART-ORIG-005' and a['artwork_manifest_version']==1
     assert (a['source_encoding_sha256'],a['source_identity'],a['genome_identity'],a['project_encoding_sha256'])==(S,SI,GI,P)
     assert (a['root_seed'],a['explicit_frame'],a['operator_count'])==(SEED,0,7)
@@ -173,10 +178,17 @@ def negative():
     else:raise AssertionError('duplicate JSON unexpectedly accepted')
     # Regression for PYTHONOPTIMIZE/-O: the verifier must fail instead of
     # silently skipping all asserts and printing a false acceptance.
+    # A cosmetic-looking metadata edit must not escape provenance validation.
+    manifest=(D/'artwork.json').read_bytes()
+    changed=manifest.replace(b'The Unclaimed Gesture',b'The Unclaimed GesturE',1)
+    assert changed!=manifest
+    try:load_manifest(changed)
+    except AssertionError:pass
+    else:raise AssertionError('modified artwork manifest unexpectedly accepted')
     import subprocess,sys
     optimized=subprocess.run([sys.executable,'-O',str(Path(__file__).resolve()),'--self-test'],capture_output=True,text=True,check=False)
     assert optimized.returncode!=0 and 'optimized Python bypasses verifier assertions' in (optimized.stdout+optimized.stderr), 'optimized Python must fail closed'
-    print('PASS: deliberate damaged PNG, duplicate JSON keys and optimized interpreter rejected')
+    print('PASS: damaged PNG, duplicate JSON, manifest edit and optimized interpreter rejected')
 if __name__=='__main__':
     ap=argparse.ArgumentParser();ap.add_argument('--self-test',action='store_true');ap.add_argument('--canonical');args=ap.parse_args()
     verify(args.canonical)
