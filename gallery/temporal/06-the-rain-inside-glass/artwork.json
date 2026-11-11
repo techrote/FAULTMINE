@@ -1,0 +1,33 @@
+{
+  "artwork_manifest_version": 1,
+  "artwork_id": "ART-TEMP-006",
+  "title": "The Rain Inside Glass — A Forecast That Cannot Leave",
+  "created_date": "2026-11-11",
+  "source_file": "source.bmp",
+  "source_encoding_sha256": "82180916e814d2738eb8c41e1bf3c745022b219cca788c5467819e83e380fba3",
+  "source_identity": "60352c93cb2322e3d40d2fd77b9793e68cd0cd0314b4e75996113411bd718fe9",
+  "genome_file": "genome.json",
+  "genome_identity": "c76d773802faa8e8de5291497dc06e73c277150b65a5779f17dbebaa7d61b189",
+  "project_file": "rain-inside-glass.fmproj",
+  "genome_schema_version": 1,
+  "engine_contract_version": 1,
+  "project_version": 2,
+  "root_seed": "4c6f8a21d3e507b9",
+  "frame_begin": 0,
+  "frame_end_exclusive": 24,
+  "rate_num": 8,
+  "rate_den": 1,
+  "recommended_key_frames": [
+    0,
+    3,
+    6,
+    9,
+    12,
+    15,
+    18,
+    21,
+    23
+  ],
+  "canonical_frame_status": "pending-native-windows-cpu-render",
+  "note": "Source preview examined; native temporal pixels are not present or claimed."
+}
