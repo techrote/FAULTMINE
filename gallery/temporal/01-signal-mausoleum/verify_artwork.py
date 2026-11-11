@@ -32,8 +32,12 @@ def main():
     assert sid == SOURCE_ID, "normalized source identity drift"
     raw_genome = (HERE/"genome.json").read_bytes()
     genome = json.loads(raw_genome)
-    assert raw_genome == (json.dumps(genome,separators=(",",":"),ensure_ascii=False)+"\n").encode()
-    assert sha(raw_genome) == GENOME_ID, "canonical genome identity drift"
+    # Git for Windows may translate canonical LF JSON to CRLF at checkout.
+    # Compare exact canonical content after *only* CRLF translation, and hash the
+    # LF bytes used by the portable genome identity contract; reject bare CR.
+    canonical_genome = (json.dumps(genome,separators=(",",":"),ensure_ascii=False)+"\n").encode()
+    assert raw_genome.replace(b"\r\n",b"\n") == canonical_genome, "noncanonical genome content"
+    assert sha(canonical_genome) == GENOME_ID, "canonical genome identity drift"
     assert (genome["schema_version"],genome["engine_contract_version"],genome["root_seed"]) == (1,1,"a1b2c3d4e5f60718")
     operators = genome["operators"]
     assert len(operators) == 8
@@ -47,7 +51,8 @@ def main():
     assert all(v["kind"] in ("i64","u64","string","bool") for x in operators for v in x["parameters"].values())
     raw_project = (HERE/"signal-mausoleum.fmproj").read_bytes()
     project = json.loads(raw_project)
-    assert raw_project == (json.dumps(project,separators=(",",":"),ensure_ascii=False)+"\n").encode()
+    canonical_project = (json.dumps(project,separators=(",",":"),ensure_ascii=False)+"\n").encode()
+    assert raw_project.replace(b"\r\n",b"\n") == canonical_project, "noncanonical project content"
     assert project["project_version"] == 2
     assert project["source"] == {"path":"gallery/temporal/01-signal-mausoleum/source.bmp","identity":sid}
     assert project["genome"] == genome and project["locks"] == []
