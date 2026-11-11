@@ -87,6 +87,52 @@ def png_rgba(data, dims):
     return sha(b'FAULTMINE-SOURCE-RGBA8-v1' + struct.pack('<II', w, h) + rgba), rgba
 
 
+
+def descriptor_v1(rgba, dims):
+    """Independently replay FM-014's 24-integer descriptor on decoded pixels.
+
+    The native batch manifest is evidence to challenge, not an oracle. Exact
+    byte-domain rounded means, spatial bins and luminance never use the GPU.
+    """
+    w, h = dims
+    require(len(rgba) == w*h*4, 'descriptor RGBA byte length')
+    hist, sums, counts = [0]*4, [0]*16, [0]*16
+    row_sums, previous_row = [0]*h, [0]*w
+    high, horizontal, vertical = 0, 0, 0
+    for y in range(h):
+        prev_x = 0
+        cy = min(3, (y*4)//h)
+        for x in range(w):
+            at = (y*w+x)*4
+            lum = (54*rgba[at] + 183*rgba[at+1] + 19*rgba[at+2] + 128) >> 8
+            hist[lum >> 6] += 1
+            high += lum >= 128
+            row_sums[y] += lum
+            cell = 4*cy + min(3, (x*4)//w)
+            sums[cell] += lum
+            counts[cell] += 1
+            if x: horizontal += abs(lum-prev_x)
+            if y: vertical += abs(lum-previous_row[x])
+            prev_x = lum
+            previous_row[x] = lum
+    def fraction(value, total):
+        return (value*65535 + total//2)//total if total else 0
+    def mean(value, total):
+        return ((value + total//2)//total)*257 if total else 0
+    desc = [fraction(count,w*h) for count in hist]
+    desc.extend(mean(value,total) for value,total in zip(sums,counts))
+    desc.extend((mean(horizontal,(w-1)*h), mean(vertical,(h-1)*w),
+                 fraction(high,w*h)))
+    rounded_rows = [(value + w//2)//w for value in row_sums]
+    desc.append(fraction(sum(a==b for a,b in zip(rounded_rows,rounded_rows[1:])),h-1))
+    require(len(desc) == 24, 'descriptor length')
+    return desc
+
+
+def descriptor_distance(a, b):
+    return sum(abs(x-y) for x,y in zip(a,b))
+
+
 def verify(seismic_file, four_file):
     require(sha(seismic_file.read_bytes()) == SEISMIC_ZIP_SHA, 'unrecognized native Seismic archive')
     with ZipFile(seismic_file) as s, ZipFile(four_file) as f:
@@ -102,19 +148,33 @@ def verify(seismic_file, four_file):
                 and not manifest['failures'] and manifest['render_mode'] == 'canonical'
                 and manifest['frame_index'] == 0 and manifest['near_duplicate_threshold'] == 8192,
                 'Seismic batch incomplete/noncanonical')
-        identities, genomes, pixel_first, near_first = set(), set(), {}, set()
+        identities, genomes, pixel_first, genome_first, near_first = set(), set(), {}, {}, []
         selected = {}
         for i, row in enumerate(rows):
             require(row['descendant_index'] == i, 'unsorted manifest')
             payload = s.read(SEISMIC_PREFIX + f'candidates/candidate_{i:020}.png')
-            pixel, _ = png_rgba(payload, (384, 240))
+            pixel, rgba = png_rgba(payload, (384, 240))
             require(pixel == row['pixel_identity'], f'canonical decoded pixel mismatch #{i}')
+            calculated = descriptor_v1(rgba, (384, 240))
+            require(calculated == row['descriptor'], f'independent descriptor mismatch #{i}')
             identities.add(pixel)
             genomes.add(row['genome_identity'])
-            require(row['pixel_representative_index'] == pixel_first.setdefault(pixel,i),
+            require(row['genome_representative_index'] ==
+                    genome_first.setdefault(row['genome_identity'],i),
+                    f'genome dedupe mismatch #{i}')
+            first = pixel_first.setdefault(pixel,i)
+            require(row['pixel_representative_index'] == first,
                     f'exact dedupe mismatch #{i}')
-            if row['pixel_representative_index'] == i and row['near_representative_index'] == i:
-                near_first.add(i)
+            if first == i:
+                near = next((j for j, d in near_first
+                             if descriptor_distance(calculated,d) <= 8192), i)
+                if near == i: near_first.append((i,calculated))
+            else:
+                # FM-014 sets duplicate-pixel rows' near index to their exact
+                # pixel representative, not the representative's own near group.
+                near = first
+            require(row['near_representative_index'] == near,
+                    f'independently recomputed near representative mismatch #{i}')
             if row['selected']:
                 require(i in CHOSEN, 'unexpected selected index')
                 require(s.read(SEISMIC_PREFIX + f'selected/candidate_{i:020}.png') == payload,
@@ -122,7 +182,7 @@ def verify(seismic_file, four_file):
                 selected[i] = payload
         require(list(selected) == CHOSEN, 'selected list differs from original novelty selections')
         require(len(identities) == 125 and len(genomes) == 128 and len(near_first) == 85,
-                'actual native diversity counts differ')
+                'independently recomputed native diversity counts differ')
         require(sha(selected[101]) == SEISMIC_WINNER_SHA and
                 rows[101]['pixel_identity'] == SEISMIC_WINNER_PIXEL,
                 'Seismic winner changed')
@@ -184,7 +244,7 @@ def main():
         require(not args.html.exists(), 'output exists; overwrite refused')
         args.html.write_text(make_html(manifest, selected, wing), encoding='utf-8')
         print('REVIEW:', args.html)
-    print('PASS: 128/128 genuine archived canonical PNG identities; 0 failures; 125 decoded unique; 85 near representatives; 12 selections')
+    print('PASS: 128/128 archived native pixel and independent descriptor identities; 0 failures; 125 pixel unique; 85 independently derived near representatives; 12 selections')
     print('PASS: curated #101 and competing #65 pinned and decoded; source archive and run provenance verified')
     print('NOT CLAIMED: new Win64 render, latest #57 head CI, accepted-gallery comparison, Win32 GUI or owner aesthetic approval')
 
