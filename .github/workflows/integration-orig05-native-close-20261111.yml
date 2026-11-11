@@ -104,10 +104,11 @@ jobs:
           $rel='gallery\originals\05-the-unclaimed-gesture'
           $gallery=Join-Path $app $rel
           New-Item -ItemType Directory -Force (Split-Path $gallery) | Out-Null
+          Get-ChildItem -LiteralPath (Join-Path $PWD $rel) -Directory -Recurse -Filter '__pycache__' | Remove-Item -Recurse -Force
           Copy-Item -LiteralPath (Join-Path $PWD $rel) -Destination $gallery -Recurse
           $proof=Join-Path $gallery 'canonical-windows-evidence'
           New-Item -ItemType Directory -Force $proof | Out-Null
-          Copy-Item -LiteralPath (Join-Path $env:GITHUB_WORKSPACE 'evidence\original-05\*') -Destination $proof
+          Get-ChildItem -LiteralPath (Join-Path $env:GITHUB_WORKSPACE 'evidence\original-05') -File | Copy-Item -Destination $proof
           $guide=@'
           FAULTMINE - UNCLAIMED GESTURE - UNADMITTED ORIGINAL 05
           Extract ZIP; run Run FAULTMINE.cmd from FAULTMINE-1.0.0-win64.
