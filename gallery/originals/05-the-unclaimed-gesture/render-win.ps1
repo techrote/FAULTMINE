@@ -24,7 +24,7 @@ function Invoke-Checked([string]$exe,[string[]]$argv) {
     if ($status -ne 0) { throw "Native renderer $exe exited $status : $($lines -join ' | ')" }
     return $lines
 }
-$actual = Invoke-Checked $release @('--frame','0',$source,$genome,$out)
+$actual = Invoke-Checked -exe $release -argv @('--frame','0',$source,$genome,$out)
 $expectedSourceLine = "source_identity=$expectedSource"
 if ($actual -cnotcontains $expectedSourceLine -or $actual -cnotcontains 'frame=0') { throw "Source/frame mismatch: $($actual -join ' | ')" }
 $lines = @($actual | Where-Object { $_ -cmatch '^output_identity=[0-9a-f]{64}$' })
@@ -33,7 +33,7 @@ $pngBefore = (Get-FileHash -LiteralPath $out -Algorithm SHA256).Hash.ToLowerInva
 $checks = @($release)
 if ($CrossCheckDebug) { $checks += $debug }
 foreach ($exe in $checks) {
-    $verify = Invoke-Checked $exe @('--verify','--frame','0',$source,$genome,$out)
+    $verify = Invoke-Checked -exe $exe -argv @('--verify','--frame','0',$source,$genome,$out)
     if ($verify -cnotcontains 'verification=passed' -or $verify -cnotcontains $expectedSourceLine -or $verify -cnotcontains $lines[0] -or $verify -cnotcontains 'frame=0') {
         throw "Native decoded-pixel replay failed with $exe : $($verify -join ' | ')"
     }
