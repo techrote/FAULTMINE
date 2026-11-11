@@ -45,7 +45,7 @@ def read_apng(data: bytes) -> list[bytes]:
             if active is not None:frames.append(active)
             assert len(payload)==26
             seq,width,height,dx,dy,num,den,dispose,blend=struct.unpack('>IIIIIHHBB',payload)
-            assert seq==expected_seq and (width,height,dx,dy,num,den,dispose,blend)==(1024,240,0,0,50,1000,0,0)
+            assert seq==expected_seq and (width,height,dx,dy,num,den,dispose,blend)==(player.WIDTH,player.HEIGHT,0,0,player.FRAME_MS,1000,0,0)
             expected_seq+=1;active=bytearray()
         elif kind==b'IDAT':
             assert len(frames)==0 and active is not None
