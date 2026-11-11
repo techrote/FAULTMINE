@@ -23,6 +23,20 @@ From the **repository root**, build the current native application (see the root
 5. Use **Export → Frame sequence** with range **[0, 32)** (end-exclusive), stem `residual-carrier`, six-digit frame numbering, **manifest ON** and **canonical/full-resolution** mode. Leave overwrite disabled for the first export. Use a new destination outside the repository artwork package.
 6. Inspect the 32 complete PNGs and FM-012 manifest. Re-export a sample of frames (0, 8, 16, 24, 31) to a second destination and independently compare decoded RGBA identities and FM-011 temporal frame identities. Test cancellation as a **separate** sequence request, checking valid partial outputs and manifest status.
 
+### Native 32-frame replay driver (Windows)
+
+Once Integration's [PR #36](https://github.com/techrote/FAULTMINE/pull/36) `--frame` / `--verify` renderer contract is built or merged, the same exact authored inputs can be exercised with **one command** from a checkout containing this package:
+
+```powershell
+.\gallery\temporal\01-signal-mausoleum\render-sequence-win.ps1 -Configuration Release
+# Re-run without overwriting historical evidence:
+.\gallery\temporal\01-signal-mausoleum\render-sequence-win.ps1 -Configuration Debug -OutputDirectory .\artifacts\signal-mausoleum-debug
+```
+
+This script refuses to reuse an existing output directory and refuses changed BMP/genome bytes. It invokes **the actual FAULTMINE Windows CPU renderer** for explicit frames 0–31, checks the normalized source identity and each reported decoded canonical output identity, then replays frames 31, 0, 24, 8, 16 in deliberately nonchronological order with the **read-only** `--verify` path. It also checks that verification leaves the PNG bytes unchanged. Results are 32 native PNGs plus an `native-cli-replay-audit.json` with per-frame output identity, encoded PNG transport SHA-256 and replay evidence. Failure preserves correctly labelled partial evidence; no fake frame/identity record is inserted.
+
+**Important separation:** this native CLI authoring audit is **not** a genuine FM-012 sequence manifest, nor a proof of the FM-011 temporal frame identity. The Win32 application must still export a true FM-012 complete [0,32) sequence with canonical provenance and independently test a cancelled sequence with a partial manifest. The real PNGs and image progression also still require visual inspection. The root `main` renderer does **not** yet implement `--frame` or `--verify` while PR #36 remains Draft; this driver fails explicitly rather than silently exporting frame 0 thirty-two times. A green generic CI job alone does not establish artwork completion.
+
 **Windows acceptance gate:** native source decode and project strict parse; registry acceptance of all typed operators; exact frame replay (same frame in different request orders); 32 committed full-resolution PNGs with complete manifest and correct ordering; sample frame identity agreement; cancellation semantics; Debug/Release required tests. The stored `artwork.json` is an **authoring manifest**, deliberately **not** an FM-012 canonical export manifest.
 
 ## Reproducibility
