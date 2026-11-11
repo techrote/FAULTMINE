@@ -66,7 +66,7 @@ $selected=@($results | Where-Object {$_.selected})
 if($uniqueGenomes -lt 20 -or $uniquePixels -lt 20 -or $representatives.Count -lt 6 -or $selected.Count -lt 6){
   throw "Insufficient measurable diversity: genomes=$uniqueGenomes pixels=$uniquePixels near=$($representatives.Count) selected=$($selected.Count)"
 }
-foreach($f in @('batch.fmproj','selected-contact-sheet.png','selected-contact-sheet.png.json')){
+foreach($f in @('batch.fmproj','selected-contact-sheet.png','selected-contact-sheet.png.fmmanifest.json')){
   if(-not(Test-Path -LiteralPath (Join-Path $out $f))){throw "Missing native output: $f"}
 }
 $before=(Get-FileHash -LiteralPath $manifest -Algorithm SHA256).Hash.ToLowerInvariant()
