@@ -1,0 +1,134 @@
+name: Integration one-off ART-ORIG-005 native canonical qualification
+on:
+  pull_request:
+    branches: [main]
+    paths: ['.github/workflows/integration-orig05-native-close-20261111.yml']
+permissions:
+  contents: read
+jobs:
+  original-05:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - name: Preserve canonical source bytes
+        shell: pwsh
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@v4
+        with:
+          repository: techrote/FAULTMINE
+          ref: fab5e7499bb56a3e3ab283a532d8cf2c084b9031
+          path: engine
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: techrote/FAULTMINE
+          ref: 962e55a3906e256e0a9ad407fdd56c44ecdbce53
+          path: author
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Pin native engine and authored bytes without changing either source tree
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $pins = @{engine='fab5e7499bb56a3e3ab283a532d8cf2c084b9031'; author='962e55a3906e256e0a9ad407fdd56c44ecdbce53'}
+          foreach ($key in $pins.Keys) {
+            $got = (& git -C $key rev-parse HEAD).Trim()
+            if ($LASTEXITCODE -ne 0 -or $got -cne $pins[$key]) { throw "Pinned $key differs: $got" }
+          }
+          $relative = 'gallery\originals\05-the-unclaimed-gesture'
+          $from = Join-Path 'author' $relative
+          $to = Join-Path 'engine' $relative
+          if (-not (Test-Path -LiteralPath $from -PathType Container) -or (Test-Path $to)) {
+            throw 'Original-05 authored source absent or conflicts with main'
+          }
+          New-Item -ItemType Directory -Force (Split-Path $to) | Out-Null
+          Copy-Item -LiteralPath $from -Destination $to -Recurse
+          New-Item -ItemType Directory evidence | Out-Null
+          [IO.File]::WriteAllText('evidence\source-pins.json',(($pins | ConvertTo-Json) + "`n"),[Text.UTF8Encoding]::new($false))
+      - name: Author-independent strict source genome project and corruption checks
+        shell: pwsh
+        working-directory: engine
+        run: |
+          python gallery/originals/05-the-unclaimed-gesture/verify_artwork.py --self-test
+          if ($LASTEXITCODE -ne 0) { throw 'Author source verification failed' }
+      - name: MSVC Debug and Release build test and canonical CLI negatives
+        shell: pwsh
+        working-directory: engine
+        run: |
+          $ErrorActionPreference='Stop'
+          .\scripts\configure.ps1
+          if ($LASTEXITCODE -ne 0) { throw 'Configure failed' }
+          foreach ($config in @('Debug','Release')) {
+            .\scripts\build.ps1 -Configuration $config
+            if ($LASTEXITCODE -ne 0) { throw "$config build failed" }
+            .\scripts\test.ps1 -Configuration $config
+            if ($LASTEXITCODE -ne 0) { throw "$config deterministic tests failed" }
+            .\scripts\test-render-verify.ps1 -Configuration $config
+            if ($LASTEXITCODE -ne 0) { throw "$config native render test failed" }
+            & ".\build\$config\FAULTMINE.exe" --smoke-test
+            if ($LASTEXITCODE -ne 0) { throw "$config GUI smoke failed" }
+          }
+      - name: Actual canonical Windows CPU PNG with Debug and Release exact replay
+        shell: pwsh
+        working-directory: engine
+        run: |
+          $ErrorActionPreference='Stop'
+          $out=Join-Path $env:GITHUB_WORKSPACE 'evidence\original-05'
+          .\gallery\originals\05-the-unclaimed-gesture\render-win.ps1 -OutputDirectory $out -CrossCheckDebug
+          if ($LASTEXITCODE -ne 0) { throw 'Canonical render or native read-only replay failed' }
+          $r=Get-Content -LiteralPath (Join-Path $out 'native-replay-receipt.json') -Raw | ConvertFrom-Json
+          if ($r.source_identity -cne 'db8754258a9a788d36f4ac466fc538b021725c0cbc7d293c13f8b4c4a005a108' -or
+              $r.genome_identity -cne 'f3493de53d45a4013c64488f16fb9b3d1e666f66113b2e996aca2068b4525da4' -or
+              $r.root_seed -cne 'c18e70d453b29a64' -or $r.frame -ne 0 -or
+              $r.release_verify -cne 'passed' -or $r.debug_verify -cne 'passed' -or
+              $r.output_identity -notmatch '^[0-9a-f]{64}$' -or
+              $r.encoded_png_sha256 -notmatch '^[0-9a-f]{64}$') { throw 'Native audit incomplete or unpinned' }
+          $png=Join-Path $out $r.output_file
+          if ((Get-FileHash $png -Algorithm SHA256).Hash.ToLowerInvariant() -cne $r.encoded_png_sha256) { throw 'Native PNG transport hash changed' }
+          python -c "import importlib.util, pathlib, hashlib; p=pathlib.Path('gallery/originals/05-the-unclaimed-gesture/verify_artwork.py'); s=importlib.util.spec_from_file_location('artverify',p); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); f=pathlib.Path(r'$out')/'unclaimed-gesture-canonical.png'; w,h,rgba=m.png_pixels(f.read_bytes()); assert (w,h)==(320,224) and len(rgba)==w*h*4; print('Independent canonical PNG decode: PASS, size=',w,h,'RGBA8 SHA256=',hashlib.sha256(rgba).hexdigest())"
+          if ($LASTEXITCODE -ne 0) { throw 'Independent PNG decoding failed' }
+      - name: Package one importable unadmitted candidate from actual current main
+        shell: pwsh
+        working-directory: engine
+        run: |
+          $ErrorActionPreference='Stop'
+          .\scripts\package.ps1 -Configuration Release -OutputDir artifacts
+          if ($LASTEXITCODE -ne 0) { throw 'Package failed' }
+          .\scripts\verify-package.ps1 -ArchivePath .\artifacts\FAULTMINE-1.0.0-win64.zip
+          if ($LASTEXITCODE -ne 0) { throw 'Extracted package native smoke failed' }
+          $stage=Join-Path $env:GITHUB_WORKSPACE 'stage'
+          Expand-Archive -LiteralPath .\artifacts\FAULTMINE-1.0.0-win64.zip -DestinationPath $stage
+          $app=Join-Path $stage 'FAULTMINE-1.0.0-win64'
+          $rel='gallery\originals\05-the-unclaimed-gesture'
+          $gallery=Join-Path $app $rel
+          New-Item -ItemType Directory -Force (Split-Path $gallery) | Out-Null
+          Copy-Item -LiteralPath (Join-Path $PWD $rel) -Destination $gallery -Recurse
+          $proof=Join-Path $gallery 'canonical-windows-evidence'
+          New-Item -ItemType Directory -Force $proof | Out-Null
+          Copy-Item -LiteralPath (Join-Path $env:GITHUB_WORKSPACE 'evidence\original-05\*') -Destination $proof
+          $guide=@'
+          FAULTMINE - UNCLAIMED GESTURE - UNADMITTED ORIGINAL 05
+          Extract ZIP; run Run FAULTMINE.cmd from FAULTMINE-1.0.0-win64.
+          Ctrl+Shift+O and open gallery\originals\05-the-unclaimed-gesture\the-unclaimed-gesture.fmproj.
+          Expected source path is relative to the package working directory.
+          Compare native CPU canonical frame 0 under canonical-windows-evidence.
+          If prompted to relink, record the exact path: no physical GUI acceptance is claimed.
+          Test Ctrl+E output and cancellation yourself; CI smoke does NOT qualify FM-012 GUI.
+          Authored source/genome/project unchanged from PR #61 head 962e55a3906e256e0a9ad407fdd56c44ecdbce53.
+          Native proof on accepted main fab5e7499bb56a3e3ab283a532d8cf2c084b9031.
+          Do NOT infer artist approval or permission to merge from this package.
+          '@
+          [IO.File]::WriteAllText((Join-Path $app 'ORIGINAL-05-REVIEW.txt'),$guide,[Text.UTF8Encoding]::new($false))
+          $dest=Join-Path $env:GITHUB_WORKSPACE 'evidence\FAULTMINE-original05-windows-owner-candidate.zip'
+          Compress-Archive -LiteralPath $app -DestinationPath $dest -CompressionLevel Optimal
+          Write-Host "Candidate SHA256 $((Get-FileHash $dest -Algorithm SHA256).Hash.ToLowerInvariant())"
+      - name: Upload actual Windows canonical PNG receipt and owner candidate
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FAULTMINE-original05-current-main-native-proof
+          path: evidence/
+          retention-days: 30
+          if-no-files-found: warn
