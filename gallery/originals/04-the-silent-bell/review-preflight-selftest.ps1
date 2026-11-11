@@ -11,7 +11,7 @@ $originals = @(
   'silent-bell-canonical.png', 'native-replay-receipt.json', 'artwork.json'
 )
 function Invoke-Probe {
-  & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File (Join-Path $probe 'review-preflight.ps1') *> $null
+  & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File (Join-Path $probe 'review-preflight.ps1') -AllowHashOnly *> $null
   return ($LASTEXITCODE -eq 0)
 }
 try {
@@ -19,6 +19,11 @@ try {
   foreach ($name in @('review-preflight.ps1') + $originals) {
     Copy-Item -LiteralPath (Join-Path $here $name) -Destination (Join-Path $probe $name)
   }
+  # The ordinary owner-facing preflight must NOT pass in an asset-only copy.
+  # Only the explicit disposable-test flag may skip the native renderer.
+  & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File (Join-Path $probe 'review-preflight.ps1') *> $null
+  if ($LASTEXITCODE -eq 0) { throw 'Native-required preflight accepted a missing renderer.' }
+  Write-Host '[PASS] Normal reviewer preflight rejects missing native renderer.'
   if (-not (Invoke-Probe)) { throw 'Intact reviewer copy rejected.' }
   Write-Host '[PASS] Untouched, self-contained original 04 is accepted.'
   foreach ($name in $originals) {
@@ -38,7 +43,7 @@ try {
   Remove-Item -LiteralPath (Join-Path $probe 'source.png') -Force
   if (Invoke-Probe) { throw 'Missing portable source was accepted.' }
   Write-Host '[PASS] Missing project-bound source rejected.'
-  Write-Host '[PASS] 6 tamper cases, 6 restores, one missing-input case.'
+  Write-Host '[PASS] Native-required rejection, 6 tamper cases, 6 restores and one missing-input case.'
   Write-Host '[NOTE] Test uses the hash-only temporary copy; native CLI replay and physical GUI require independent Windows qualification.'
   exit 0
 } finally {
