@@ -133,6 +133,18 @@ def descriptor_distance(a, b):
     return sum(abs(x-y) for x,y in zip(a,b))
 
 
+def cross_family_winner_distance(seismic_png, shearwing_png):
+    """Compare full-resolution, pinned canonical outputs in descriptor-v1 space.
+
+    Cross-source FM-014 distance is a limited structural screening metric,
+    not a substitute for aesthetic comparison or human admission.
+    """
+    _, seismic_rgba = png_rgba(seismic_png, (384, 240))
+    _, shearwing_rgba = png_rgba(shearwing_png, (384, 256))
+    return descriptor_distance(descriptor_v1(seismic_rgba, (384, 240)),
+                               descriptor_v1(shearwing_rgba, (384, 256)))
+
+
 def verify(seismic_file, four_file):
     require(sha(seismic_file.read_bytes()) == SEISMIC_ZIP_SHA, 'unrecognized native Seismic archive')
     with ZipFile(seismic_file) as s, ZipFile(four_file) as f:
@@ -190,6 +202,8 @@ def verify(seismic_file, four_file):
         require(sha(wing) == SHEARWING_WINNER_SHA and
                 png_rgba(wing, (384, 256))[0] == SHEARWING_WINNER_PIXEL,
                 'Shearwing comparison not source-exact')
+        require(cross_family_winner_distance(selected[101], wing) > 8192,
+                'the two pinned winners are descriptor-near: reject false distinctness')
         # Match the same fixed thematic framing, not an invented accepted gallery.
         return manifest, selected, wing
 
@@ -204,6 +218,7 @@ def make_html(manifest, selected, wing):
                      f'<strong>#{i:03d}</strong> · {status}<small>RG​BA8 {html.escape(r["pixel_identity"][:16])} · near-rep {r["near_representative_index"]}</small>'
                      '</figcaption></figure>')
     wing_data = base64.b64encode(wing).decode('ascii')
+    cross_distance = cross_family_winner_distance(selected[101], wing)
     return ('<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
             '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; img-src data:; style-src \'unsafe-inline\'">'
             '<title>FAULTMINE — Existing native Seismic admission</title><style>'
@@ -219,6 +234,8 @@ def make_html(manifest, selected, wing):
             'Descriptor L1 threshold is 8192 inclusive, not an aesthetic metric.</p><div class="grid">' + ''.join(cards) + '</div>'
             '<h2>Concentrated owner decision</h2><section class="final"><figure><img alt="Seismic native curated descendant 101" src="data:image/png;base64,' + base64.b64encode(selected[101]).decode('ascii') + '"><figcaption><b>Seismic #101</b> — layered fractured registers; original channel separation compromised.</figcaption></figure>'
             '<figure><img alt="Shearwing native curated descendant 65" src="data:image/png;base64,' + wing_data + '"><figcaption><b>Shearwing #65</b> — more explicit wing figure and negative space; competing Draft #53, not admitted.</figcaption></figure></section>'
+            '<p>Native decoded winner descriptors: cross-source FM-014 L1 distance <b>' + str(cross_distance) +
+            '</b> (within-quarry near threshold 8192). This excludes a descriptor-near match, not a visual or artistic duplicate.</p>'
             '<p><b>Curatorial recommendation:</b> keep #101 as the single Seismic contender but HOLD #57 behind #53. '
             'The alternate #102 preserves channel readability but loses much of the fracture; #14 overwhelms the source in red and #33/#84 are effectively noise or void. '
             'No accepted-gallery comparator is available on main. Human aesthetic judgement and physical Win32 GUI export/cancellation remain open.</p>'
@@ -246,6 +263,8 @@ def main():
         print('REVIEW:', args.html)
     print('PASS: 128/128 archived native pixel and independent descriptor identities; 0 failures; 125 pixel unique; 85 independently derived near representatives; 12 selections')
     print('PASS: curated #101 and competing #65 pinned and decoded; source archive and run provenance verified')
+    print('CROSS-FAMILY: original native canonical descriptor-v1 L1 distance',
+          cross_family_winner_distance(selected[101], wing), '(near cutoff 8192 inclusive; not an aesthetic rating)')
     print('NOT CLAIMED: new Win64 render, latest #57 head CI, accepted-gallery comparison, Win32 GUI or owner aesthetic approval')
 
 
