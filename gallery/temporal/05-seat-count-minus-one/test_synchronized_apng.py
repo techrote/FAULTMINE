@@ -92,12 +92,28 @@ def verify(archive: Path) -> None:
                 assert actual==truth,(n,t,x,a,b,c)
         assert seen_angle==set(range(36)) and seen_seat==set(range(32))
         assert seen_edit==set(auth.SEAT_STUDY)
+        # The self-running APNG needs legible, unambiguous panel names and
+        # genuine live native-frame indices; captions occupy only y >= 238.
+        assert (player.WIDTH, player.HEIGHT)==(1024,272)
+        background=b'\x0c\x11\x19\xff'
+        def caption_slice(frame: bytes, x: int) -> bytes:
+            return b''.join(frame[y*player.WIDTH*4+x*4:
+                                  y*player.WIDTH*4+(x+245)*4]
+                            for y in range(238,266))
+        for x in (8,336,680):
+            panels=[caption_slice(pixels[i],x) for i in (0,30,63)]
+            assert all(any(p[j:j+4]!=background
+                           for j in range(0,len(p),4)) for p in panels), (
+                           'Missing panel text',x)
+            assert panels[0]!=panels[2], ('Stale native frame caption',x)
+        # A title panel must not be mistakenly copied to all three tracks.
+        assert len({caption_slice(pixels[30],x) for x in (8,336,680)})==3
         try:
             player.build(archive,path)
         except FileExistsError:pass
         else:raise AssertionError('Clobbered prior preview')
         assert path.read_bytes()==data,'Output collision modified existing APNG'
-        print('PASS: 64-frame APNG structural/CRC and exact native source pixels, all 36/32/19 presentation indices; collision safe')
+        print('PASS: 64-frame APNG structural/CRC and exact native source pixels, all 36/32/19 presentation indices, live caption identity; collision safe')
 
 
 if __name__=='__main__':
