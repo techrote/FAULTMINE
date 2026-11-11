@@ -25,8 +25,12 @@ function Invoke-RenderExpectedExit {
         [string]$Label
     )
     $lines = @(& $renderExecutable @Arguments)
-    if ($LASTEXITCODE -ne $ExpectedCode) {
-        throw "$Label returned $LASTEXITCODE; expected $ExpectedCode."
+    $actualCode = $LASTEXITCODE
+    # Expected negative native exits must not leak into the pwsh Actions
+    # wrapper's final "exit $LASTEXITCODE" success/failure decision.
+    $global:LASTEXITCODE = 0
+    if ($actualCode -ne $ExpectedCode) {
+        throw "$Label returned $actualCode; expected $ExpectedCode."
     }
     return $lines
 }
