@@ -1,0 +1,27 @@
+{
+  "artwork_manifest_version": 1,
+  "title": "WITNESS RELAY / 02 — The Last Empty Carriage",
+  "created_date": "2026-11-11",
+  "rights": "Original, procedurally drawn source; no third-party artwork, photo or font assets.",
+  "artwork_kind": "canonical-still-candidate",
+  "source_file": "source.png",
+  "source_dimensions": [
+    384,
+    256
+  ],
+  "source_encoding": "PNG indexed 4-bit palette, opaque, no ancillary color-management chunks",
+  "source_encoding_sha256": "b20301c86bbaf0bb1f886fce9fe4f70017286bc0f13b734e261d3a982f049435",
+  "source_identity": "05ec476c708b7b569ce4c192b1d32d5270d5fb057619c238dc3d46c40a713b69",
+  "genome_file": "genome.json",
+  "genome_identity": "58f440d271d56e81e94de2f395931de1774af8a92d64627dad9514a41722e313",
+  "project_file": "witness-relay.fmproj",
+  "genome_schema_version": 1,
+  "engine_contract_version": 1,
+  "project_version": 2,
+  "root_seed": "a17e08c4d3ad1e02",
+  "explicit_frame": 0,
+  "native_render_status": "pending-supported-Windows-native-render",
+  "canonical_output_identity": null,
+  "canonical_output_file": null,
+  "note": "source.png is authored source, not native canonical output. No CPU-rendered pixels or visual quality claim exists until FAULTMINE-render.exe runs on supported Windows and output is independently inspected."
+}
