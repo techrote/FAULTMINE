@@ -7,7 +7,7 @@ on:
       - '.github/workflows/gallery-evolution-06-native.yml'
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
 jobs:
   seismic-debt-native:
     runs-on: windows-latest
@@ -18,7 +18,8 @@ jobs:
         run: git config --global core.autocrlf false
       - uses: actions/checkout@v4
         with:
-          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: true
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -65,6 +66,41 @@ jobs:
              $a.near_representatives -lt 6 -or $a.debug_release_readonly_replays -lt 12){
             throw 'Incomplete or insufficient actual native search'
           }
+      - name: Archive independently inspected canonical descendant 101 (one-off)
+        if: github.event_name == 'pull_request' && github.head_ref == 'codex/art-evol-006-seismic-debt-20261111-0603' && github.event.pull_request.head.repo.full_name == github.repository
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $here='gallery/evolution/06-seismic-debt'
+          $src='evidence/seismic-debt-06'
+          $dest=Join-Path $here 'curated'
+          $a=Get-Content "$src/audit.json" -Raw | ConvertFrom-Json
+          $chosen=@($a.selections | Where-Object {$_.index -eq 101})
+          if($chosen.Count -ne 1 -or $a.completed -ne 128 -or $a.failed -ne 0 -or
+             $chosen[0].pixel_identity -cne '492f844f1dc21cd3abf4516aa7c383fc276fbfda72205ae628b03a6b52a443e2'){
+            throw 'Canonical inspected selection identity drift'
+          }
+          $png=Join-Path $src 'selected/candidate_00000000000000000101.png'
+          $transport=(Get-FileHash -LiteralPath $png -Algorithm SHA256).Hash.ToLowerInvariant()
+          if($transport -cne '19629f3ccf873f8eb39cac7f8729c58ddb6a71e27b07039720f0766f32a9b337'){
+            throw 'The exact visually inspected Windows WIC PNG changed'
+          }
+          New-Item -ItemType Directory -Force $dest | Out-Null
+          Copy-Item $png "$dest/the-broken-register.png"
+          Copy-Item "$png.fmmanifest.json" "$dest/the-broken-register.png.fmmanifest.json"
+          Copy-Item "$src/audit-genome-00000000000000000101.json" "$dest/the-broken-register.genome.json"
+          Copy-Item "$src/selected-contact-sheet.png" "$dest/atlas.png"
+          Copy-Item "$src/selected-contact-sheet.png.fmmanifest.json" "$dest/atlas.png.fmmanifest.json"
+          Copy-Item "$src/batch.fmbatch.json" "$dest/batch.fmbatch.json"
+          Copy-Item "$src/batch.fmproj" "$dest/batch.fmproj"
+          Copy-Item "$src/audit.json" "$dest/native-audit.json"
+          if(-not(Test-Path "$here/source.bmp")){throw 'Missing the original authored reproducible source'}
+          & git add -- "$here/source.bmp" "$dest"
+          if($LASTEXITCODE -ne 0){throw 'Git staging failed'}
+          & git -c user.name='FAULTMINE Evolutionary Quarry' -c user.email='actions@users.noreply.github.com' commit -m 'Archive native Seismic Debt descendant 101 and complete quarry evidence'
+          if($LASTEXITCODE -ne 0){throw 'Git commit failed'}
+          & git push origin "HEAD:refs/heads/$env:GITHUB_HEAD_REF"
+          if($LASTEXITCODE -ne 0){throw 'Branch push was denied: canonical assets remain in workflow artifact'}
       - name: Always archive truthful completed or partial search
         if: always()
         uses: actions/upload-artifact@v4
