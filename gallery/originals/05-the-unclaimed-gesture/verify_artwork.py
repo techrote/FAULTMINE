@@ -8,6 +8,8 @@ GI='f3493de53d45a4013c64488f16fb9b3d1e666f66113b2e996aca2068b4525da4'
 S='f7d396be000cd153f29f1b25110162627d0dbf5726be51ea39f35d3d2b005f84'
 P='14880df2f490aed709f998d1d52e004eb344fd9c4245ee9f97f53ed20160bfbe'
 SEED='c18e70d453b29a64'
+OI='981bf2f2bb64f69cb8da54a59a343af8b3b9c0c51828bccddff924973b672979'
+OH='fb3272681ad20147035e9209ed767d1b2d6e4ea26b3a44c7407cf1b27feb07d4'
 W,H=320,224
 
 def sha(b): return hashlib.sha256(b).hexdigest()
@@ -117,11 +119,38 @@ def verify(canonical=None):
     assert (a['source_encoding_sha256'],a['source_identity'],a['genome_identity'],a['project_encoding_sha256'])==(S,SI,GI,P)
     assert (a['root_seed'],a['explicit_frame'],a['operator_count'])==(SEED,0,7)
     assert a['source_dimensions']==[W,H]
-    assert a['native_render_status']=='pending-windows-cpu-render' and a['canonical_output_identity'] is None
-    assert a['canonical_output_file'] is None and a['visual_evidence']=='authored-source-inspected-only'
+    assert a['native_render_status']=='windows-native-cli-release-debug-replayed-external-proof'
+    assert a['canonical_output_identity']==OI and a['canonical_output_encoded_sha256']==OH
+    assert a['canonical_output_file'] is None, 'Native PNG has not been committed into this Draft'
+    assert a['visual_evidence']=='archived-native-cpu-image-inspected-not-owner-accepted'
+    evidence=a['canonical_evidence']
+    assert evidence=={'run_id':42990696670,'artifact_id':13841447863,
+        'artifact_member':'original-05-native/unclaimed-gesture-canonical.png',
+        'receipt_member':'original-05-native/native-replay-receipt.json',
+        'pinned_author_head':'962e55a3906e256e0a9ad407fdd56c44ecdbce53',
+        'retention':'Exact native PNG available in workflow artifact / owner review ZIP; NOT committed on PR #61'}
+    receipt=load_json('native-replay-receipt.json')
+    assert receipt=={'audit_version':1,'kind':'author-cli-replay-not-FM012',
+        'engine_contract_version':1,'source_identity':SI,'genome_identity':GI,
+        'root_seed':SEED,'frame':0,'output_identity':OI,'encoded_png_sha256':OH,
+        'release_verify':'passed','debug_verify':'passed',
+        'output_file':'unclaimed-gesture-canonical.png'}, 'Native receipt drift'
     if canonical is not None:
-        raise ValueError('No admitted native output identity yet: do not invent canonical comparison; use render-win.ps1 to produce and independently inspect it.')
-    print('PASS: strict source PNG CRC/decompression/RGBA identity, canonical genome/project bytes, typed stack and lineage; native output NOT YET PRODUCED')
+        blob=Path(canonical).read_bytes()
+        assert sha(blob)==OH, 'External native PNG container hash mismatch'
+        assert blob.startswith(b'\x89PNG\r\n\x1a\n')
+        width,height,depth,colour,compress,filter_method,interlace=struct.unpack_from('>IIBBBBB',blob,16)
+        assert (width,height,depth,colour,compress,filter_method,interlace)==(W,H,8,6,0,0,0), 'Expected native straight RGBA8 PNG'
+        w,h,rgba=png_pixels(blob)
+        assert (w,h)==(W,H) and source_id(w,h,rgba)==OI, 'External native decoded pixel identity mismatch'
+        damaged=bytearray(blob);damaged[200]^=1
+        try:png_pixels(damaged)
+        except (AssertionError,ValueError,zlib.error):pass
+        else:raise AssertionError('Corrupted native PNG was accepted')
+        print('PASS: actual Windows-native PNG SHA, strict CRC/decode, canonical RGBA8 output identity and corruption rejection')
+    else:
+        print('PASS: pinned native Windows receipt and provenance; decoded native pixels NOT checked without --canonical PATH')
+    print('PASS: source PNG, canonical genome/project bytes, typed stack, root seed and lineage. Physical Win32 GUI/art acceptance remains pending.')
 
 def negative():
     payload=bytearray((D/'source.png').read_bytes());payload[-22]^=1
