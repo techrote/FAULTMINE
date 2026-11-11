@@ -125,11 +125,18 @@ def main():
     assert art["source_identity"] == SOURCE_ID and art["genome_identity"] == GENOME_ID
     assert art["root_seed"] == ROOT_SEED and art["source_dimensions"] == [w, h]
     assert art["explicit_frame"] == 0
-    assert art["native_render_status"] == "pending-windows-execution"
-    assert art["canonical_output_identity"] is None and art["canonical_output_file"] is None
+    assert art["native_render_status"] == "windows-native-cpu-decoded-replay-verified"
+    assert art["canonical_output_identity"] == "171e395bac997e35d740f400cbbce3e9fdb556056f5be7fd45eef5d158536c7c"
+    assert art["canonical_output_file"] == "moth-rom-canonical.png"
+    assert art["archived_png_encoded_sha256"] == "59488382c0ad776ee00dc1419d11ba1ddbf79871b161059037a6f4234af33088"
+    assert art["native_png_encoded_sha256"] == "70f8ed386a18f8cdb76212ddf7ec0799b8dfba8ab19f2b3d24f0e511ff0f8b81"
+    assert (art["native_evidence_run"], art["native_evidence_artifact"]) == (42939377682, 13820331534)
+    from verify_canonical import verify as verify_archived_pixels
+    assert verify_archived_pixels() == art["canonical_output_identity"]
     print("PASS: source BMP encoding and normalized RGBA8 identity")
     print("PASS: LF-canonical genome SHA256 (CRLF checkout safe), seven typed operators, project-v2 lineage and authoring manifest")
-    print("NOT VERIFIED: native Windows WIC decode, registry acceptance, post-fault canonical PNG and exact replay")
+    print("PASS: committed decoded RGBA8 canonical PNG identity matches independently recorded native Windows output")
+    print("PENDING: exact-head Windows verification of newly committed PNG, GUI/FM-012 and independent artistic acceptance")
 
 
 if __name__ == "__main__":

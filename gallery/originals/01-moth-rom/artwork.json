@@ -20,9 +20,13 @@
   "project_version": 2,
   "root_seed": "0d07c1cada55e7a1",
   "explicit_frame": 0,
-  "native_render_status": "pending-windows-execution",
-  "canonical_output_identity": null,
-  "canonical_output_file": null,
+  "native_render_status": "windows-native-cpu-decoded-replay-verified",
+  "canonical_output_identity": "171e395bac997e35d740f400cbbce3e9fdb556056f5be7fd45eef5d158536c7c",
+  "canonical_output_file": "moth-rom-canonical.png",
   "planned_native_output": "native-render/moth-rom-canonical.png",
-  "note": "This is an authoring identity inventory, not an FM-012 canonical export manifest. No output hash or PNG identity is claimed before actual Windows execution."
+  "note": "This author record is not an FM-012 export manifest. The committed PNG is a lossless RGB8 recoding of independently verified Windows CPU RGBA8 pixels: decoded identity is unchanged, transport SHA differs from the native WIC PNG. GUI/FM-012, newly committed PNG exact-head Windows --verify, and independent artistic acceptance remain separate gates.",
+  "archived_png_encoded_sha256": "59488382c0ad776ee00dc1419d11ba1ddbf79871b161059037a6f4234af33088",
+  "native_png_encoded_sha256": "70f8ed386a18f8cdb76212ddf7ec0799b8dfba8ab19f2b3d24f0e511ff0f8b81",
+  "native_evidence_run": 42939377682,
+  "native_evidence_artifact": 13820331534
 }
