@@ -56,6 +56,11 @@ jobs:
               $audit.aesthetic_selection_pending -ne $true) {
             throw 'Native audit missing expected completion/replay/curation state'
           }
+      - name: Verify committed winner, native pixels and FM-012 lineage independently
+        shell: pwsh
+        run: |
+          python gallery/evolution/05-shearwing-telemetry/curated/verify_selection.py --native-dir evidence/quarry-05
+          if ($LASTEXITCODE -ne 0) { throw 'Archived chosen image/genome/manifest does not match real native batch' }
       - name: Archive authentic CPU results and all reproducible search evidence
         if: always()
         uses: actions/upload-artifact@v4
