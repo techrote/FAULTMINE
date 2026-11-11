@@ -86,7 +86,7 @@ def verify(native_dir=None):
     assert digest(encoded) == PNG_SHA, 'archived native PNG bytes changed'
     pixels = decode_rgba_png(encoded)
     assert digest(b'FAULTMINE-SOURCE-RGBA8-v1' + struct.pack('<II', W, H) + pixels) == PIXEL_ID
-    manifest_bytes = (HERE / 'shearwing-65.fmmanifest.json').read_bytes()
+    manifest_bytes = (HERE / 'the-broken-register.png.fmmanifest.json').read_bytes()
     sidecar = json.loads(manifest_bytes)
     assert sidecar['manifest_version'] == 1 and sidecar['kind'] == 'still'
     assert sidecar['source']['identity'] == SOURCE_ID
@@ -108,6 +108,8 @@ def verify(native_dir=None):
     assert len({c['pixel_identity'] for c in record['candidates']}) == 125
     assert sum(c['near_representative_index'] == c['descendant_index'] for c in record['candidates']) == 85
     assert len([c for c in record['candidates'] if c['selected']]) == 12
+    candidate = record['candidates'][INDEX]
+    assert candidate['candidate_identity'] == CANDIDATE_ID and candidate['selected']
     assert candidate['novelty_distance'] == 72780
     audit = json.loads((HERE / 'native-audit.json').read_text('utf8'))
     assert audit['completed'] == 128 and audit['failed'] == 0
@@ -119,7 +121,7 @@ def verify(native_dir=None):
         assert record['complete'] and not record['cancelled']
         assert record['source_identity'] == SOURCE_ID and record['parent_genome_identity'] == PARENT_ID
         assert record['mutation_seed'] == SEED and record['index_end_exclusive'] == 128
-        assert len(record['candidates']) == 96 and len(record['failures']) == 0
+        assert len(record['candidates']) == 128 and len(record['failures']) == 0
         candidate = record['candidates'][INDEX]
         assert candidate['selected'] and candidate['candidate_identity'] == CANDIDATE_ID
         assert candidate['pixel_identity'] == PIXEL_ID and candidate['genome_identity'] == GENOME_ID
