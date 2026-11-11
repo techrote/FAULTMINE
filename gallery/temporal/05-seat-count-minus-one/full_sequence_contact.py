@@ -71,11 +71,15 @@ def build(archive: Path, dest: Path) -> dict:
         parts.append(f'<text x="{x}" y="{y+215}" class="small">Angle #{n:02d} / {n*1000/12:.0f}ms</text>')
         parts.append(f'<text x="{x}" y="{y+236}" class="meta">RGBA8 {escape(item["id"][:16])}…</text>')
     parts.append('</svg>')
+    # These measurements are computed from verified native decoded pixels.
+    # Reject unexpected evidence BEFORE creating an output file.
+    if not (abs(percent[27]-7.84) < .01 and
+            abs(percent[28]-4.48) < .01 and
+            abs(percent[29]-42.85) < .01):
+        raise ValueError('Archived native late-frame pixel changes do not match the pinned study')
     # Refuse to overwrite; prevent stale reviewer evidence being replaced.
     with dest.open('x', encoding='utf-8', newline='\n') as output:
         output.write('\n'.join(parts)+'\n')
-    assert abs(percent[27]-7.84) < .01 and abs(percent[28]-4.48) < .01
-    assert abs(percent[29]-42.85) < .01
     return dict(seat=32,angle=36,comparator=6,late_change_pct=[round(percent[n],2) for n in (27,28,29)],out=str(dest))
 
 
