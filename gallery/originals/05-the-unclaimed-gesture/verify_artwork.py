@@ -129,6 +129,7 @@ def verify(canonical=None):
         'receipt_member':'original-05-native/native-replay-receipt.json',
         'pinned_author_head':'962e55a3906e256e0a9ad407fdd56c44ecdbce53',
         'retention':'Exact native PNG available in workflow artifact / owner review ZIP; NOT committed on PR #61'}
+    assert sha((D/'native-replay-receipt.json').read_bytes())=='09371ca0192c7f13115c88a4fea22682e5521d9905412ffba2e0d48826b17631', 'Original Windows receipt transport changed'
     receipt=load_json('native-replay-receipt.json')
     assert receipt=={'audit_version':1,'kind':'author-cli-replay-not-FM012',
         'engine_contract_version':1,'source_identity':SI,'genome_identity':GI,
