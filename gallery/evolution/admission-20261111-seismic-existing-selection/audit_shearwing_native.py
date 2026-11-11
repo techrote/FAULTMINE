@@ -135,6 +135,33 @@ def audit(archive):
                 'independent farthest-point selection disagrees')
         require(sha(chosen_png[65]) == WINNER_SHA
                 and rows[65]['pixel_identity'] == WINNER_ID, 'winner #65 changed')
+        # The immutable native batch project records its original runner's
+        # absolute path. The separately packaged, author-genome-exact WINNER
+        # review project is the intended relocatable owner entrypoint.
+        review_path = ('FAULTMINE-1.0.0-win64/REVIEW-PROJECTS/'
+                       '04-shearwing-WINNER-65.fmproj')
+        review = json.loads(z.read(review_path))
+        relative_source = 'gallery/evolution/05-shearwing-telemetry/source.bmp'
+        require(review['project_version'] == 2
+                and review['source'] == {'path': relative_source,
+                                        'identity': SOURCE_ID}
+                and 'FAULTMINE-1.0.0-win64/' + relative_source in names,
+                'portable winner project has wrong/missing source')
+        require(review['genome'] == json.loads(rows[65]['canonical_genome'])
+                and review['lineage']['active_genome_identity'] ==
+                    rows[65]['genome_identity'],
+                'portable winner project active genome/lineage mismatch')
+        receipt = json.loads(z.read(
+            BASE + 'selected/candidate_00000000000000000065.png.fmmanifest.json'))
+        require(receipt['kind'] == 'still'
+                and receipt['source']['identity'] == SOURCE_ID
+                and receipt['genome']['identity'] == rows[65]['genome_identity']
+                and receipt['genome']['canonical'] == review['genome']
+                and receipt['output']['image_identity'] == WINNER_ID
+                and receipt['output']['canonical_full_resolution'] is True
+                and receipt['still']['frame'] == 0
+                and receipt['derivation']['descendant_index'] == 65,
+                'native winner still receipt/project/lineage mismatch')
         return {
             'requested': 96, 'completed': 96, 'failures': 0,
             'unique_genomes': len(genome_first),
@@ -147,7 +174,9 @@ def audit(archive):
             'winner_index': 65, 'winner_png_sha256': WINNER_SHA,
             'winner_rgba8_identity': WINNER_ID,
             'original_project_source_path': stored_source_path,
-            'portable_source_relink': 'physical GUI verification outstanding'
+            'portable_source_path': relative_source,
+            'portable_winner_project_sha256': sha(z.read(review_path)),
+            'portable_project_gui_open': 'physical GUI verification outstanding'
         }
 
 
@@ -168,7 +197,7 @@ def main():
         else:
             raise ValueError('tampered native selected PNG was not rejected')
     print(json.dumps(result, indent=2, sort_keys=True))
-    print('PASS: native source, 96 decoded canonical stills/descriptors, 70 near representatives, original project and 8 selected/genome identities')
+    print('PASS: native source, 96 decoded canonical stills/descriptors, 70 near representatives, 8 selected/genome identities, portable winner project and native export receipt')
     print('NOT CLAIMED: new Windows render, physical GUI/relink/export or owner artistic admission')
 
 
