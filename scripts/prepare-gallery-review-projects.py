@@ -95,7 +95,7 @@ def create(package_root):
                         "source_normalized_identity_from_project": identity,
                         "root_seed": genome["root_seed"]})
     readme = ("FAULTMINE FOUR-FAMILY REVIEW PROJECTS — PORTABLE COPIES\n\n"
-              "Run ..\\Run FAULTMINE.cmd from the extracted package root.\n"
+              "From the extracted package root double-click Run FAULTMINE.cmd.\n"
               "In FAULTMINE press Ctrl+Shift+O and open a .fmproj from this folder.\n"
               "01 Angle of Departure; 02 Silent Bell; 03 Seat Count Minus One; 04 Shearwing.\n\n"
               "These copies use paths relative to the package root, where the shipped\n"
