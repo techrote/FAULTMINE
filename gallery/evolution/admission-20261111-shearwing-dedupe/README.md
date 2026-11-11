@@ -4,12 +4,13 @@
 
 ## One-command local review
 
-Use the exact [current-main four-family Windows review package](https://github.com/techrote/FAULTMINE/actions/runs/43031286196) distributed by Integration: FAULTMINE-current-main-four-family-owner-review-PR67-20261111.zip. One of the two **exactly pinned** package SHA-256 digests must match:
+Use one of the **three exactly pinned** Integration Windows review ZIPs. The latest owner-facing delivery is `FAULTMINE-four-family-owner-native-replay-qualified-20261111.zip`, the 292-member local evaluation package. Earlier artifacts were distributed via [Integration CI](https://github.com/techrote/FAULTMINE/actions/runs/43031286196). An arbitrary renamed or repacked ZIP is not accepted:
 
     5135f36d2cfca6baa91b27d7b84e0eefea689e95a38232bb112a73f1bb655b8d  original Integration ZIP (286 entries)
     323c81905c675f55ed12e1274ed6faa6a5212cacc90b0a2e6cd09841ec82f1eb  owner-acceptance ZIP (289 entries)
+    8cb1ef4789aa2266c905d8ca53a010f4c48f8cb8c842e322f564b93474d5903a  owner native-replay ZIP (292 entries)
 
-The second package contains the original archive members unchanged and three independent noncanonical review/audit records. The verifier additionally pins the native `batch.fmproj`, FM-012 selected contact PNG and its manifest, original source, full FM-014 manifest, all 96 decoded candidate PNGs, and winner #65. Arbitrary ZIPs, altered member bytes and unapproved rebuilt packages are rejected.
+The newer packages add review scripts/records only; they do not authorize altering canonical artwork. The 292-member archive has been independently inspected: all 96 decoded candidate pixels still match the frozen native manifest, and the batch receipt, portable project, authored source, selected contact sheet and manifest retain their previously pinned SHA-256 values. The verifier separately rejects duplicate or unsafe member paths. It also pins the native `batch.fmproj`, FM-012 selected contact PNG and its manifest, original source, full FM-014 manifest, all 96 decoded candidate PNGs, and winner #65. Arbitrary ZIPs, altered member bytes and unapproved rebuilt packages are rejected.
 
 From the repository root (Python 3.10+ standard library only):
 
@@ -48,4 +49,6 @@ Native full-resolution images show **#65** has cleaner separated cream/ochre fli
 
 ## Qualification and limitations
 
-On the exact archive: 96/96 decoded identities match the native manifest; independent Pillow decode matches all 96 RGBA buffers; bit-flip CRC and truncation negatives reject corrupted images; the ten embedded HTML images preserve original encoded PNG bytes. Script writes only an optional review HTML outside the repository. This is **archived Windows-native evidence**, not a fresh native render, current-PR CI result or physical Win32 acceptance. Earlier authored pixels and the merged #62 admission desk remain untouched.
+On the exact archive: 96/96 decoded identities match the native manifest; independent Pillow decode matches all 96 RGBA buffers; bit-flip CRC and truncation negatives reject corrupted images; the ten embedded HTML images preserve original encoded PNG bytes. Script writes only an optional review HTML outside the repository. A further source-exact visual comparison from the 292-member archive places the genuine #65 and #35 native stills next to the close #24/#81 pair, original Draft **Silent Bell** frame 0 and temporal Draft **Angle** frame 18. Shearwing is structurally separate from Bell's single centered metallic casting and Angle's broad folded planes, though #65 and #24 share some wing-register vocabulary. This supports retaining only one Shearwing contender; it is not an aesthetic admission. **Accepted comparison works:** none currently represented in this review; the existing #62 desk samples unadmitted Drafts. Do not call Drafts accepted.
+
+This is **archived Windows-native evidence**, not a fresh native render, current-PR CI result or physical Win32 acceptance. Earlier authored pixels and the merged #62 admission desk remain untouched.
