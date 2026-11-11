@@ -36,6 +36,33 @@ def run(source: Path) -> None:
                         'CANONICAL-REVIEW-EVIDENCE/'+spec['folder']+'/'+spec['basename']+f'_{index:06d}.png')
                     assert row['index']==index
                     assert base64.b64decode(row['url'].split(',',1)[1])==source_entries[name]
+        # Only the temporal presentation can change: immutable source-exact
+        # 32-frame authored playback remains the default, with the same
+        # 19-frame editorial selection already published by author #54.
+        cut_match = re.search(r'const seatStudy=(\\[[0-9,]+\\]);', page)
+        assert cut_match, 'No optional Seat editorial cut'
+        cut = json.loads(cut_match.group(1))
+        assert cut == [0,1,2,4,6,8,9,12,13,14,18,19,21,23,24,27,28,29,31]
+        assert len(set(cut)) == len(cut) and cut == sorted(cut)
+        exposure = [500 if n == 0 else 545 if n == 31 else
+                    155 if n < 9 else 115 for n in cut]
+        assert sum(exposure) == 3200, 'Editorial timing no longer synchronized'
+        assert '<option value="authored">Authored 32 frames · 10 fps' in page
+        assert "seatCadence.onchange=()=>select(ms)" in page
+        assert 'type===\'seat\'?seatAt(ms)' in page
+        # These measurements justify the revision using actual decoded native
+        # pixels, not guessed frame-level aesthetic labels.
+        seat_spec = next(s for s in subject.SPECS if s['key'] == 'seat')
+        def seat_rgba(n):
+            name = subject.unique(list(source_entries),
+                'CANONICAL-REVIEW-EVIDENCE/seat-05-release/seat-count_'+f'{n:06d}.png')
+            return subject.decode_rgba(source_entries[name],
+                seat_spec['width'], seat_spec['height'])
+        for left,right,wanted_percent in ((26,27,7.84),(27,28,4.48),(28,29,42.85)):
+            a,b = seat_rgba(left),seat_rgba(right)
+            modified = sum(a[k:k+3] != b[k:k+3] for k in range(0,len(a),4))
+            actual = 100 * modified / (seat_spec['width']*seat_spec['height'])
+            assert abs(actual-wanted_percent) < .01, (left,right,actual)
         try:
             subject.build(source,dest)
         except FileExistsError:
