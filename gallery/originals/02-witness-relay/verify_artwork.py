@@ -79,6 +79,15 @@ def main():
     b=(HERE/"source.png").read_bytes()
     assert sha(b)==SRC, "source encoding changed"
     rgba=png_rgba(b)
+    # Regression: a modified palette byte must fail the original PNG CRC.
+    damaged=bytearray(b)
+    damaged[60]^=1
+    try:
+        png_rgba(damaged)
+    except (AssertionError, ValueError, IndexError):
+        pass
+    else:
+        raise AssertionError("corrupted PNG unexpectedly accepted")
     assert sha(b"FAULTMINE-SOURCE-RGBA8-v1"+struct.pack("<II",384,256)+rgba)==SID, "normalized source changed"
     g,raw=canonical(HERE/"genome.json")
     assert sha(raw)==GID, "canonical genome changed"
