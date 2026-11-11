@@ -46,7 +46,7 @@ if ($genomeText.Contains("`r") -and $genomeText.Replace("`r`n",'').Contains("`r"
 $canonicalGenomeBytes = [Text.UTF8Encoding]::new($false).GetBytes($genomeText.Replace("`r`n","`n"))
 $hashEngine = [Security.Cryptography.SHA256]::Create()
 try {
-    $actualGenomeId = ([Convert]::ToHexString($hashEngine.ComputeHash($canonicalGenomeBytes))).ToLowerInvariant()
+    $actualGenomeId = (($hashEngine.ComputeHash($canonicalGenomeBytes) | ForEach-Object { $_.ToString('x2') }) -join '')
 } finally {
     $hashEngine.Dispose()
 }
@@ -74,7 +74,7 @@ function Invoke-CheckedNative {
     if ($nativeExit -ne 0) {
         throw "Native $Executable failed with exit $nativeExit; see $Log"
     }
-    return ,@($nativeLines | ForEach-Object { "$_" })
+    return @($nativeLines | ForEach-Object { "$_" })
 }
 function Require-Identity {
     param([string[]] $Lines, [string] $Key)
