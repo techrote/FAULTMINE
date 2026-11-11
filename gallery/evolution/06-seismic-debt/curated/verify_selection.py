@@ -78,7 +78,7 @@ def decode_rgba_png(data):
 def verify(native_dir=None):
     genome_bytes = (HERE / 'the-broken-register.genome.json').read_bytes()
     genome = json.loads(genome_bytes)
-    assert genome_bytes == json.dumps(genome, separators=(',', ':'), ensure_ascii=False).encode('utf8')
+    assert genome_bytes == (json.dumps(genome, separators=(',', ':'), ensure_ascii=False) + '\n').encode('utf8')
     assert digest(genome_bytes) == GENOME_ID, 'genome identity changed'
     assert genome['schema_version'] == genome['engine_contract_version'] == 1
     assert genome['root_seed'] == '0123456789abcdef'
@@ -124,7 +124,7 @@ def verify(native_dir=None):
         assert candidate['selected'] and candidate['candidate_identity'] == CANDIDATE_ID
         assert candidate['pixel_identity'] == PIXEL_ID and candidate['genome_identity'] == GENOME_ID
         assert candidate['near_representative_index'] == INDEX
-        assert candidate['canonical_genome'] == genome_bytes.decode('utf8')
+        assert candidate['canonical_genome'] + '\n' == genome_bytes.decode('utf8')
         path = native_dir / 'selected' / f'candidate_{INDEX:020}.png'
         assert path.read_bytes() == encoded
         assert Path(str(path) + '.fmmanifest.json').read_bytes() == manifest_bytes
