@@ -1,6 +1,6 @@
 # Estuary Moraine — faulted shorelines / evolutionary quarry 02
 
-**Status: Windows canonical run and curatorial selection pending.** This independent search session deliberately separates an original hand-authored source landscape from a published immutable representation/bit genome. Neither prior gallery works nor engine/UI code are touched.
+**Status: complete Windows native mine, selected #128; PR Draft, owner/GUI acceptance and committed canonical PNG pending.** This independent search session deliberately separates an original hand-authored source landscape from a published immutable representation/bit genome. Neither prior gallery works nor engine/UI code are touched.
 
 ## Visual problem
 
@@ -32,3 +32,9 @@ Use `-BinaryPath C:\path\FAULTMINE-batch.exe` for the portable executable (Git i
 ## Admission and image selection
 
 Inspect actual selected native images/contact sheet before choosing a final. Prefer meaningful contour retention, strategically shifted interruption, legible fault edges and genuinely different silhouettes, not trivial palette rotation or mere numerical novelty. Reject exact/near duplicates using native records. Record selected descendant, rendered pixel and genome identities, exact FM-012 provenance, image comparisons, and owner review state. This pending art package is intentionally Draft until actual Windows outputs and visual observation are available. The CI job, if available, is only a reproducibility and binary qualification path, **not** owner aesthetic approval.
+
+## Native outcome — 11 November 2026
+
+Real [Windows native run #42948340940](https://github.com/techrote/FAULTMINE/actions/runs/42948340940) passed, including Debug/Release tests and exact semantic resume. 256/256 canonical candidates completed; 256 unique genomes, 230 unique decoded outputs, 139 near representatives and 12 novelty selections. Editorially selected #128 after inspecting the real native contact sheet. See [curated/SELECTION.md](curated/SELECTION.md) and native image artifact [#13823499050](https://github.com/techrote/FAULTMINE/actions/runs/42948340940/artifacts/13823499050).
+
+Full-resolution PNG is available from that artifact, not yet a committed gallery PNG. No native-render image is synthesized in Python. Exact selected genome and unmodified FM-012 provenance sidecar are committed in `curated/`. This run's original pending-status section above documents the initial gate only.

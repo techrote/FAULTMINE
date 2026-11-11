@@ -58,7 +58,7 @@ jobs:
           $after = (Get-FileHash -LiteralPath (Join-Path $out 'batch.fmbatch.json') -Algorithm SHA256).Hash
           if ($before -cne $after) { throw 'Native semantic manifest changed under resume/threads=1' }
           $m = Get-Content (Join-Path $out 'batch.fmbatch.json') -Raw | ConvertFrom-Json
-          $s = @($m.candidates | Where-Object selected | Select-Object -First 3)
+          $s = @($m.candidates | Where-Object selected)
           foreach ($candidate in $s) {
             $index = [long]$candidate.descendant_index
             $tmpGenome = Join-Path $out ('replay-{0:D20}.json' -f $index)
@@ -73,7 +73,7 @@ jobs:
               }
             }
           }
-          Write-Host "PASS: 256 canonical full-resolution candidates; 3 selected stills independently replayed with both builds; byte-exact resume."
+          Write-Host "PASS: 256 canonical full-resolution candidates; all selected stills independently replayed with both builds; byte-exact resume."
       - name: Upload actual native outputs even when a gate fails
         if: always()
         uses: actions/upload-artifact@v4
