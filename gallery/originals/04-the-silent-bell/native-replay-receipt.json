@@ -1,0 +1,14 @@
+{
+  "audit_version": 1,
+  "kind": "author-cli-replay-not-FM012",
+  "engine_contract_version": 1,
+  "source_identity": "275bc5c264376ac81442ca3d5b399cff01b33449c21906be2dc140fe8085e747",
+  "genome_identity": "dc0340692b48259ed77fbf751ed692360c0345945bbb3b50f975ec0c3d8bde61",
+  "root_seed": "9f6b31ca0d42e857",
+  "frame": 0,
+  "output_identity": "d1778bc3d688e5fa5694485954c268cce88c54cc033a6933d3edf2311cf35b8e",
+  "encoded_png_sha256": "e9b492eddbc4d16ee528c18a236b0930c278aa8909ecdca3d68ef07c4e1d657a",
+  "release_verify": "passed",
+  "debug_verify": "passed",
+  "output_file": "silent-bell-canonical.png"
+}

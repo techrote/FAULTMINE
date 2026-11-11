@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Independent read-only ART-ORIG-004 input/provenance audit. Never renders canonical faults."""
-import hashlib, json, struct, zlib
+import argparse, hashlib, json, struct, zlib
 from pathlib import Path
 D=Path(__file__).resolve().parent
 S='be6f9c19e0b24544e1fc8883f55a041e06fd309c52bea5771c0bbff8b730da04'
@@ -57,6 +57,85 @@ def unpack_png(raw):
             rgba.extend(pal[idx]);rgba.append(255)
         prev=row
     return sha(b'FAULTMINE-SOURCE-RGBA8-v1'+struct.pack('<II',width,height)+rgba)
+def decode_native_rgba(raw):
+    """Independent strict, non-interlaced 8-bit RGBA PNG decoder for WIC evidence."""
+    assert raw.startswith(b'\x89PNG\r\n\x1a\n')
+    pos=8; parts=[]; shape=None; ended=False
+    while pos<len(raw):
+        assert pos+12<=len(raw),'truncated PNG chunk'
+        n=struct.unpack_from('>I',raw,pos)[0]
+        kind=raw[pos+4:pos+8]
+        assert pos+12+n<=len(raw),'bad PNG chunk size'
+        data=raw[pos+8:pos+8+n]
+        check=struct.unpack_from('>I',raw,pos+8+n)[0]
+        assert zlib.crc32(kind+data)==check,'PNG CRC mismatch'
+        pos+=12+n
+        if kind==b'IHDR':
+            assert shape is None and len(data)==13
+            shape=struct.unpack('>IIBBBBB',data)
+            assert shape==(384,256,8,6,0,0,0),'expected native straight RGBA8 PNG'
+        elif kind==b'IDAT': parts.append(data)
+        elif kind==b'IEND':
+            assert not data and pos==len(raw)
+            ended=True
+        elif kind in (b'PLTE',b'tRNS'):
+            raise AssertionError('Unexpected palette or transparency chunk')
+    assert ended and shape and parts
+    width,height=shape[:2]; stride=width*4
+    samples=zlib.decompress(b''.join(parts))
+    assert len(samples)==height*(stride+1)
+    rgba=bytearray();previous=bytearray(stride)
+    for y in range(height):
+        start=y*(stride+1)
+        filt=samples[start]
+        assert filt<=4,'invalid PNG filter'
+        row=bytearray(samples[start+1:start+1+stride])
+        for x in range(stride):
+            a=row[x-4] if x>=4 else 0
+            b=previous[x]
+            c=previous[x-4] if x>=4 else 0
+            if filt==1: pred=a
+            elif filt==2: pred=b
+            elif filt==3: pred=(a+b)//2
+            elif filt==4:
+                p=a+b-c; da=abs(p-a);db=abs(p-b);dc=abs(p-c)
+                pred=a if da<=db and da<=dc else b if db<=dc else c
+            else: pred=0
+            row[x]=(row[x]+pred)&255
+        rgba.extend(row)
+        previous=row
+    return sha(b'FAULTMINE-SOURCE-RGBA8-v1'+struct.pack('<II',width,height)+rgba)
+
+def audit_native_evidence(manifest, supplied_path):
+    path=D/'native-replay-receipt.json'
+    receipt=json.loads(path.read_bytes(),object_pairs_hook=strict)
+    expected={'audit_version':1,'kind':'author-cli-replay-not-FM012','engine_contract_version':1,
+              'source_identity':SI,'genome_identity':G,'root_seed':SEED,'frame':0,
+              'output_identity':'d1778bc3d688e5fa5694485954c268cce88c54cc033a6933d3edf2311cf35b8e',
+              'encoded_png_sha256':'e9b492eddbc4d16ee528c18a236b0930c278aa8909ecdca3d68ef07c4e1d657a',
+              'release_verify':'passed','debug_verify':'passed','output_file':'silent-bell-canonical.png'}
+    assert receipt==expected,'Native receipt fields differ'
+    assert manifest['native_render_status']=='native-release-debug-verified-archived'
+    assert manifest['canonical_output_identity']==receipt['output_identity']
+    assert manifest['canonical_output_encoded_sha256']==receipt['encoded_png_sha256']
+    assert manifest['canonical_output_file']=='silent-bell-canonical.png','Committed PNG path differs'
+    evidence=manifest['canonical_evidence']
+    assert evidence=={'run_id':42969432120,'artifact_id':13832958088,
+              'artifact_member':'original-04/silent-bell-canonical.png',
+              'receipt_member':'original-04/native-replay-receipt.json',
+              'pinned_author_head':'901fdb6de8a944ecd18b43a642082857b0952bd2',
+              'retention':'Exact native PNG committed to artwork subtree; Windows artifact remains independently retrievable'}
+    path=supplied_path if supplied_path is not None else D/manifest['canonical_output_file']
+    assert path.is_file(),'Committed native PNG missing'
+    encoded=path.read_bytes()
+    assert sha(encoded)==receipt['encoded_png_sha256'],'Native PNG transport hash mismatch'
+    assert decode_native_rgba(encoded)==receipt['output_identity'],'Native PNG canonical pixel identity mismatch'
+    damaged=bytearray(encoded);damaged[200]^=1
+    try:decode_native_rgba(damaged)
+    except (AssertionError,ValueError,zlib.error):pass
+    else:raise AssertionError('Corrupted native PNG was accepted')
+    print('PASS: exact native PNG hash/CRC/decompression, decoded RGBA8 identity, negative corruption case and Windows receipt')
+
 def main():
     raw=(D/'source.png').read_bytes()
     assert sha(raw)==S and unpack_png(raw)==SI,'source bytes or RGBA changed'
@@ -72,7 +151,10 @@ def main():
     assert one['derivation']=={'kind':'manual-root','parents':[],'policy_version':0,'seed':None,'descendant_index':None,'radius':None}
     manifest,_=compact('artwork.json')
     assert (manifest['source_encoding_sha256'],manifest['source_identity'],manifest['genome_identity'],manifest['root_seed'],manifest['explicit_frame'])==(S,SI,G,SEED,0)
-    assert manifest['native_render_status']=='pending-supported-windows-cpu' and manifest['canonical_output_identity'] is None
+    cli=argparse.ArgumentParser(description='Read-only FAULTMINE original 04 audit')
+    cli.add_argument('--canonical',type=Path,help='Extracted Windows-native canonical PNG, unchanged')
+    args=cli.parse_args()
+    audit_native_evidence(manifest,args.canonical)
     changed=bytearray(raw);changed[100]^=1
     try:unpack_png(changed)
     except (AssertionError,ValueError,zlib.error):pass
@@ -81,5 +163,5 @@ def main():
     except ValueError:pass
     else:raise AssertionError('duplicate-key JSON accepted')
     print('PASS: indexed PNG CRC/filter/4-bit decode, exact RGBA source identity, genome v1 hash and project v2 lineage')
-    print('PASS: corrupted PNG and duplicate JSON rejected; authored source only, no canonical render claimed')
+    print('PASS: corrupted source PNG and duplicate JSON rejected; GUI FM-012 remains independent and untested')
 if __name__=='__main__':main()
