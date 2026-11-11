@@ -105,6 +105,7 @@ try {
             encoded_png_sha256_transport_only = (Get-FileHash -LiteralPath $destination -Algorithm SHA256).Hash.ToLowerInvariant()
         }
         $frames += $record
+        $audit.frames = $frames
         Write-Host "Canonical frame $frame/31: $renderIdentity"
     }
     $audit.frames = $frames
@@ -138,7 +139,7 @@ catch {
     $destinationAudit = Join-Path $OutputDirectory 'native-cli-replay-PARTIAL.json'
     $audit.complete = $false
     $reason = $_.Exception.Message
-    $audit.failure = $reason
+    $audit['failure'] = $reason
     throw
 }
 finally {
