@@ -1,0 +1,110 @@
+{
+  "record_version": 1,
+  "artwork": "06-seismic-debt",
+  "accepted_parent_blob": "64b0756262db458e276861dad84edbd964571558",
+  "source_bmp_sha256": "c751316e7615d53cf8a43e79e3a8395ec63f49392e7d16e37be16ad5f100f875",
+  "source_identity": "298051e0e8c048f36f4ac830baedf989e3daf4907fa360d75f59c8e3450dec88",
+  "parent_genome_identity": "01217a9e77ea4cd446b7f6142ab6ea71db9bedbcca48425a02d60ea15849524d",
+  "mutation_seed": "6ac9f2e430bd7185",
+  "radius": "high",
+  "frame": 0,
+  "render_mode": "canonical",
+  "descriptor_version": 1,
+  "near_threshold_inclusive": 8192,
+  "requested": 128,
+  "completed": 128,
+  "failed": 0,
+  "unique_genomes": 128,
+  "unique_pixels": 125,
+  "near_representatives": 85,
+  "selected_count": 12,
+  "debug_release_readonly_replays": 24,
+  "verified_resume_manifest_sha256": "85e2faa021132bb803192c2471d2b453f064c71522cfc5bc6beef8551f18cf6d",
+  "visual_selection_pending": true,
+  "selections": [
+    {
+      "genome_identity": "326b3a89f555939c710d8943881b392600633ea80f5da6dedca493fb22f52802",
+      "pixel_identity": "db3d23dad87e95d5bcbf292f7c8688fc06c7904a3c1d5a36e91567b83c074062",
+      "candidate_identity": "af774784c6d93a98b92cc85934f734f0f96285e83853539593fb05efa5a4f1ad",
+      "novelty_distance": 0,
+      "index": 0
+    },
+    {
+      "genome_identity": "8280e9dc1ab46dfb36b0425aa454f514951c4a4bec3de01d235902c7025e3891",
+      "pixel_identity": "99a45f7c0695b5df50acc4b37362b8215bb1a1a2c88b689963473f1527228595",
+      "candidate_identity": "f731fd69d2fc5e901209bab9aee192dbff9ce637eb865a3caf973109ea9900c8",
+      "novelty_distance": 52376,
+      "index": 1
+    },
+    {
+      "genome_identity": "65b84a142b952470c0983e6594624adba9e88199cd722069f1c6b7e86f8fd8f7",
+      "pixel_identity": "2269dad0dff88cae93771277af23ed670a87bbc62fd22f574f67e2c7b570afca",
+      "candidate_identity": "6aa78912bbba412653863a29385c8322cb70fabef82c22e25aaf1a19d0148d5b",
+      "novelty_distance": 51669,
+      "index": 3
+    },
+    {
+      "genome_identity": "daa90150dcaf231cd19d52246e60db8d08773319292b1e75deb319712d9bbc7a",
+      "pixel_identity": "40e9795db2e9fc17e0d928d51e5ced14d5603d5dce3a7f7b6b3cd2b386c20f2d",
+      "candidate_identity": "6b68a07b5ff377564595b0137262573b7a3289287a53e7cdc48209dbdbd446ec",
+      "novelty_distance": 55709,
+      "index": 12
+    },
+    {
+      "genome_identity": "3ec7be096ab0b3707e10ce2c5f1d445cb636e8d53acc718dba65f1b94ed4cd44",
+      "pixel_identity": "3423be8902984e91dcef18accfcdd35b54410de176d504e8387fb9999a7fcb21",
+      "candidate_identity": "80f608ca773807a6660e7678c90adf29cd045dd6087fdff5979b6041c87a455a",
+      "novelty_distance": 130335,
+      "index": 14
+    },
+    {
+      "genome_identity": "66b3827532a5bbe76c2cdf665cd63e09850d3ee030e54f0dcd141d26571051d4",
+      "pixel_identity": "b249e21e8fcbc236fde0dd181c172340229cece312bcd76e1637662d8d00e86b",
+      "candidate_identity": "927d2137bdaa3a13c526f7e41b3c73ff120a15b50626efc4fd54f740e03d89d3",
+      "novelty_distance": 62205,
+      "index": 24
+    },
+    {
+      "genome_identity": "81e5317bab4169a7fd98559e82519c19367e8448239b193e0bd2b66032852a17",
+      "pixel_identity": "bfa96616959631c329509a14e797174e811a07d0bb89561e583c7c53d7801691",
+      "candidate_identity": "596c6f5663ad1516a3552b49a5602f264f4d3f11ff4cd658fdfc6916d3d777db",
+      "novelty_distance": 58753,
+      "index": 33
+    },
+    {
+      "genome_identity": "82b463ddcdae4339aff5e69cdb32d06e4201f4df9edddbe0d3b4cf440987c7c1",
+      "pixel_identity": "97fa8be8182f912e3b8f58dd929bfa9035cb0b5c8fdecb7ef607baa2353ea0fa",
+      "candidate_identity": "88f742a418932c981b2fc9031370207549477f60a4b04742c51dfce954bd4d0b",
+      "novelty_distance": 180464,
+      "index": 84
+    },
+    {
+      "genome_identity": "5f93fd30aaf7174cba62807687a0ad705a37936cb0e08c939d8eafee0fa587a0",
+      "pixel_identity": "550c101bd4a896401f95df86bae7da47c06a2db53aafef653598517c2bd8b6ad",
+      "candidate_identity": "95f14a159d54d9be8299fa52987cfbf8e057f7b500483211d20f5931249b455c",
+      "novelty_distance": 60841,
+      "index": 97
+    },
+    {
+      "genome_identity": "aebb39166b6c61da4d847b3302021f393406c9de038df136b8097c1c28650acf",
+      "pixel_identity": "492f844f1dc21cd3abf4516aa7c383fc276fbfda72205ae628b03a6b52a443e2",
+      "candidate_identity": "a5249d5c88129e0f0fd78d11769d68570304ccde7845dffedb9b1f0e12fe60c1",
+      "novelty_distance": 72780,
+      "index": 101
+    },
+    {
+      "genome_identity": "4b013a116d01844d181afb35c183eb88217b88d2f6e12a47caa521d1054fe61f",
+      "pixel_identity": "737dc390d9df17c48947614e5ff35210cb68f20b29264553c885d2e314053fce",
+      "candidate_identity": "3a2d14fa4127d3516937eb1e01452b69c1b6f325a0be66e9dffa83103b1cafce",
+      "novelty_distance": 85954,
+      "index": 102
+    },
+    {
+      "genome_identity": "2ecae3c14261f46cda694976864100f5c1503bc2bb72c81e310faa3aad8e551a",
+      "pixel_identity": "d292f3923be17a15a500bbe056b124354d55e881195fdba607f4790f4f292b08",
+      "candidate_identity": "b5fce8315cb5829790516fed5f99f573afa983a141a0a63edd713304f4e2de27",
+      "novelty_distance": 331075,
+      "index": 125
+    }
+  ]
+}
