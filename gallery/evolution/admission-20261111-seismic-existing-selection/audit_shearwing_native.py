@@ -65,6 +65,90 @@ def selected_by_farthest_point(rows, representatives):
     return chosen
 
 
+def verify_portable_lineage(review, manifest):
+    """Pin all eight chosen descendants' derivations, not just the active genome.
+
+    A portable review project can have a correct #65 active genome while
+    retaining a different or misleading mutation history. That is not an
+    admission-ready provenance record.
+    """
+    specimens = review['lineage']['specimens']
+    require(len(specimens) == 10, 'expected two roots and eight chosen descendants')
+    require([s['creation_ordinal'] for s in specimens] == list(range(10)),
+            'portable lineage creation order changed')
+    require(all(s['source_identity'] == SOURCE_ID for s in specimens),
+            'portable lineage source identity changed')
+    selected, parents = {}, []
+    for specimen in specimens:
+        derivation = specimen['derivation']
+        genome_id = specimen['genome_identity']
+        if genome_id == PARENT_ID:
+            parents.append(specimen)
+        index = derivation['descendant_index']
+        if index is None:
+            require(derivation == {
+                'kind': 'manual-root', 'descendant_index': None,
+                'parents': [], 'policy_version': 0, 'radius': None,
+                'seed': None}, 'malformed manual root derivation')
+            continue
+        require(index in SELECTED and index not in selected,
+                'unexpected/repeated portable lineage descendant')
+        row = manifest['candidates'][index]
+        require(specimen['genome'] == json.loads(row['canonical_genome'])
+                and genome_id == row['genome_identity']
+                and specimen['favourite'] is True,
+                f'portable lineage selected genome/favourite mismatch #{index}')
+        require(derivation == {
+            'kind': 'mutation', 'descendant_index': index,
+            'parents': [PARENT_ID], 'policy_version': 1,
+            'radius': 'high', 'seed': 'f70ab531c9d204e6'},
+            f'portable lineage mutation address mismatch #{index}')
+        selected[index] = genome_id
+    require(len(parents) == 1
+            and parents[0]['genome'] == json.loads(manifest['parent_genome']),
+            'portable lineage accepted parent missing or altered')
+    require(sorted(selected) == SELECTED, 'portable lineage selections incomplete')
+    require(selected[65] == review['lineage']['active_genome_identity'],
+            'portable lineage active specimen differs from native #65')
+
+
+def negative_portable_lineage_tests(review, manifest):
+    """Fail-closed in-memory adversarial checks; original archive stays read-only."""
+    from copy import deepcopy
+    for kind in ('seed', 'parent', 'index', 'source', 'genome',
+                 'favourite', 'missing', 'reorder', 'extra', 'parent-genome',
+                 'root-derivation'):
+        altered = deepcopy(review)
+        specimens = altered['lineage']['specimens']
+        derivation = specimens[7]['derivation']
+        if kind == 'seed':
+            derivation['seed'] = 'f70ab531c9d204e7'
+        elif kind == 'parent':
+            derivation['parents'] = ['0' * 64]
+        elif kind == 'index':
+            derivation['descendant_index'] = 46
+        elif kind == 'source':
+            specimens[7]['source_identity'] = '0' * 64
+        elif kind == 'genome':
+            specimens[7]['genome']['root_seed'] = '0000000000000000'
+        elif kind == 'favourite':
+            specimens[7]['favourite'] = False
+        elif kind == 'missing':
+            specimens.pop(7)
+        elif kind == 'reorder':
+            specimens[7]['creation_ordinal'] = 0
+        elif kind == 'extra':
+            specimens.append(deepcopy(specimens[7]))
+        elif kind == 'parent-genome':
+            specimens[1]['genome']['root_seed'] = '0000000000000000'
+        elif kind == 'root-derivation':
+            specimens[0]['derivation']['kind'] = 'mutation'
+        try:
+            verify_portable_lineage(altered, manifest)
+        except (ValueError, KeyError, IndexError, TypeError):
+            continue
+        raise ValueError('tampered portable lineage was accepted: ' + kind)
+
 def audit(archive):
     with ZipFile(archive) as z:
         names = z.namelist()
@@ -151,6 +235,7 @@ def audit(archive):
                 and review['lineage']['active_genome_identity'] ==
                     rows[65]['genome_identity'],
                 'portable winner project active genome/lineage mismatch')
+        verify_portable_lineage(review, manifest)
         receipt = json.loads(z.read(
             BASE + 'selected/candidate_00000000000000000065.png.fmmanifest.json'))
         require(receipt['kind'] == 'still'
@@ -188,6 +273,10 @@ def main():
     result = audit(args.four_family_native_zip)
     if args.negative_test:
         with ZipFile(args.four_family_native_zip) as z:
+            native_manifest = json.loads(z.read(BASE + 'batch.fmbatch.json'))
+            winner_project = json.loads(z.read('FAULTMINE-1.0.0-win64/REVIEW-PROJECTS/04-shearwing-WINNER-65.fmproj'))
+            negative_portable_lineage_tests(winner_project, native_manifest)
+        with ZipFile(args.four_family_native_zip) as z:
             altered = bytearray(z.read(BASE + 'selected/candidate_00000000000000000065.png'))
         altered[-9] ^= 1
         try:
@@ -197,7 +286,7 @@ def main():
         else:
             raise ValueError('tampered native selected PNG was not rejected')
     print(json.dumps(result, indent=2, sort_keys=True))
-    print('PASS: native source, 96 decoded canonical stills/descriptors, 70 near representatives, 8 selected/genome identities, portable winner project and native export receipt')
+    print('PASS: native source, 96 decoded canonical stills/descriptors, 70 near representatives, 8 selected/genome identities, full portable winner lineage and native export receipt')
     print('NOT CLAIMED: new Windows render, physical GUI/relink/export or owner artistic admission')
 
 
