@@ -39,7 +39,7 @@ def run(source: Path) -> None:
         # Only the temporal presentation can change: immutable source-exact
         # 32-frame authored playback remains the default, with the same
         # 19-frame editorial selection already published by author #54.
-        cut_match = re.search(r'const seatStudy=(\\[[0-9,]+\\]);', page)
+        cut_match = re.search(r'const seatStudy=(\[[0-9,]+\]);', page)
         assert cut_match, 'No optional Seat editorial cut'
         cut = json.loads(cut_match.group(1))
         assert cut == [0,1,2,4,6,8,9,12,13,14,18,19,21,23,24,27,28,29,31]
