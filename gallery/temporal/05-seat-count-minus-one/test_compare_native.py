@@ -48,8 +48,11 @@ def run(source: Path) -> None:
                     155 if n < 9 else 115 for n in cut]
         assert sum(exposure) == 3200, 'Editorial timing no longer synchronized'
         assert '<option value="authored">Authored 32 frames · 10 fps' in page
-        assert "seatCadence.onchange=()=>select(ms)" in page
-        assert 'type===\'seat\'?seatAt(ms)' in page
+        assert "seatCadence.onchange=()=>{drawContacts();select(ms)}" in page
+        assert "const contactTimes=[0,450,900,1350,1800,2250,2700,3200]" in page
+        assert "button.dataset.time=String(t)" in page
+        assert "const index=frameAt(type,t)" in page
+        assert "const active=contactTimes.reduce((best,t,index)=>ms>=t?index:best,0)" in page
         # These measurements justify the revision using actual decoded native
         # pixels, not guessed frame-level aesthetic labels.
         seat_spec = next(s for s in subject.SPECS if s['key'] == 'seat')
