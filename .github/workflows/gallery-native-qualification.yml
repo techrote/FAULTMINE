@@ -247,10 +247,10 @@ jobs:
       - name: Enforce every individual gate
         if: always()
         env:
-          PACKAGE_STATUS: \${{ steps.package.outcome }}
-          TEMPORAL_STATUS: \${{ steps.temporal.outcome }}
-          ORIGINAL_STATUS: \${{ steps.original.outcome }}
-          EVOLUTION_STATUS: \${{ steps.evolution.outcome }}
+          PACKAGE_STATUS: ${{ steps.package.outcome }}
+          TEMPORAL_STATUS: ${{ steps.temporal.outcome }}
+          ORIGINAL_STATUS: ${{ steps.original.outcome }}
+          EVOLUTION_STATUS: ${{ steps.evolution.outcome }}
         shell: pwsh
         run: |
           Write-Host "package=$env:PACKAGE_STATUS temporal=$env:TEMPORAL_STATUS original=$env:ORIGINAL_STATUS evolution=$env:EVOLUTION_STATUS"
