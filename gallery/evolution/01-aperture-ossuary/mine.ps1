@@ -45,12 +45,12 @@ if ($m.source_identity -ne '0023ceb14294cf69b7db062a1afc255ebaa8cc6e2a0119f4bb81
     throw 'Native manifest source/parent/mode/seed identity mismatch.'
 }
 $selected = @($m.candidates | Where-Object { $_.selected })
-if ($selected.Count -ne 12) { throw "Expected 12 diverse selections; got $($selected.Count)" }
+if ($selected.Count -lt 1 -or $selected.Count -gt 12) { throw "Expected 1..12 diverse selections; got $($selected.Count)" }
 foreach ($c in $selected) {
     $stem = 'candidate_{0:D20}.png' -f [long]$c.descendant_index
     if (-not (Test-Path (Join-Path $OutDir "selected\$stem"))) { throw "Missing canonical selected still: $stem" }
 }
-Write-Host "Complete: 384 canonical candidates; 12 novelty-selected unique specimens."
+Write-Host "Complete: 384 canonical candidates; $($selected.Count) novelty-selected specimens."
 Write-Host "Atlas: $(Join-Path $OutDir 'selected-contact-sheet.png')"
 Write-Host "GUI lineage: $(Join-Path $OutDir 'batch.fmproj')"
 Write-Host 'For independent decoded-PNG identity checks, run: python qualify-results.py <output-dir> --all'

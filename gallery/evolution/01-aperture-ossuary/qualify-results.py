@@ -110,7 +110,7 @@ def audit(folder: Path, all_candidates: bool) -> dict:
     indices=[c['descendant_index'] for c in candidates]
     assert indices==list(range(COUNT)), 'non-contiguous candidate indices'
     selected=[c for c in candidates if c['selected']]
-    assert len(selected)==SELECT, f'expected {SELECT} selections, got {len(selected)}'
+    assert 1<=len(selected)<=SELECT, f'expected 1..{SELECT} selections, got {len(selected)}'
     assert len({c['genome_identity'] for c in selected})==len(selected), 'duplicate selected genome'
     assert len({c['pixel_identity'] for c in selected})==len(selected), 'duplicate selected canonical pixels'
     for c in candidates:

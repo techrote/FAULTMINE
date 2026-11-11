@@ -6,7 +6,7 @@
 
 - **Source:** `source.bmp`, original 384×240 opaque 24-bit RGB, authored with integer geometry only; no photographs, external fonts/assets, or borrowed art. Encoded SHA-256: `46dc8809a764257cfb61fbec1f85663e64211080a4611606f85fc340ea44ab09`. Normalized straight-RGBA8 image identity, independently calculated using accepted `FAULTMINE-SOURCE-RGBA8-v1` bytes: `0023ceb14294cf69b7db062a1afc255ebaa8cc6e2a0119f4bb81d91be053125a`. **Actual Windows WIC normalization remains to be checked.**
 - **Accepted immutable parent:** byte-identical copy `parent-genome.json` of `examples/fm005-addressing-genome.json` at main `c5f8ce3ea595795d5aca8a76771005eb5d006f52`, Git blob `64b0756262db458e276861dad84edbd964571558`; canonical genome identity / SHA-256 `01217a9e77ea4cd446b7f6142ab6ea71db9bedbcca48425a02d60ea15849524d`. Four accepted addressing operators: offset, mask, tile permutation, address burst. Parent root seed `0123456789abcdef`.
-- **Independent descendant address:** mutation seed `4d13b09ec72a8851`, indices `[0,384)`, high radius, semantic frame 0, canonical full resolution (never proxy), inclusive near-duplicate descriptor L1 threshold 8192, 12 diverse novelty representatives, 4 workers by default. Version contracts: engine/genome/mutation-policy/batch-manifest/descriptor all 1. Worker count must not affect semantic output. `--resume` only trusts revalidated source/genome/address/pixels/descriptors, per FM-014.
+- **Independent descendant address:** mutation seed `4d13b09ec72a8851`, indices `[0,384)`, high radius, semantic frame 0, canonical full resolution (never proxy), inclusive near-duplicate descriptor L1 threshold 8192, up to 12 diverse novelty representatives, 4 workers by default. Version contracts: engine/genome/mutation-policy/batch-manifest/descriptor all 1. Worker count must not affect semantic output. `--resume` only trusts revalidated source/genome/address/pixels/descriptors, per FM-014.
 
 ## Run on Windows
 
@@ -26,7 +26,7 @@ The accepted native miner, not this wrapper, is responsible for:
 - `candidates/candidate_<20-digit-index>.png`: resumable canonical candidate cache PNGs;
 - `batch.fmproj`: GUI-openable v2 lineage;
 - `selected-contact-sheet.png` and its provenance sidecar (presentation contact sheet, not a canonical specimen);
-- `selected/`: 12 full-resolution canonical still PNGs and export manifests.
+- `selected/`: up to 12 full-resolution canonical still PNGs and export manifests.
 
 The results live only in the chosen **external** output directory, never as fabricated tracked finished art. The launcher checks immutable input SHA-256 and essential completed-manifest invariants; it exits rather than silently accepting a wrong identity, an incomplete result or a partial cancellation. Existing output requires explicit `-Resume`.
 
