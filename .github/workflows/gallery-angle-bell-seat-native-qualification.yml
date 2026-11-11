@@ -26,7 +26,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: techrote/FAULTMINE
-          ref: 140f41cda3be46b54e283b92744c4d8263184864
+          ref: fab5e7499bb56a3e3ab283a532d8cf2c084b9031
           path: engine
           persist-credentials: false
       - uses: actions/checkout@v4
@@ -72,7 +72,7 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $pins = [ordered]@{
-            engine = '140f41cda3be46b54e283b92744c4d8263184864'
+            engine = 'fab5e7499bb56a3e3ab283a532d8cf2c084b9031'
             'angle-author' = '1d774d04436897b6bfad92b374225cca09341808'
             'bell-author' = '901fdb6de8a944ecd18b43a642082857b0952bd2'
             'seat-author' = '0989f1f116a5288963069128ade5eaacc12b43ee'
@@ -278,17 +278,30 @@ jobs:
           }
           python .\integration-tooling\scripts\prepare-gallery-review-projects.py --package-root $app
           if ($LASTEXITCODE -ne 0) { throw 'Portable gallery review project staging failed' }
+          $winner = Join-Path $app 'REVIEW-PROJECTS\04-shearwing-WINNER-65.fmproj'
+          if (-not (Test-Path -LiteralPath $winner)) { throw 'Selected Shearwing #65 review project missing' }
+          $winnerProject = Get-Content -LiteralPath $winner -Raw | ConvertFrom-Json
+          $winnerGenome = Get-Content -LiteralPath (Join-Path $app 'gallery\evolution\05-shearwing-telemetry\curated\shearwing-65.genome.json') -Raw | ConvertFrom-Json
+          $winnerManifest = Get-Content -LiteralPath (Join-Path $app 'REVIEW-PROJECTS\provenance.json') -Raw | ConvertFrom-Json
+          if ($winnerProject.lineage.active_genome_identity -cne $winnerManifest.selected_review_project.selected_genome_identity_from_lineage -or
+              $winnerProject.source.path -cne 'gallery/evolution/05-shearwing-telemetry/source.bmp' -or
+              $winnerProject.genome.root_seed -cne $winnerGenome.root_seed -or
+              $winnerProject.genome.operators.Count -ne $winnerGenome.operators.Count -or
+              $winnerManifest.selected_review_project.native_png_encoded_sha256 -cne '41a2e7863eecd7ef51d460dd7d7909b220b915ee60941cd2077d5df0bb2a4cf5') {
+            throw 'Selected-first project is not the pinned canonical Shearwing descendant #65'
+          }
           Get-ChildItem -LiteralPath (Join-Path $app 'gallery') -Filter __pycache__ -Directory -Recurse |
             Remove-Item -Force -Recurse
           $guide = @'
           FAULTMINE / ANGLE + BELL + SEAT + SHEARWING — CANDIDATE REVIEW
           Windows x64. Extract the ZIP and run Run FAULTMINE.cmd.
           Ctrl+Shift+O opens REVIEW-PROJECTS\01-angle.fmproj, 02-bell.fmproj,
-          03-seat.fmproj or 04-shearwing.fmproj (source-path-only portable copies).
+          03-seat.fmproj or 04-shearwing-WINNER-65.fmproj (selected-first portable copies).
+          The separate 04-shearwing.fmproj retains the authored quarry batch at #0.
           Originals in gallery\ and the Shearwing CI batch project remain unchanged.
           See REVIEW-PROJECTS\provenance.json for encoded source hashes and identities.
           A relink prompt means physical GUI acceptance remains open; never force changed pixels.
-          The exact archived winning descendant #65 is under gallery\evolution\05-shearwing-telemetry\curated\.
+          The exact archived winner #65 genome and PNG are under gallery\evolution\05-shearwing-telemetry\curated\.
           Eight native selected stills, authentic contact sheet and complete batch provenance
           are under CANONICAL-REVIEW-EVIDENCE\shearwing-05.
           If requested, relink the included source image and verify identity.
@@ -296,7 +309,7 @@ jobs:
           Temporal contact images are noncanonical PRESENTATION sheets.
           Native CLI playback/replays are NOT the FM-012 GUI export/cancel test.
           Independent aesthetic selection and actual physical GUI acceptance remain pending.
-          Engine main: 140f41cda3be46b54e283b92744c4d8263184864
+          Engine main: fab5e7499bb56a3e3ab283a532d8cf2c084b9031
           PR50 1d774d04436897b6bfad92b374225cca09341808
           PR52 901fdb6de8a944ecd18b43a642082857b0952bd2
           PR54 0989f1f116a5288963069128ade5eaacc12b43ee
