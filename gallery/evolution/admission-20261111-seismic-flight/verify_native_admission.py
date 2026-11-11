@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """Fail-closed, read-only replay of *archived* FM-014 evidence; does not mine or render.
 
-Usage: python verify_native_admission.py FOUR_FAMILY_ZIP EVOLUTION_REVIEW_ZIP
+Usage: python verify_native_admission.py FOUR_FAMILY_ZIP EVOLUTION_REVIEW_ZIP [SEISMIC_NATIVE_ZIP]
+
+Optional third archive is the genuine Windows #57 CI artifact; it enables
+independent verification of all 128 candidate PNGs against strict FM-014 rows.
 """
 import hashlib, json, struct, sys, zipfile, zlib
 from pathlib import Path
@@ -11,6 +14,8 @@ SPEC = {
  'seismic': (128,85,125,101,(384,240),'85e2faa021132bb803192c2471d2b453f064c71522cfc5bc6beef8551f18cf6d','492f844f1dc21cd3abf4516aa7c383fc276fbfda72205ae628b03a6b52a443e2')
 }
 PREFIX='FAULTMINE-1.0.0-win64/CANONICAL-REVIEW-EVIDENCE/shearwing-05/'
+SEISMIC_PREFIX='seismic-debt-06/'
+SEISMIC_RUN_HEAD='bb2bc1e81bb04df376fa19e06260c3b6da4c6007'
 def check(ok, message):
  if not ok: raise ValueError(message)
 def digest(b): return hashlib.sha256(b).hexdigest()
@@ -81,7 +86,7 @@ def audit(blob,family):
  check(rows[selected]['selected'] and rows[selected]['pixel_identity']==winner,'wrong selected winner')
  return doc
 
-def verify(four,review):
+def verify(four,review,seismic_native=None):
  with zipfile.ZipFile(four) as native,zipfile.ZipFile(review) as desk:
   for family in ('shearwing','seismic'):
    count,reps,unique,selected,wh,_,winner=SPEC[family]
@@ -95,12 +100,27 @@ def verify(four,review):
      check(pixel_identity(png,wh)==row['pixel_identity'],f'Shearwing native candidate {i} mismatch')
     png=native.read(PREFIX+f'selected/candidate_{selected:020}.png')
     check(png==desk.read('shearwing-winner.png'),'Shearwing winner transport mismatch')
-   else: png=desk.read('seismic-winner.png')
+   else:
+    png=desk.read('seismic-winner.png')
+    if seismic_native is not None:
+     with zipfile.ZipFile(seismic_native) as seismic:
+      head=seismic.read('exact-head.txt').decode('ascii').strip()
+      check(head==SEISMIC_RUN_HEAD, f'Seismic Windows run head mismatch: {head}')
+      check(seismic.read(SEISMIC_PREFIX+'batch.fmbatch.json')==blob,
+            'Seismic native semantic manifest transport mismatch')
+      for row in doc['candidates']:
+       i=row['descendant_index']
+       cache=seismic.read(SEISMIC_PREFIX+f'candidates/candidate_{i:020}.png')
+       check(pixel_identity(cache,wh)==row['pixel_identity'],
+             f'Seismic native cache candidate {i} mismatches manifest')
+      check(seismic.read(SEISMIC_PREFIX+f'selected/candidate_{selected:020}.png')==png,
+            'Seismic winner transport mismatch')
    check(pixel_identity(png,wh)==winner,f'{family}: winner decoded pixels mismatch')
    print(f'PASS {family}: {count}/{count}, failures=0, unique-pixels={unique}, near-reps={reps}, winner=#{selected}')
  print('PASS: all 96 Shearwing native cache PNGs independently decoded and reconciled')
+ if seismic_native is not None: print('PASS: all 128 Seismic native cache PNGs decoded; run-head and winner transport checked')
 
 if __name__=='__main__':
- if len(sys.argv)!=3: sys.exit('usage: python verify_native_admission.py FOUR_FAMILY_ZIP EVOLUTION_REVIEW_ZIP')
- try: verify(Path(sys.argv[1]),Path(sys.argv[2]))
- except (ValueError,KeyError,IndexError,zipfile.BadZipFile,zlib.error) as e: sys.exit('FAIL: '+str(e))
+ if len(sys.argv) not in (3,4): sys.exit('usage: python verify_native_admission.py FOUR_FAMILY_ZIP EVOLUTION_REVIEW_ZIP [SEISMIC_NATIVE_ZIP]')
+ try: verify(Path(sys.argv[1]),Path(sys.argv[2]),Path(sys.argv[3]) if len(sys.argv)==4 else None)
+ except (ValueError,KeyError,IndexError,zipfile.BadZipFile,zlib.error,UnicodeDecodeError) as e: sys.exit('FAIL: '+str(e))
