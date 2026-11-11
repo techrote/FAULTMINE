@@ -1,0 +1,246 @@
+name: Angle, Bell and Seat - Windows canonical gallery qualification
+
+on:
+  pull_request:
+    branches: [main]
+    paths: ['.github/workflows/gallery-angle-bell-seat-native-qualification.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native-gallery:
+    runs-on: windows-latest
+    timeout-minutes: 65
+    steps:
+      - name: Preserve original canonical LF bytes
+        shell: pwsh
+        run: git config --global core.autocrlf false
+
+      - uses: actions/checkout@v4
+        with:
+          repository: techrote/FAULTMINE
+          ref: 490755cbd96b208f21bdc65e143474353fc28320
+          path: engine
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: techrote/FAULTMINE
+          ref: 1d774d04436897b6bfad92b374225cca09341808
+          path: angle-author
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: techrote/FAULTMINE
+          ref: 901fdb6de8a944ecd18b43a642082857b0952bd2
+          path: bell-author
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: techrote/FAULTMINE
+          ref: 3c3cf8a8f8b9bde7ee6d3b691fc2a5540cc7d148
+          path: seat-author
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Check pinned source heads and stage only unaccepted gallery directories
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $pins = [ordered]@{
+            engine = '490755cbd96b208f21bdc65e143474353fc28320'
+            'angle-author' = '1d774d04436897b6bfad92b374225cca09341808'
+            'bell-author' = '901fdb6de8a944ecd18b43a642082857b0952bd2'
+            'seat-author' = '3c3cf8a8f8b9bde7ee6d3b691fc2a5540cc7d148'
+          }
+          foreach ($name in $pins.Keys) {
+            $got = (& git -C $name rev-parse HEAD).Trim()
+            if ($LASTEXITCODE -ne 0 -or $got -cne $pins[$name]) { throw "Pinned source mismatch: $name $got" }
+          }
+          $dirs = @(
+            @('angle-author','gallery\temporal\04-the-angle-of-departure'),
+            @('bell-author','gallery\originals\04-the-silent-bell'),
+            @('seat-author','gallery\temporal\05-seat-count-minus-one')
+          )
+          foreach ($item in $dirs) {
+            $from = Join-Path $item[0] $item[1]
+            $to = Join-Path 'engine' $item[1]
+            if (-not (Test-Path -LiteralPath $from -PathType Container) -or (Test-Path -LiteralPath $to)) {
+              throw "Missing authored source or historical art collision: $to"
+            }
+            New-Item -ItemType Directory -Force (Split-Path $to) | Out-Null
+            Copy-Item -LiteralPath $from -Destination $to -Recurse
+          }
+          New-Item -ItemType Directory -Force evidence | Out-Null
+          [IO.File]::WriteAllText('evidence\exact-heads.json',
+            (($pins | ConvertTo-Json -Depth 4) + [char]10),[Text.UTF8Encoding]::new($false))
+
+      - name: Independently verify strict authored source, genome and project
+        shell: pwsh
+        working-directory: engine
+        run: |
+          $ErrorActionPreference = 'Stop'
+          foreach ($path in @(
+            'gallery\temporal\04-the-angle-of-departure\verify_artwork.py',
+            'gallery\originals\04-the-silent-bell\verify_artwork.py',
+            'gallery\temporal\05-seat-count-minus-one\verify_artwork.py'
+          )) {
+            python $path
+            if ($LASTEXITCODE -ne 0) { throw "Authored source or format invalid: $path" }
+          }
+
+      - name: Run native MSVC Debug and Release with all deterministic tests and GUI smoke
+        shell: pwsh
+        working-directory: engine
+        run: |
+          $ErrorActionPreference = 'Stop'
+          .\scripts\configure.ps1
+          if ($LASTEXITCODE -ne 0) { throw 'CMake configure failed' }
+          foreach ($config in @('Debug','Release')) {
+            .\scripts\build.ps1 -Configuration $config
+            if ($LASTEXITCODE -ne 0) { throw "$config warning-clean build failed" }
+            .\scripts\test.ps1 -Configuration $config
+            if ($LASTEXITCODE -ne 0) { throw "$config deterministic tests failed" }
+            .\scripts\test-render-verify.ps1 -Configuration $config
+            if ($LASTEXITCODE -ne 0) { throw "$config canonical CLI positives/negatives failed" }
+            & ".\build\$config\FAULTMINE.exe" --smoke-test
+            if ($LASTEXITCODE -ne 0) { throw "$config desktop smoke failed" }
+          }
+
+      - name: Native Release still for Bell, read-only replay with both MSVC configurations
+        shell: pwsh
+        working-directory: engine
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $dir = '.\gallery\originals\04-the-silent-bell'
+          $out = Join-Path $env:GITHUB_WORKSPACE 'evidence\original-04'
+          & "$dir\render-win.ps1" -OutputDirectory $out -CrossCheckDebug
+          if ($LASTEXITCODE -ne 0) { throw 'Bell native Windows render/replay failed' }
+          $receipt = Get-Content -Raw (Join-Path $out 'native-replay-receipt.json') | ConvertFrom-Json
+          if ($receipt.frame -ne 0 -or $receipt.release_verify -cne 'passed' -or
+              $receipt.debug_verify -cne 'passed' -or
+              $receipt.source_identity -cne '275bc5c264376ac81442ca3d5b399cff01b33449c21906be2dc140fe8085e747' -or
+              $receipt.output_identity -notmatch '^[0-9a-f]{64}$') {
+            throw 'Bell native proof insufficient'
+          }
+
+      - name: Native Release and Debug full temporal sequences with independent PNG identity audits
+        shell: pwsh
+        working-directory: engine
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $works = @(
+            @{ name='angle-04';path='gallery\temporal\04-the-angle-of-departure';count=36;probe=@(35,0,19,7,28) },
+            @{ name='seat-05';path='gallery\temporal\05-seat-count-minus-one';count=32;probe=@(31,0,18,5,24) }
+          )
+          foreach ($work in $works) {
+            $release = $null
+            foreach ($config in @('Release','Debug')) {
+              $out = Join-Path $env:GITHUB_WORKSPACE ("evidence\" + $work.name + "-" + $config.ToLowerInvariant())
+              & ".\$($work.path)\render-sequence-win.ps1" -Configuration $config -OutputDirectory $out
+              if ($LASTEXITCODE -ne 0) { throw "$($work.name) $config native sequence failed" }
+              $audit = Get-Content -LiteralPath (Join-Path $out 'native-cli-replay-audit.json') -Raw | ConvertFrom-Json
+              if ($audit.complete -ne $true -or $audit.frames.Count -ne $work.count -or
+                  (($audit.out_of_order_replay -join ',') -cne ($work.probe -join ','))) {
+                throw "$($work.name) $config incomplete or wrong replay order"
+              }
+              if ($config -eq 'Release') {
+                python ".\$($work.path)\verify_native_frames.py" $out --contact (Join-Path $env:GITHUB_WORKSPACE ("evidence\" + $work.name + "-contact-PRESENTATION.png"))
+                $release = $audit
+                $releaseDirectory = $out
+              } else {
+                python ".\$($work.path)\verify_native_frames.py" $out
+                for ($i=0; $i -lt $work.count; $i++) {
+                  if ($release.frames[$i].frame -ne $i -or $audit.frames[$i].frame -ne $i -or
+                      $release.frames[$i].output_identity -cne $audit.frames[$i].output_identity) {
+                    throw "$($work.name) Debug/Release canonical frame mismatch: $i"
+                  }
+                }
+                $source = ".\$($work.path)\source.bmp"
+                $genome = ".\$($work.path)\genome.json"
+                foreach ($i in $work.probe) {
+                  $png = Join-Path $releaseDirectory $release.frames[$i].file
+                  $before = (Get-FileHash -LiteralPath $png -Algorithm SHA256).Hash
+                  $lines = @(& .\build\Debug\FAULTMINE-render.exe --verify --frame "$i" $source $genome $png)
+                  $exit = $LASTEXITCODE
+                  $global:LASTEXITCODE=0
+                  if ($exit -ne 0 -or $lines -cnotcontains 'verification=passed' -or
+                      $lines -cnotcontains "output_identity=$($release.frames[$i].output_identity)" -or
+                      $before -cne (Get-FileHash -LiteralPath $png -Algorithm SHA256).Hash) {
+                    throw "$($work.name) cross-config read-only replay failed at $i"
+                  }
+                }
+              }
+              if ($LASTEXITCODE -ne 0) { throw "$($work.name) $config independent PNG audit failed" }
+            }
+            Write-Host "PASS $($work.name): $($work.count) native frames, full cross-configuration identities and 5 nonchronological Debug verification probes"
+          }
+
+      - name: Performance ceilings and genuine extracted Windows portable package
+        shell: pwsh
+        working-directory: engine
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Force artifacts | Out-Null
+          & .\build\Release\FAULTMINE-perf.exe | Tee-Object -FilePath .\artifacts\performance.json
+          if ($LASTEXITCODE -ne 0) { throw 'Performance ceilings failed' }
+          .\scripts\package.ps1 -Configuration Release -OutputDir artifacts
+          if ($LASTEXITCODE -ne 0) { throw 'Windows package failed' }
+          .\scripts\verify-package.ps1 -ArchivePath .\artifacts\FAULTMINE-1.0.0-win64.zip
+          if ($LASTEXITCODE -ne 0) { throw 'Portable extracted smoke/self-test failed' }
+          Copy-Item .\artifacts\performance.json (Join-Path $env:GITHUB_WORKSPACE 'evidence\performance.json')
+
+      - name: Package source projects and genuine canonical evidence for owner review
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Expand-Archive -LiteralPath 'engine\artifacts\FAULTMINE-1.0.0-win64.zip' -DestinationPath review-stage
+          $app = 'review-stage\FAULTMINE-1.0.0-win64'
+          if (-not (Test-Path (Join-Path $app 'FAULTMINE.exe'))) { throw 'Portable GUI executable absent' }
+          foreach ($path in @('temporal\04-the-angle-of-departure','temporal\05-seat-count-minus-one','originals\04-the-silent-bell')) {
+            $from = Join-Path 'engine\gallery' $path
+            $to = Join-Path (Join-Path $app 'gallery') $path
+            New-Item -ItemType Directory -Force (Split-Path $to) | Out-Null
+            Copy-Item -LiteralPath $from -Destination $to -Recurse
+          }
+          $proof = Join-Path $app 'CANONICAL-REVIEW-EVIDENCE'
+          New-Item -ItemType Directory -Force $proof | Out-Null
+          foreach ($name in @('original-04','angle-04-release','seat-05-release')) {
+            Copy-Item -LiteralPath (Join-Path 'evidence' $name) -Destination $proof -Recurse
+          }
+          foreach ($name in @('angle-04-contact-PRESENTATION.png','seat-05-contact-PRESENTATION.png')) {
+            Copy-Item -LiteralPath (Join-Path 'evidence' $name) -Destination $proof
+          }
+          Get-ChildItem -LiteralPath (Join-Path $app 'gallery') -Filter __pycache__ -Directory -Recurse |
+            Remove-Item -Force -Recurse
+          $guide = @'
+          FAULTMINE / ANGLE + BELL + SEAT — CANDIDATE REVIEW
+          Windows x64. Extract the ZIP and run Run FAULTMINE.cmd.
+          Ctrl+Shift+O opens the original or temporal .fmproj in gallery\.
+          If requested, relink the included source image and verify identity.
+          Genuine canonical CPU/WIC PNGs: CANONICAL-REVIEW-EVIDENCE\.
+          Temporal contact images are noncanonical PRESENTATION sheets.
+          Native CLI playback/replays are NOT the FM-012 GUI export/cancel test.
+          Independent aesthetic selection and actual physical GUI acceptance remain pending.
+          Engine main: 490755cbd96b208f21bdc65e143474353fc28320
+          PR50 1d774d04436897b6bfad92b374225cca09341808
+          PR52 901fdb6de8a944ecd18b43a642082857b0952bd2
+          PR54 3c3cf8a8f8b9bde7ee6d3b691fc2a5540cc7d148
+          '@
+          [IO.File]::WriteAllText((Join-Path $app 'GALLERY-START-HERE.txt'),$guide,[Text.UTF8Encoding]::new($false))
+          $zip = 'evidence\FAULTMINE-angle-bell-seat-review-win64.zip'
+          Compress-Archive -LiteralPath $app -DestinationPath $zip -CompressionLevel Optimal
+          if ((Get-Item $zip).Length -lt 1000000) { throw 'Native review ZIP absent or implausibly small' }
+          Write-Host "Review ZIP SHA256 $((Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant())"
+
+      - name: Preserve complete or partial native evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FAULTMINE-angle-bell-seat-native-evidence
+          path: evidence/
+          if-no-files-found: warn
+          retention-days: 30
