@@ -254,3 +254,23 @@ The final pull-request gate now performs Debug build/tests/native smoke, Release
 Release-hardening tests add explicit failure coverage for the 512 MiB canonical image allocation limit, 64-operator parsed/programmatic genome limit, 4096-specimen retained-lineage limit and the generic JSON nesting limit while retaining the worker deadline/memory-bound assertions. These limits reject work explicitly rather than truncating or silently changing canonical state.
 
 The dedicated Release workflow repeats the test/performance/package gate for manual candidates and tags. Tagged publication is permitted only for commits reachable from `main`; package construction alone is not sufficient to publish an unstable release. `/W4 /WX`, existing deterministic known-answer vectors, canonical image goldens, migration fixtures, temporal/export equivalence, batch/session agreement and worker containment remain mandatory release evidence rather than being weakened for packaging.
+
+## Candidate gallery native admission (Integration QA)
+
+The separately dispatched `.github/workflows/gallery-native-qualification.yml`
+is a **pinned-candidate** audit, not the normal release gate or an automatic
+artwork-admission mechanism. Each submitted art PR must be re-pinned to its
+current exact head before asserting exact-head acceptance. The Windows runner
+builds/tests Debug and Release and runs canonical CPU/WIC output checks. It
+also exercises the temporal author's repaired rendering driver, verifies the
+evolutionary winner's *committed indexed PNG* in both native configurations,
+and tests a complete quarry resume with a different thread count. Decoded
+RGBA8 identity is authoritative, not PNG container byte-for-byte equality.
+
+Only successfully executed checks are evidence. The gallery evaluation ZIP
+may hold unmerged authored source and Windows canonical outputs for review;
+that does not make the submissions accepted artwork. Generated interpreter
+caches must be omitted from the portable evaluation bundle. GUI project
+relink, actual FM-012 sequence export/cancellation manifests and independent
+human aesthetic decisions remain separate gates. The pinned CI runner must
+not replace them with CLI-only results.
