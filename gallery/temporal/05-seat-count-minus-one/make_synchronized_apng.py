@@ -2,7 +2,8 @@
 """Lossless, offline, synchronized Angle/authored-Seat/editorial-Seat APNG.
 
 Verifies every original Windows-native CPU PNG before assembling a NONCANONICAL
-presentation. Uses only stdlib, adds no fabricated frames, and never overwrites.
+presentation with native-frame labels outside the image panes. Uses only stdlib,
+adds no fabricated frames, and never overwrites.
 Open generated .png in Firefox/Chrome for a self-running A/B/C motion review.
 """
 from __future__ import annotations
@@ -21,8 +22,52 @@ PNG_MAGIC = b'\x89PNG\r\n\x1a\n'
 FRAME_MS = 50                 # 20 presentation frames/s covers all 36 Angle frames
 DURATION_MS = 3200           # Seat's original 32 frames at 10/1
 TIMES = range(0, DURATION_MS, FRAME_MS)
-WIDTH, HEIGHT = 1024, 240
+WIDTH, HEIGHT = 1024, 272
 PANELS = ((8, 24, 320, 192), (336, 8, 336, 224), (680, 8, 336, 224))
+
+
+# Three-bit-wide, five-pixel-high in-tree captions avoid external font/assets.
+# Captions are outside all canonical image panes; native pixels never change.
+FONT3 = {
+    'A': ('010','101','111','101','101'), 'B': ('110','101','110','101','110'),
+    'C': ('011','100','100','100','011'), 'D': ('110','101','101','101','110'),
+    'E': ('111','100','110','100','111'), 'F': ('111','100','110','100','100'),
+    'G': ('011','100','101','101','011'), 'H': ('101','101','111','101','101'),
+    'I': ('111','010','010','010','111'), 'J': ('111','001','001','101','010'),
+    'K': ('101','101','110','101','101'), 'L': ('100','100','100','100','111'),
+    'M': ('101','111','111','101','101'), 'N': ('101','111','111','111','101'),
+    'O': ('010','101','101','101','010'), 'P': ('110','101','110','100','100'),
+    'Q': ('010','101','101','111','011'), 'R': ('110','101','110','101','101'),
+    'S': ('011','100','010','001','110'), 'T': ('111','010','010','010','010'),
+    'U': ('101','101','101','101','111'), 'V': ('101','101','101','101','010'),
+    'W': ('101','101','111','111','101'), 'X': ('101','101','010','101','101'),
+    'Y': ('101','101','010','010','010'), 'Z': ('111','001','010','100','111'),
+    '0': ('111','101','101','101','111'), '1': ('010','110','010','010','111'),
+    '2': ('110','001','010','100','111'), '3': ('110','001','011','001','110'),
+    '4': ('101','101','111','001','001'), '5': ('111','100','110','001','110'),
+    '6': ('011','100','111','101','111'), '7': ('111','001','001','010','010'),
+    '8': ('111','101','111','101','111'), '9': ('111','101','111','001','110'),
+    ' ': ('000',)*5, '/': ('001','001','010','100','100'),
+}
+
+
+def label(target: bytearray, title: str, number: int, total: int,
+          x: int, rgb: tuple[int,int,int]) -> None:
+    """Add noncanonical transport labels in the reserved bottom 40px only."""
+    for line, y in ((title,238), (f'FRAME {number:02d}/{total:02d}',253)):
+        for i, char in enumerate(line):
+            if char not in FONT3:
+                raise ValueError(f'Unsupported caption glyph: {char!r}')
+            for gy, bits in enumerate(FONT3[char]):
+                for gx, bit in enumerate(bits):
+                    if bit == '1':
+                        xx, yy = x + 6 + i*8 + gx*2, y + gy*2
+                        if xx+1 >= WIDTH or yy+1 >= HEIGHT:
+                            raise ValueError('Caption exceeds presentation extent')
+                        for dy in range(2):
+                            for dx in range(2):
+                                k = ((yy+dy)*WIDTH + xx+dx)*4
+                                target[k:k+4] = bytes((*rgb, 255))
 
 
 def png_chunk(kind: bytes, payload: bytes) -> bytes:
@@ -49,7 +94,8 @@ def blit(target: bytearray, src: bytes, x: int, y: int, w: int, h: int) -> None:
         target[dest:dest+w*4] = src[row*w*4:(row+1)*w*4]
 
 
-def presentation_frame(angle: bytes, seat: bytes, editorial: bytes) -> bytes:
+def presentation_frame(angle: bytes, seat: bytes, editorial: bytes,
+                       ia: int, ib: int, ie: int) -> bytes:
     rgba = bytearray(b'\x0c\x11\x19\xff'*(WIDTH*HEIGHT))
     # Thin static panel identifiers only; original native pixels occupy untouched panes.
     for x, w, rgb in ((8,320,(47,197,225)),(336,336,(238,191,113)),(680,336,(190,139,238))):
@@ -58,6 +104,9 @@ def presentation_frame(angle: bytes, seat: bytes, editorial: bytes) -> bytes:
                 k=(y*WIDTH+x+i)*4
                 rgba[k:k+4] = bytes((*rgb,255))
     blit(rgba,angle,*PANELS[0]); blit(rgba,seat,*PANELS[1]); blit(rgba,editorial,*PANELS[2])
+    label(rgba, 'ANGLE NATIVE 12FPS', ia, 35, 8, (47,197,225))
+    label(rgba, 'SEAT AUTHOR 10FPS', ib, 31, 336, (238,191,113))
+    label(rgba, 'SEAT CUT 19 FRAMES', ie, 31, 680, (190,139,238))
     return bytes(rgba)
 
 
@@ -98,7 +147,7 @@ def build(archive: Path, output: Path) -> dict:
                 ia=min(35,t*12//1000)
                 ib=min(31,t//100)
                 ie=seat_study_at(t)
-                native=presentation_frame(pixels['angle'][ia],pixels['seat'][ib],pixels['seat'][ie])
+                native=presentation_frame(pixels['angle'][ia],pixels['seat'][ib],pixels['seat'][ie],ia,ib,ie)
                 compressed=compress_png_rgba(native)
                 put(b'fcTL', struct.pack('>IIIIIHHBB',seq,WIDTH,HEIGHT,0,0,FRAME_MS,1000,0,0));seq+=1
                 if n==0:
