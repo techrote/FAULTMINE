@@ -1,0 +1,32 @@
+{
+  "artwork_manifest_version": 1,
+  "title": "The Wound That Counts Backwards — Reversible Wound",
+  "created_date": "2026-11-11",
+  "source_file": "source.bmp",
+  "source_encoding_sha256": "d8bc0cef014b6f7d92b6a53b436c3aa4859eb5b44b8fdb6b52259a812264a6b8",
+  "source_identity": "ba533af14e6dc02861ab0d8e55239edcc2358f554e07f460aa4fde9cd590619c",
+  "genome_file": "genome.json",
+  "genome_identity": "0de88b0fdfbd357ce09761200d2b96b90c8aa2977a9887a3dd7011315751cba2",
+  "project_file": "the-wound-that-counts-backwards.fmproj",
+  "genome_schema_version": 1,
+  "engine_contract_version": 1,
+  "project_version": 2,
+  "root_seed": "e30bd49c7a612f08",
+  "frame_begin": 0,
+  "frame_end_exclusive": 30,
+  "rate_num": 12,
+  "rate_den": 1,
+  "recommended_key_frames": [
+    0,
+    4,
+    8,
+    12,
+    16,
+    20,
+    24,
+    27,
+    29
+  ],
+  "canonical_frame_status": "pending-native-windows-cpu-render",
+  "note": "Authored 320x192 BMP visually inspected; no post-fault native frames or contact sheet claimed."
+}
