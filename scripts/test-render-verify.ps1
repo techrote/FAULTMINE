@@ -5,8 +5,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-# Expected negative CLI results are asserted from exit codes, not PowerShell's
-# treatment of a native process writing to stderr.
+# Expected negative native exits are checked explicitly; they are not test failures.
 $PSNativeCommandUseErrorActionPreference = $false
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
@@ -26,8 +25,8 @@ function Invoke-RenderExpectedExit {
     )
     $lines = @(& $renderExecutable @Arguments)
     $actualCode = $LASTEXITCODE
-    # Expected negative native exits must not leak into the pwsh Actions
-    # wrapper's final "exit $LASTEXITCODE" success/failure decision.
+    # Actions pwsh wrapper exits with LASTEXITCODE after script completion.
+    # Expected nonzero negative cases must not poison a successful test run.
     $global:LASTEXITCODE = 0
     if ($actualCode -ne $ExpectedCode) {
         throw "$Label returned $actualCode; expected $ExpectedCode."
@@ -48,7 +47,7 @@ try {
     $temporalZero = Join-Path $tempRoot 'temporal-0.png'
     $temporalTwo = Join-Path $tempRoot 'temporal-2.png'
 
-    # A tiny 2x2 24-bit BMP with four distinct pixels (no downloaded assets).
+    # Tiny 2x2 24-bit BMP with four distinct pixels, no external assets.
     $sourceBytes = [Convert]::FromBase64String(
         'Qk1GAAAAAAAAADYAAAAoAAAAAgAAAAIAAAABABgAAAAAABAAAAATCwAAEwsAAAAAAAAAAAAA/wAAAP8AAAAAAP////8AAA==')
     [IO.File]::WriteAllBytes($source, $sourceBytes)
@@ -66,8 +65,8 @@ try {
         $badGenome,
         '{"schema_version":2,"engine_contract_version":1,"root_seed":"0123456789abcdef","operators":[]}' + "`n",
         $utf8)
-    # The ramp produces displacements -1, 0, +1 at frames 0, 1, 2.
-    # With fill boundaries on an asymmetric 2x2 source those frames differ.
+    # Ramp displacement is -1, 0, +1 at frames 0, 1, 2.
+    # With fill boundaries, the asymmetric 2x2 source has distinct results.
     $temporalGenomeText = '{"schema_version":1,"engine_contract_version":1,"root_seed":"0123456789abcdef","operators":[{"instance_id":"00112233445566778899aabbccddeeff","type_id":"temporal.phase-drift","type_version":1,"enabled":true,"parameters":{"shape":{"kind":"string","value":"ramp"},"period_frames":{"kind":"u64","value":3},"phase_frames":{"kind":"u64","value":0},"amplitude_pixels":{"kind":"u64","value":1},"boundary":{"kind":"string","value":"fill"}}}]}'
     [IO.File]::WriteAllText($temporalGenome, $temporalGenomeText + "`n", $utf8)
 
@@ -81,7 +80,7 @@ try {
     $beforeVerify = (Get-FileHash -Algorithm SHA256 -Path $rendered).Hash
     $verified = @(Invoke-RenderExpectedExit 0 @('--verify', $source, $genome, $rendered) 'frame-zero read-only verification')
     if ($verified -notcontains 'verification=passed' -or $verified -notcontains 'frame=0') {
-        throw 'Read-only verification did not report an explicit passing frame.'
+        throw 'Read-only verification did not report a passing frame.'
     }
     if ((Get-FileHash -Algorithm SHA256 -Path $rendered).Hash -ne $beforeVerify) {
         throw 'Read-only verification modified the expected image.'
@@ -93,66 +92,33 @@ try {
     }
     $explicitVerify = @(Invoke-RenderExpectedExit 0 @('--verify', '--frame', '2', $source, $genome, $frameTwo) 'explicit frame verification')
     if ($explicitVerify -notcontains 'verification=passed' -or $explicitVerify -notcontains 'frame=2') {
-        throw 'Explicit frame canonical replay verification did not pass.'
+        throw 'Explicit frame replay verification did not pass.'
     }
 
     $temporalAtZero = @(Invoke-RenderExpectedExit 0 @('--frame', '0', $source, $temporalGenome, $temporalZero) 'temporal frame zero')
     $temporalAtTwo = @(Invoke-RenderExpectedExit 0 @('--frame', '2', $source, $temporalGenome, $temporalTwo) 'temporal frame two')
-    $zeroIdentity = @($temporalAtZero | Where-Object { $_ -match '^output_identity=[0-9a-f]{64}
-    # missing image, unsupported genome schema or invalid frame is unsafe.
-    Invoke-RenderExpectedExit 10 @('--verify', $source, $genome, $different) 'pixel mismatch' | Out-Null
-    Invoke-RenderExpectedExit 9 @('--verify', $source, $genome, (Join-Path $tempRoot 'absent.png')) 'missing reference' | Out-Null
-    Invoke-RenderExpectedExit 5 @('--verify', $source, $badGenome, $rendered) 'unsupported schema' | Out-Null
-    Invoke-RenderExpectedExit 2 @('--frame', '-1', $source, $genome, $rendered) 'negative frame rejection' | Out-Null
-    Invoke-RenderExpectedExit 2 @('--frame', '18446744073709551616', $source, $genome, $rendered) 'overflow frame rejection' | Out-Null
-
-    if ((Get-FileHash -Algorithm SHA256 -Path $rendered).Hash -ne $beforeVerify) {
-        throw 'Negative verification unexpectedly modified the canonical image.'
-    }
-    Write-Host "Canonical renderer CLI acceptance PASS ($Configuration): frame 0/2 replay, pixel mismatch, schema rejection, invalid frame, read-only output."
-}
-finally {
-    Remove-Item $tempRoot -Recurse -Force -ErrorAction SilentlyContinue
-}
- })
-    $twoIdentity = @($temporalAtTwo | Where-Object { $_ -match '^output_identity=[0-9a-f]{64}
-    # missing image, unsupported genome schema or invalid frame is unsafe.
-    Invoke-RenderExpectedExit 10 @('--verify', $source, $genome, $different) 'pixel mismatch' | Out-Null
-    Invoke-RenderExpectedExit 9 @('--verify', $source, $genome, (Join-Path $tempRoot 'absent.png')) 'missing reference' | Out-Null
-    Invoke-RenderExpectedExit 5 @('--verify', $source, $badGenome, $rendered) 'unsupported schema' | Out-Null
-    Invoke-RenderExpectedExit 2 @('--frame', '-1', $source, $genome, $rendered) 'negative frame rejection' | Out-Null
-    Invoke-RenderExpectedExit 2 @('--frame', '18446744073709551616', $source, $genome, $rendered) 'overflow frame rejection' | Out-Null
-
-    if ((Get-FileHash -Algorithm SHA256 -Path $rendered).Hash -ne $beforeVerify) {
-        throw 'Negative verification unexpectedly modified the canonical image.'
-    }
-    Write-Host "Canonical renderer CLI acceptance PASS ($Configuration): frame 0/2 replay, pixel mismatch, schema rejection, invalid frame, read-only output."
-}
-finally {
-    Remove-Item $tempRoot -Recurse -Force -ErrorAction SilentlyContinue
-}
- })
+    $zeroIdentity = @($temporalAtZero | Where-Object { $_ -match '^output_identity=[0-9a-f]{64}$' })
+    $twoIdentity = @($temporalAtTwo | Where-Object { $_ -match '^output_identity=[0-9a-f]{64}$' })
     if ($zeroIdentity.Count -ne 1 -or $twoIdentity.Count -ne 1 -or $zeroIdentity[0] -eq $twoIdentity[0]) {
-        throw 'Distinct explicit temporal frames did not produce distinct canonical identities.'
+        throw 'Distinct temporal frames did not produce distinct canonical identities.'
     }
     $temporalVerified = @(Invoke-RenderExpectedExit 0 @('--verify', '--frame', '2', $source, $temporalGenome, $temporalTwo) 'temporal frame two verification')
     if ($temporalVerified -notcontains 'verification=passed' -or $temporalVerified -notcontains 'frame=2') {
-        throw 'Actual temporal operator canonical frame replay verification failed.'
+        throw 'Actual temporal operator replay verification failed.'
     }
-    Invoke-RenderExpectedExit 10 @('--verify', '--frame', '0', $source, $temporalGenome, $temporalTwo) 'cross-frame temporal mismatch' | Out-Null
 
-    # These failures are mandatory: accepting a different decoded pixel,
-    # missing image, unsupported genome schema or invalid frame is unsafe.
+    # Negative admissions: mismatch, missing file, wrong version or invalid frame.
     Invoke-RenderExpectedExit 10 @('--verify', $source, $genome, $different) 'pixel mismatch' | Out-Null
+    Invoke-RenderExpectedExit 10 @('--verify', '--frame', '0', $source, $temporalGenome, $temporalTwo) 'cross-frame temporal mismatch' | Out-Null
     Invoke-RenderExpectedExit 9 @('--verify', $source, $genome, (Join-Path $tempRoot 'absent.png')) 'missing reference' | Out-Null
     Invoke-RenderExpectedExit 5 @('--verify', $source, $badGenome, $rendered) 'unsupported schema' | Out-Null
     Invoke-RenderExpectedExit 2 @('--frame', '-1', $source, $genome, $rendered) 'negative frame rejection' | Out-Null
     Invoke-RenderExpectedExit 2 @('--frame', '18446744073709551616', $source, $genome, $rendered) 'overflow frame rejection' | Out-Null
 
     if ((Get-FileHash -Algorithm SHA256 -Path $rendered).Hash -ne $beforeVerify) {
-        throw 'Negative verification unexpectedly modified the canonical image.'
+        throw 'Negative verification modified the canonical image.'
     }
-    Write-Host "Canonical renderer CLI acceptance PASS ($Configuration): frame 0/2 replay, pixel mismatch, schema rejection, invalid frame, read-only output."
+    Write-Host "Canonical renderer CLI acceptance PASS ($Configuration): exact pixel/frame replay, negative admissions, read-only output."
 }
 finally {
     Remove-Item $tempRoot -Recurse -Force -ErrorAction SilentlyContinue
