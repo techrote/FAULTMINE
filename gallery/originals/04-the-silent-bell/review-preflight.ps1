@@ -1,4 +1,7 @@
 # ART-ORIG-004 read-only Windows preflight. No files are rewritten.
+# -AllowHashOnly is reserved for the disposable regression test; review requires native replay.
+[CmdletBinding()]
+param([switch]$AllowHashOnly)
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 $art = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -46,13 +49,24 @@ try {
     (Join-Path $root 'build\Debug\FAULTMINE-render.exe')
   )
   $renderer = $renderers | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } | Select-Object -First 1
-  if ($null -ne $renderer) {
-    & $renderer --verify (Join-Path $art 'source.png') (Join-Path $art 'genome.json') (Join-Path $art 'silent-bell-canonical.png')
-    if ($LASTEXITCODE -ne 0) { throw "Native read-only canonical replay failed with exit code $LASTEXITCODE" }
-    Write-Host '[PASS] Read-only native canonical frame-0 replay against archived CPU pixels.'
-  } else {
-    Write-Host '[NOTE] Native CLI unavailable here: hashes checked; canonical replay not performed.'
+  if ($null -eq $renderer) {
+    if ($AllowHashOnly) {
+      Write-Host '[NOTE] Disposable regression only: hash checks passed; native CPU replay deliberately skipped.'
+      exit 0
+    }
+    throw 'Missing FAULTMINE-render.exe: restore the complete portable Windows package or build the renderer before review.'
   }
+  $sourceIdentity = '275bc5c264376ac81442ca3d5b399cff01b33449c21906be2dc140fe8085e747'
+  $outputIdentity = 'd1778bc3d688e5fa5694485954c268cce88c54cc033a6933d3edf2311cf35b8e'
+  $lines = @(& $renderer --verify --frame 0 (Join-Path $art 'source.png') (Join-Path $art 'genome.json') (Join-Path $art 'silent-bell-canonical.png') 2>&1 | ForEach-Object { "$_" })
+  $exitCode = $LASTEXITCODE
+  if ($exitCode -ne 0 -or $lines -cnotcontains 'verification=passed' -or
+      $lines -cnotcontains "source_identity=$sourceIdentity" -or
+      $lines -cnotcontains "output_identity=$outputIdentity" -or
+      $lines -cnotcontains 'frame=0') {
+    throw "Native canonical frame-0 replay failed or reported mismatched identities ($exitCode): $($lines -join '; ')"
+  }
+  Write-Host '[PASS] Read-only native CPU frame-0 replay; source, output, frame and verification identities match.'
   exit 0
 } catch {
   Write-Error "[STOP] Silent Bell preflight: $($_.Exception.Message)"
