@@ -58,6 +58,29 @@ jobs:
               $audit.aesthetic_selection_pending -ne $true) {
             throw 'Native audit missing expected completion/replay/curation state'
           }
+      - name: Export exact selected evidence to read-only job log for binary Git-object archival
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $assets=[ordered]@{
+            source='gallery\evolution\05-shearwing-telemetry\source.bmp'
+            png='evidence\quarry-05\selected\candidate_00000000000000000065.png'
+            sidecar='evidence\quarry-05\selected\candidate_00000000000000000065.png.fmmanifest.json'
+          }
+          foreach($name in $assets.Keys){
+            $path=$assets[$name]
+            if(-not (Test-Path -LiteralPath $path)){throw "Missing exact native evidence: $path"}
+            $bytes=[IO.File]::ReadAllBytes([IO.Path]::GetFullPath($path))
+            $digest=(Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant()
+            $encoded=[Convert]::ToBase64String($bytes)
+            Write-Host "FMTRANSFER_BEGIN|$name|$($bytes.Length)|$digest"
+            for($i=0;$i -lt $encoded.Length;$i+=512){
+              $n=[Math]::Min(512,$encoded.Length-$i)
+              $index=($i/512).ToString('D6')
+              Write-Host "FMTRANSFER|$name|$index|$($encoded.Substring($i,$n))"
+            }
+            Write-Host "FMTRANSFER_END|$name"
+          }
       - name: Archive authentic CPU results and all reproducible search evidence
         if: always()
         uses: actions/upload-artifact@v4
