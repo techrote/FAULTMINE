@@ -9,6 +9,7 @@ $expected = [ordered]@{
   'the-silent-bell.fmproj' = '0b801f455b410aa115e22d863903178e5e52450aa38b39bdbb8259f328d1b597'
   'silent-bell-canonical.png' = 'e9b492eddbc4d16ee528c18a236b0930c278aa8909ecdca3d68ef07c4e1d657a'
   'native-replay-receipt.json' = 'b1e1659ea62eaefe77db686856cdd33864f67acc2cbcf421b9646b89a8630a5c'
+  'artwork.json' = '61e438b87aab18d48046c04df1fa6af565d4f4a8fdf66dd3b9a7ed72fe347760'
 }
 try {
   foreach ($name in $expected.Keys) {
@@ -36,7 +37,7 @@ try {
       $manifest.canonical_output_identity -cne 'd1778bc3d688e5fa5694485954c268cce88c54cc033a6933d3edf2311cf35b8e') {
     throw 'Canonical manifest identity or output path differs from the verified Windows record.'
   }
-  Write-Host '[PASS] Original source, genome, project, native PNG, and Windows receipt: 5/5 SHA256 matches.'
+  Write-Host '[PASS] Original source, genome, project, native PNG, receipt and manifest: 6/6 SHA256 matches.'
   Write-Host '[PASS] Portable v2 project source path resolves from the application root.'
 
   $renderers = @(
