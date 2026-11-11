@@ -34,7 +34,7 @@ function Execute([string]$tool,[string[]]$argv) {
     $exit = $LASTEXITCODE
     $global:LASTEXITCODE=0
     if ($exit -ne 0) { throw "Native renderer exited $exit : $($lines -join ' | ')" }
-    return ,$lines
+    return $lines
 }
 $render=Execute $release @('--frame','0',$source,$genome,$output)
 $sourceID=@($render | Where-Object { $_ -cmatch '^source_identity=[0-9a-f]{64}$' })
@@ -43,7 +43,9 @@ if ($sourceID.Count -ne 1 -or $sourceID[0] -cne 'source_identity=05ec476c708b7b5
     throw "Native output/source identity or frame missing: $($render -join ' | ')"
 }
 $encodedBefore = (Get-FileHash -LiteralPath $output -Algorithm SHA256).Hash.ToLowerInvariant()
-foreach ($exe in @($release)+$(if ($CrossCheckDebug) { @($debug) } else { @() })) {
+$verifyBinaries=@($release)
+if ($CrossCheckDebug) { $verifyBinaries += $debug }
+foreach ($exe in $verifyBinaries) {
     $check=Execute $exe @('--verify','--frame','0',$source,$genome,$output)
     if ($check -cnotcontains 'verification=passed' -or $check -cnotcontains 'frame=0' -or
         $check -cnotcontains $sourceID[0] -or $check -cnotcontains $outID[0]) {
