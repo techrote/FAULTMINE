@@ -1,0 +1,260 @@
+name: Pinned gallery native qualification
+on:
+  pull_request:
+    branches: [main]
+    paths: ['.github/workflows/gallery-native-qualification.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows-gallery:
+    runs-on: windows-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: engine
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: techrote/FAULTMINE
+          ref: 65f4048f87121a2d36bef38d78518a04598f52eb
+          path: candidate-temporal
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: techrote/FAULTMINE
+          ref: 4fcf670ff13fe9669e31d5535f767d6def3750e9
+          path: candidate-original
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: techrote/FAULTMINE
+          ref: fa4c837180b38d9b67d11683a4a4621e93259535
+          path: candidate-evolution
+          persist-credentials: false
+      - name: Check source ancestry and pinned authors
+        shell: pwsh
+        run: |
+          $heads = @{
+            'candidate-temporal' = '65f4048f87121a2d36bef38d78518a04598f52eb'
+            'candidate-original' = '4fcf670ff13fe9669e31d5535f767d6def3750e9'
+            'candidate-evolution' = 'fa4c837180b38d9b67d11683a4a4621e93259535'
+          }
+          foreach ($item in $heads.GetEnumerator()) {
+            $actual = (& git -C $item.Key rev-parse HEAD).Trim()
+            if ($LASTEXITCODE -ne 0 -or $actual -cne $item.Value) { throw "Candidate moved: $($item.Key) = $actual" }
+          }
+          & git -C engine merge-base --is-ancestor 6c56b6543f9cda5330408d05eaf47da03485a94f HEAD
+          if ($LASTEXITCODE -ne 0) { throw 'Missing accepted canonical renderer #36 ancestry' }
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Independent author source/genome/project verification
+        shell: pwsh
+        run: |
+          python .\candidate-temporal\gallery\temporal\01-signal-mausoleum\verify_artwork.py
+          if ($LASTEXITCODE -ne 0) { throw 'Temporal author validator failed' }
+          python .\candidate-original\gallery\originals\01-moth-rom\verify_artwork.py
+          if ($LASTEXITCODE -ne 0) { throw 'Original author validator failed' }
+          python -m py_compile .\candidate-evolution\gallery\evolution\01-aperture-ossuary\qualify-results.py
+          if ($LASTEXITCODE -ne 0) { throw 'Evolution independent decoder not loadable' }
+      - name: Configure Windows MSVC
+        shell: pwsh
+        working-directory: engine
+        run: .\scripts\configure.ps1
+      - name: Debug build, full test suite, and canonical replay negatives
+        shell: pwsh
+        working-directory: engine
+        run: |
+          .\scripts\build.ps1 -Configuration Debug
+          if ($LASTEXITCODE -ne 0) { throw 'Debug build failed' }
+          .\scripts\test.ps1 -Configuration Debug
+          if ($LASTEXITCODE -ne 0) { throw 'Debug tests failed' }
+          .\scripts\test-render-verify.ps1 -Configuration Debug
+          if ($LASTEXITCODE -ne 0) { throw 'Debug replay tests failed' }
+      - name: Release build, full test suite, and canonical replay negatives
+        shell: pwsh
+        working-directory: engine
+        run: |
+          .\scripts\build.ps1 -Configuration Release
+          if ($LASTEXITCODE -ne 0) { throw 'Release build failed' }
+          .\scripts\test.ps1 -Configuration Release
+          if ($LASTEXITCODE -ne 0) { throw 'Release tests failed' }
+          .\scripts\test-render-verify.ps1 -Configuration Release
+          if ($LASTEXITCODE -ne 0) { throw 'Release replay tests failed' }
+      - name: Measure performance, package and exercise extracted portable build
+        id: package
+        shell: pwsh
+        working-directory: engine
+        run: |
+          New-Item -ItemType Directory -Force artifacts | Out-Null
+          & .\build\Release\FAULTMINE-perf.exe | Tee-Object -FilePath .\artifacts\performance.json
+          if ($LASTEXITCODE -ne 0) { throw 'Performance ceiling failed' }
+          .\scripts\package.ps1 -Configuration Release -OutputDir artifacts
+          if ($LASTEXITCODE -ne 0) { throw 'Packaging failed' }
+          .\scripts\verify-package.ps1 -ArchivePath .\artifacts\FAULTMINE-1.0.0-win64.zip
+          if ($LASTEXITCODE -ne 0) { throw 'Extracted portable qualification failed' }
+      - name: Temporal — all 32 exact canonical frames, shuffled replay, Debug equality
+        id: temporal
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $root = $env:GITHUB_WORKSPACE
+          $folder = Join-Path $root 'candidate-temporal\gallery\temporal\01-signal-mausoleum'
+          $out = Join-Path $root 'evidence\temporal'
+          $release = Join-Path $root 'engine\build\Release\FAULTMINE-render.exe'
+          $debug = Join-Path $root 'engine\build\Debug\FAULTMINE-render.exe'
+          & (Join-Path $folder 'render-sequence-win.ps1') -RendererPath $release -OutputDirectory $out
+          if ($LASTEXITCODE -ne 0) { throw 'Author frame driver failed' }
+          $audit = Get-Content (Join-Path $out 'native-cli-replay-audit.json') -Raw | ConvertFrom-Json
+          if (-not $audit.complete -or $audit.frames.Count -ne 32 -or
+              (@($audit.verified_out_of_order) -join ',') -cne '31,0,24,8,16') {
+            throw 'Author replay is incomplete'
+          }
+          foreach ($frame in @(31,0,24,8,16)) {
+            $png = Join-Path $out ('residual-carrier_{0:D6}.png' -f $frame)
+            $lines = @(& $debug --verify --frame "$frame" (Join-Path $folder 'source.bmp') (Join-Path $folder 'genome.json') $png)
+            $exit = $LASTEXITCODE
+            $global:LASTEXITCODE = 0
+            if ($exit -ne 0 -or $lines -cnotcontains 'verification=passed' -or
+                $lines -cnotcontains "output_identity=$($audit.frames[$frame].canonical_decoded_output_identity)") {
+              throw "Debug/Release canonical image mismatch for frame $frame"
+            }
+          }
+          Write-Host 'PASS: 32 native temporal frames; five nonchronological Release and Debug exact decoded replays.'
+      - name: Original — canonical still and read-only Debug/Release replay
+        id: original
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $root = $env:GITHUB_WORKSPACE
+          $folder = Join-Path $root 'candidate-original\gallery\originals\01-moth-rom'
+          $out = Join-Path $root 'evidence\original'
+          New-Item -ItemType Directory -Force $out | Out-Null
+          $source = Join-Path $folder 'source.bmp'
+          $genome = Join-Path $folder 'genome.json'
+          $png = Join-Path $out 'moth-rom-canonical.png'
+          $release = Join-Path $root 'engine\build\Release\FAULTMINE-render.exe'
+          $debug = Join-Path $root 'engine\build\Debug\FAULTMINE-render.exe'
+          $render = @(& $release --frame 0 $source $genome $png)
+          $exit = $LASTEXITCODE
+          $global:LASTEXITCODE = 0
+          if ($exit -ne 0 -or -not (Test-Path $png)) { throw 'Native canonical original failed to render' }
+          if ($render -cnotcontains 'source_identity=49aca43e0330c82dec3d579f42f6cca3728603e5155cec434bf0ee81303fff4e') {
+            throw 'Native original source ID differs from author claim'
+          }
+          $identity = @($render | Where-Object { $_ -cmatch '^output_identity=[0-9a-f]{64}$' })
+          if ($identity.Count -ne 1) { throw 'Native renderer failed to report original output identity' }
+          $bytes = (Get-FileHash -LiteralPath $png -Algorithm SHA256).Hash
+          foreach ($exe in @($release,$debug)) {
+            $check = @(& $exe --verify --frame 0 $source $genome $png)
+            $code = $LASTEXITCODE
+            $global:LASTEXITCODE = 0
+            if ($code -ne 0 -or $check -cnotcontains 'verification=passed' -or
+                $check -cnotcontains $identity[0]) { throw "Native original replay mismatch for $exe" }
+          }
+          if ((Get-FileHash -LiteralPath $png -Algorithm SHA256).Hash -cne $bytes) {
+            throw 'Native verifier altered the canonical image'
+          }
+          $audit = @{
+            native_canonical = $true
+            candidate_sha = '4fcf670ff13fe9669e31d5535f767d6def3750e9'
+            source_identity = '49aca43e0330c82dec3d579f42f6cca3728603e5155cec434bf0ee81303fff4e'
+            genome_identity = 'fa4fda19e0701619a57b2c3eb0ee422ebf8f9f6911537ccc9ee912c125bf72e4'
+            seed = '0d07c1cada55e7a1'
+            frame = 0
+            output_identity = $identity[0].Substring(16)
+            encoded_png_sha256 = $bytes.ToLowerInvariant()
+            verified_with = @('Release','Debug')
+            fm012_and_visual_acceptance_pending = $true
+          }
+          [IO.File]::WriteAllText((Join-Path $out 'native-canonical-audit.json'),
+            ($audit | ConvertTo-Json -Depth 5) + [char]10, [Text.UTF8Encoding]::new($false))
+          Write-Host "PASS: real canonical original $($identity[0]); Debug and Release decoded image equivalence."
+      - name: Evolution — run 384-candidate native canonical mine and audit every cache image
+        id: evolution
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $root = $env:GITHUB_WORKSPACE
+          $folder = Join-Path $root 'candidate-evolution\gallery\evolution\01-aperture-ossuary'
+          $out = Join-Path $root 'evidence\evolution'
+          $batch = Join-Path $root 'engine\build\Release\FAULTMINE-batch.exe'
+          & (Join-Path $folder 'mine.ps1') -BinaryPath $batch -OutDir $out -Threads 4
+          $code = $LASTEXITCODE
+          $global:LASTEXITCODE = 0
+          if ($code -ne 0) { throw 'Native batch failed' }
+          python (Join-Path $folder 'qualify-results.py') $out --all
+          if ($LASTEXITCODE -ne 0) { throw 'Independent PNG and manifest validation failed' }
+          $global:LASTEXITCODE = 0
+          Write-Host 'PASS: complete canonical quarry and independently decoded pixel evidence.'
+      - name: Prepare standalone native Windows gallery evaluation ZIP
+        id: bundle
+        if: always()
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $root = $env:GITHUB_WORKSPACE
+          $base = Join-Path $root 'engine\artifacts\FAULTMINE-1.0.0-win64.zip'
+          if (-not (Test-Path $base)) { Write-Host 'No qualified native archive available'; exit 0 }
+          $stage = Join-Path $env:RUNNER_TEMP 'faultmine-gallery-eval'
+          Expand-Archive -LiteralPath $base -DestinationPath $stage
+          $app = Join-Path $stage 'FAULTMINE-1.0.0-win64'
+          $items = @(
+            @('original','candidate-original\gallery\originals\01-moth-rom','gallery\originals\01-moth-rom'),
+            @('temporal','candidate-temporal\gallery\temporal\01-signal-mausoleum','gallery\temporal\01-signal-mausoleum'),
+            @('evolution','candidate-evolution\gallery\evolution\01-aperture-ossuary','gallery\evolution\01-aperture-ossuary')
+          )
+          foreach ($item in $items) {
+            $to = Join-Path $app $item[2]
+            New-Item -ItemType Directory -Force $to | Out-Null
+            Copy-Item (Join-Path $root ($item[1] + '\*')) $to -Recurse
+            $evidence = Join-Path $root ('evidence\' + $item[0])
+            if (Test-Path $evidence) {
+              Copy-Item -LiteralPath $evidence -Destination (Join-Path $to 'canonical-evidence') -Recurse
+            }
+          }
+          $instructions = @'
+          FAULTMINE GALLERY EVALUATION — NATIVE WINDOWS x64
+          Run "Run FAULTMINE.cmd", then Ctrl+Shift+O and choose an artwork .fmproj.
+          Browse original/temporal/evolution subfolders. Inspect canonical-evidence
+          for real native output. This is an evaluation bundle, NOT an accepted gallery.
+          Candidate heads: PR37 65f4048f87121a2d36bef38d78518a04598f52eb
+          PR38 4fcf670ff13fe9669e31d5535f767d6def3750e9
+          PR39 fa4c837180b38d9b67d11683a4a4621e93259535
+          Renderer base main 6c56b6543f9cda5330408d05eaf47da03485a94f.
+          No FM-012 GUI animation/cancellation or human visual acceptance is claimed.
+          Missing output means failed/unexecuted, not evidence of canonical success.
+          '@
+          [IO.File]::WriteAllText((Join-Path $app 'GALLERY-EVALUATION.txt'),
+            $instructions, [Text.UTF8Encoding]::new($false))
+          $destination = Join-Path $root 'evidence\FAULTMINE-gallery-evaluation-win64.zip'
+          New-Item -ItemType Directory -Force (Split-Path $destination) | Out-Null
+          Compress-Archive -LiteralPath $app -DestinationPath $destination -CompressionLevel Optimal
+          Write-Host "Prepared Windows native gallery evaluation ZIP: $destination"
+      - name: Upload exact-source Windows outputs, even when an individual gate fails
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FAULTMINE-gallery-native-evidence
+          path: evidence/
+          if-no-files-found: warn
+          retention-days: 30
+      - name: Enforce every individual gate
+        if: always()
+        env:
+          PACKAGE_STATUS: \${{ steps.package.outcome }}
+          TEMPORAL_STATUS: \${{ steps.temporal.outcome }}
+          ORIGINAL_STATUS: \${{ steps.original.outcome }}
+          EVOLUTION_STATUS: \${{ steps.evolution.outcome }}
+        shell: pwsh
+        run: |
+          Write-Host "package=$env:PACKAGE_STATUS temporal=$env:TEMPORAL_STATUS original=$env:ORIGINAL_STATUS evolution=$env:EVOLUTION_STATUS"
+          if ($env:PACKAGE_STATUS -ne 'success' -or $env:TEMPORAL_STATUS -ne 'success' -or
+              $env:ORIGINAL_STATUS -ne 'success' -or $env:EVOLUTION_STATUS -ne 'success') {
+            throw 'One or more native gallery qualification gates are not green. Preserve drafts; inspect uploaded evidence.'
+          }
