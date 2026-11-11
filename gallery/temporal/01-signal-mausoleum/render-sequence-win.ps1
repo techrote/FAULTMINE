@@ -27,9 +27,21 @@ if (-not (Test-Path -LiteralPath $source -PathType Leaf) -or
     -not (Test-Path -LiteralPath $genome -PathType Leaf)) {
     throw 'Missing authored source.bmp or genome.json.'
 }
+# Git on Windows may materialize a canonical LF JSON blob with CRLF line endings.
+# Hash its LF-canonical content without modifying the authored file; malformed CR
+# sequences and non-UTF8 are still rejected by the strict decoder / identity check.
+$genomeText = [IO.File]::ReadAllText($genome, [Text.UTF8Encoding]::new($false, $true))
+$genomeCanonical = $genomeText.Replace("`r`n", "`n")
+if ($genomeCanonical.Contains("`r")) {
+    throw 'Genome contains unsupported bare CR bytes. No render attempted.'
+}
+$genomeBytes = [Text.Encoding]::UTF8.GetBytes($genomeCanonical)
+$genomeCanonicalSha = [BitConverter]::ToString(
+    [Security.Cryptography.SHA256]::Create().ComputeHash($genomeBytes)
+).Replace('-', '').ToLowerInvariant()
 if ((Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash.ToLowerInvariant() -cne $sourceFileSha -or
-    (Get-FileHash -LiteralPath $genome -Algorithm SHA256).Hash.ToLowerInvariant() -cne $genomeSha) {
-    throw 'Immutable artwork input identity mismatch. No render attempted.'
+    $genomeCanonicalSha -cne $genomeSha) {
+    throw 'Immutable artwork input identity mismatch after LF checkout normalization. No render attempted.'
 }
 
 function Invoke-CanonicalCli {
@@ -47,7 +59,7 @@ function Read-Identity {
     $pattern = '^' + [regex]::Escape($Name) + '=([0-9a-f]{64})$'
     $matched = @($Lines | Where-Object { $_ -cmatch $pattern })
     if ($matched.Count -ne 1) {
-        throw "$Label: expected exactly one $Name=64-hex identity in native output; got $($Lines -join ' | ')"
+        throw "${Label}: expected exactly one $Name=64-hex identity in native output; got $($Lines -join ' | ')"
     }
     return [regex]::Match([string]$matched[0], $pattern).Groups[1].Value
 }
@@ -91,11 +103,11 @@ try {
         $destination = Join-Path $OutputDirectory $filename
         $lines = @(Invoke-CanonicalCli -CliArguments @('--frame', [string]$frame, $source, $genome, $destination) -Label "frame $frame canonical render")
         if ($lines -cnotcontains "frame=$frame" -or -not (Test-Path -LiteralPath $destination -PathType Leaf)) {
-            throw "frame $frame: native output did not include explicit frame/addressed PNG"
+            throw "frame ${frame}: native output did not include explicit frame/addressed PNG"
         }
         $actualSourceId = Read-Identity $lines 'source_identity' "frame $frame"
         if ($actualSourceId -cne $sourceId) {
-            throw "frame $frame: native WIC-normalized source identity differs from submitted source identity"
+            throw "frame ${frame}: native WIC-normalized source identity differs from submitted source identity"
         }
         $renderIdentity = Read-Identity $lines 'output_identity' "frame $frame"
         $record = [ordered]@{
@@ -119,15 +131,15 @@ try {
         $encodedBefore = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant()
         $lines = @(Invoke-CanonicalCli -CliArguments @('--verify', '--frame', [string]$frame, $source, $genome, $path) -Label "out-of-order decoded RGBA8 verification frame $frame")
         if ($lines -cnotcontains 'verification=passed' -or $lines -cnotcontains "frame=$frame") {
-            throw "frame $frame: native verifier did not report passing explicit-frame replay"
+            throw "frame ${frame}: native verifier did not report passing explicit-frame replay"
         }
         if ((Read-Identity $lines 'source_identity' "verify $frame") -cne $sourceId -or
             (Read-Identity $lines 'output_identity' "verify $frame") -cne $record.canonical_decoded_output_identity) {
-            throw "frame $frame: source or canonical output identity drift on repeat replay"
+            throw "frame ${frame}: source or canonical output identity drift on repeat replay"
         }
         $encodedAfter = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant()
         if ($encodedBefore -cne $encodedAfter) {
-            throw "frame $frame: read-only verification unexpectedly modified the PNG"
+            throw "frame ${frame}: read-only verification unexpectedly modified the PNG"
         }
         $probes += $frame
     }
