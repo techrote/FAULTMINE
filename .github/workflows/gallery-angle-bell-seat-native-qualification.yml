@@ -26,7 +26,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: techrote/FAULTMINE
-          ref: fab5e7499bb56a3e3ab283a532d8cf2c084b9031
+          ref: d75963b821b77371847ad26f64f64127ffdfa82f
           path: engine
           persist-credentials: false
       - uses: actions/checkout@v4
@@ -72,7 +72,7 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $pins = [ordered]@{
-            engine = 'fab5e7499bb56a3e3ab283a532d8cf2c084b9031'
+            engine = 'd75963b821b77371847ad26f64f64127ffdfa82f'
             'angle-author' = '1d774d04436897b6bfad92b374225cca09341808'
             'bell-author' = '901fdb6de8a944ecd18b43a642082857b0952bd2'
             'seat-author' = '0989f1f116a5288963069128ade5eaacc12b43ee'
@@ -309,7 +309,7 @@ jobs:
           Temporal contact images are noncanonical PRESENTATION sheets.
           Native CLI playback/replays are NOT the FM-012 GUI export/cancel test.
           Independent aesthetic selection and actual physical GUI acceptance remain pending.
-          Engine main: fab5e7499bb56a3e3ab283a532d8cf2c084b9031
+          Engine main: d75963b821b77371847ad26f64f64127ffdfa82f
           PR50 1d774d04436897b6bfad92b374225cca09341808
           PR52 901fdb6de8a944ecd18b43a642082857b0952bd2
           PR54 0989f1f116a5288963069128ade5eaacc12b43ee
