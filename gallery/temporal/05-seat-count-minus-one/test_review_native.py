@@ -15,9 +15,17 @@ def run(archive: Path) -> None:
         out = Path(td) / 'review.html'
         review_native.build(archive, out)
         html = out.read_text(encoding='utf-8')
-        match = re.search(r'const data=(\[.*?\]);let n=0,', html)
+        match = re.search(r'const data=(\[.*?\]);', html)
         assert match, 'Missing ordered embedded data'
         items = json.loads(match.group(1))
+        study = re.search(r'const studyFrames=(\[.*?\]);', html)
+        assert study, 'Missing explicit editorial frame plan'
+        indices = json.loads(study.group(1))
+        assert indices == sorted(set(indices)) and indices[0] == 0 and indices[-1] == 31
+        assert indices == list(review_native.STUDY_FRAMES)
+        assert len(indices) == 19 and len(indices) < 32
+        assert 'value="authored">Authored sequence' in html
+        assert 'clearTimeout(timer)' in html and "document.addEventListener('visibilitychange'" in html
         assert len(items) == 32
         assert len({x['id'] for x in items}) == 32
         assert all(x['src'].startswith('data:image/png;base64,') for x in items)
