@@ -52,7 +52,7 @@ try {
     }
     Write-Host '[PASS] Windows CPU canonical frame-0 read-only replay.'
   } else {
-    Write-Host '[NOTE] No native renderer found; hash checks passed but native replay was not performed.'
+    throw 'Missing FAULTMINE-render.exe: cannot qualify this portable review without native CPU replay. Restore the complete Windows package or build the renderer first.'
   }
   exit 0
 } catch {
