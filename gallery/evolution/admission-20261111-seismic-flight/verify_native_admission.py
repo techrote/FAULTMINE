@@ -20,7 +20,47 @@ def check(ok, message):
  if not ok: raise ValueError(message)
 def digest(b): return hashlib.sha256(b).hexdigest()
 
-def pixel_identity(data, wh):
+def descriptor_v1(rgba, wh):
+ """Independent integer FM-014 descriptor-v1 replay from decoded native RGBA8.
+
+ This is deliberately separate from the manifest's asserted descriptors.
+ The C++ reference is src/core/batch.cpp; alpha is not a luminance input.
+ """
+ w,h=wh
+ count=w*h
+ check(len(rgba)==count*4,'unexpected decoded RGBA8 byte count')
+ histogram=[0]*4; cell_sum=[0]*16; cell_count=[0]*16
+ row_sum=[0]*h; high=0; horizontal=0; vertical=0
+ above=[0]*w
+ for y in range(h):
+  last=0; cy=min(3,y*4//h)
+  for x in range(w):
+   offset=(y*w+x)*4
+   r,g,b=rgba[offset],rgba[offset+1],rgba[offset+2]
+   lum=(54*r+183*g+19*b+128)>>8
+   histogram[lum>>6]+=1
+   high+=lum>=128
+   row_sum[y]+=lum
+   cell=cy*4+min(3,x*4//w)
+   cell_sum[cell]+=lum; cell_count[cell]+=1
+   if x: horizontal+=abs(lum-last)
+   if y: vertical+=abs(lum-above[x])
+   last=lum; above[x]=lum
+ def fraction(n,d):
+  return (n*65535+d//2)//d if d else 0
+ def rounded_mean(n,d):
+  return ((n+d//2)//d)*257 if d else 0
+ result=[fraction(n,count) for n in histogram]
+ result.extend(rounded_mean(n,d) for n,d in zip(cell_sum,cell_count))
+ result.extend((rounded_mean(horizontal,(w-1)*h),
+                rounded_mean(vertical,(h-1)*w),
+                fraction(high,count)))
+ rounded_rows=[(n+w//2)//w for n in row_sum]
+ result.append(fraction(sum(a==b for a,b in zip(rounded_rows,rounded_rows[1:])),h-1))
+ check(len(result)==24,'descriptor dimension error')
+ return result
+
+def pixel_identity(data, wh, expected_descriptor=None):
  check(data.startswith(b'\x89PNG\r\n\x1a\n'),'bad PNG signature')
  pos=8; ihdr=None; parts=[]; done=False
  while pos<len(data):
@@ -59,6 +99,8 @@ def pixel_identity(data, wh):
     p=a if da<=db and da<=dc else b if db<=dc else c
    line[x]=(line[x]+p)&255
   out.extend(line);prev=line
+ if expected_descriptor is not None:
+  check(descriptor_v1(out,wh)==expected_descriptor,'FM-014 descriptor differs from independently decoded PNG')
  return digest(b'FAULTMINE-SOURCE-RGBA8-v1'+struct.pack('<II',w,h)+out)
 
 def audit(blob,family):
@@ -97,7 +139,7 @@ def verify(four,review,seismic_native=None):
     for row in doc['candidates']:
      i=row['descendant_index']
      png=native.read(PREFIX+f'candidates/candidate_{i:020}.png')
-     check(pixel_identity(png,wh)==row['pixel_identity'],f'Shearwing native candidate {i} mismatch')
+     check(pixel_identity(png,wh,row['descriptor'])==row['pixel_identity'],f'Shearwing native candidate {i} mismatch')
     png=native.read(PREFIX+f'selected/candidate_{selected:020}.png')
     check(png==desk.read('shearwing-winner.png'),'Shearwing winner transport mismatch')
    else:
@@ -111,14 +153,14 @@ def verify(four,review,seismic_native=None):
       for row in doc['candidates']:
        i=row['descendant_index']
        cache=seismic.read(SEISMIC_PREFIX+f'candidates/candidate_{i:020}.png')
-       check(pixel_identity(cache,wh)==row['pixel_identity'],
+       check(pixel_identity(cache,wh,row['descriptor'])==row['pixel_identity'],
              f'Seismic native cache candidate {i} mismatches manifest')
       check(seismic.read(SEISMIC_PREFIX+f'selected/candidate_{selected:020}.png')==png,
             'Seismic winner transport mismatch')
    check(pixel_identity(png,wh)==winner,f'{family}: winner decoded pixels mismatch')
    print(f'PASS {family}: {count}/{count}, failures=0, unique-pixels={unique}, near-reps={reps}, winner=#{selected}')
- print('PASS: all 96 Shearwing native cache PNGs independently decoded and reconciled')
- if seismic_native is not None: print('PASS: all 128 Seismic native cache PNGs decoded; run-head and winner transport checked')
+ print('PASS: all 96 Shearwing native cache PNGs independently decoded; descriptor-v1 independently recalculated')
+ if seismic_native is not None: print('PASS: all 128 Seismic native cache PNGs decoded; descriptor-v1, run-head and winner transport checked')
 
 if __name__=='__main__':
  if len(sys.argv) not in (3,4): sys.exit('usage: python verify_native_admission.py FOUR_FAMILY_ZIP EVOLUTION_REVIEW_ZIP [SEISMIC_NATIVE_ZIP]')
