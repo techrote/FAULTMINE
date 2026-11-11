@@ -11,6 +11,9 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 50
     steps:
+      - name: Preserve exact authored LF bytes on Windows (no Git CRLF smudging)
+        shell: pwsh
+        run: git config --global core.autocrlf false
       - uses: actions/checkout@v4
         with:
           path: engine
