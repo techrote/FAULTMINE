@@ -31,14 +31,44 @@ def normalized_bmp(payload):
     return width, height, rgba
 
 
+def parse_canonical_json(raw, label):
+    # Git stores canonical LF bytes. A default Git-for-Windows checkout may
+    # translate them to CRLF; validate the canonical LF semantic bytes without
+    # accepting a changed field, extra blank line, bare CR or duplicate key.
+    normalized = raw.replace(b"\r\n", b"\n")
+    assert b"\r" not in normalized, f"unexpected carriage return: {label}"
+
+    def no_duplicate_keys(pairs):
+        result = {}
+        for key, value in pairs:
+            assert key not in result, f"duplicate JSON field {key}: {label}"
+            result[key] = value
+        return result
+
+    obj = json.loads(normalized.decode("utf-8"), object_pairs_hook=no_duplicate_keys)
+    expected = (json.dumps(obj, ensure_ascii=False, separators=(",", ":")) + "\n").encode("utf-8")
+    assert normalized == expected, f"noncanonical JSON: {label}"
+    return obj, normalized
+
+
 def exact_json(path):
-    raw = path.read_bytes()
-    obj = json.loads(raw)
-    assert raw == (json.dumps(obj, ensure_ascii=False, separators=(",", ":")) + "\n").encode(), f"noncanonical JSON: {path}"
-    return obj, raw
+    return parse_canonical_json(path.read_bytes(), str(path))
 
 
 def main():
+    # Verify both working-tree newline representations against the same LF
+    # canonical identity, and reject bare CR/duplicate-field corruption.
+    sample = b'{"a":1,"b":2}\\n'.replace(b"\\n", b"\n")
+    assert parse_canonical_json(sample, "LF")[1] == sample
+    assert parse_canonical_json(sample.replace(b"\n", b"\r\n"), "CRLF")[1] == sample
+    for malformed in (b'{"a":1}\\r\\n\\n'.replace(b"\\r", b"\r").replace(b"\\n", b"\n"),
+                      b'{"a":1,"a":2}\n'):
+        try:
+            parse_canonical_json(malformed, "negative fixture")
+        except (AssertionError, ValueError):
+            pass
+        else:
+            raise AssertionError("malformed fixture unexpectedly accepted")
     src = (HERE / "source.bmp").read_bytes()
     assert SHA(src) == SOURCE_SHA, "encoded source drift"
     w, h, rgba = normalized_bmp(src)
@@ -98,7 +128,7 @@ def main():
     assert art["native_render_status"] == "pending-windows-execution"
     assert art["canonical_output_identity"] is None and art["canonical_output_file"] is None
     print("PASS: source BMP encoding and normalized RGBA8 identity")
-    print("PASS: canonical genome SHA256, seven typed operators, project-v2 lineage and authoring manifest")
+    print("PASS: LF-canonical genome SHA256 (CRLF checkout safe), seven typed operators, project-v2 lineage and authoring manifest")
     print("NOT VERIFIED: native Windows WIC decode, registry acceptance, post-fault canonical PNG and exact replay")
 
 
