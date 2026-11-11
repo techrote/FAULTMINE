@@ -18,6 +18,9 @@ WORKS = (
 )
 HEX64 = re.compile(r"[0-9a-f]{64}\Z")
 HEX16 = re.compile(r"[0-9a-f]{16}\Z")
+# Native WIC PNG pinned by the Windows-qualified Shearwing #53 evidence.
+WINNER_PNG_SHA256 = "41a2e7863eecd7ef51d460dd7d7909b220b915ee60941cd2077d5df0bb2a4cf5"
+WINNER_CANONICAL_RGBA8_ID = "6f149f34cb9eca441c4206de1b5e7b0f035cab3b2ad958e3401f5a1cef2d9c50"
 
 
 def sha256(data):
@@ -94,6 +97,61 @@ def create(package_root):
                         "source_encoded_sha256": sha256(source.read_bytes()),
                         "source_normalized_identity_from_project": identity,
                         "root_seed": genome["root_seed"]})
+    # Batch project opens descendant #0, but the selected native artwork is
+    # #65. Preserve its full lineage and provide a separate selected-first copy.
+    label = "04-shearwing-WINNER-65"
+    source_rel = WORKS[3][2]
+    original_rel = WORKS[3][1]
+    genome_rel = "gallery/evolution/05-shearwing-telemetry/curated/shearwing-65.genome.json"
+    png_rel = "gallery/evolution/05-shearwing-telemetry/curated/shearwing-65.png"
+    genome_path, png_path = package_root / genome_rel, package_root / png_rel
+    if not genome_path.is_file() or not png_path.is_file():
+        raise ValueError(f"{label}: curated genome or native PNG missing")
+    if sha256(png_path.read_bytes()) != WINNER_PNG_SHA256:
+        raise ValueError(f"{label}: archived native PNG differs from verified Windows evidence")
+    curated_genome = load_strict(genome_path)
+    authored = load_strict(package_root / original_rel)
+    members = authored["lineage"]["specimens"]
+    if not isinstance(members, list):
+        raise ValueError(f"{label}: authored lineage is missing")
+    addressed = [
+        specimen for specimen in members
+        if isinstance(specimen, dict)
+        and isinstance(specimen.get("derivation"), dict)
+        and specimen["derivation"].get("descendant_index") == 65
+    ]
+    if len(addressed) != 1:
+        raise ValueError(f"{label}: expected exactly one lineage descendant #65")
+    winner = addressed[0]
+    selected_id = winner.get("genome_identity")
+    if (winner.get("genome") != curated_genome
+            or winner.get("source_identity") != authored["source"]["identity"]
+            or not isinstance(selected_id, str) or not HEX64.fullmatch(selected_id)):
+        raise ValueError(f"{label}: curated genome, source or lineage identity mismatch")
+    selected_project = load_strict(package_root / original_rel)
+    selected_project["source"]["path"] = source_rel
+    selected_project["genome"] = curated_genome
+    selected_project["lineage"]["active_genome_identity"] = selected_id
+    payload = (json.dumps(selected_project, ensure_ascii=False, separators=(",", ":")) + "\n").encode("utf-8")
+    reconstructed = json.loads(payload)
+    reconstructed["source"]["path"] = authored["source"]["path"]
+    reconstructed["genome"] = authored["genome"]
+    reconstructed["lineage"]["active_genome_identity"] = authored["lineage"]["active_genome_identity"]
+    if reconstructed != authored:
+        raise ValueError(f"{label}: selected overlay modified fields beyond active genome, active lineage and source path")
+    dest = output / (label + ".fmproj")
+    write_new_or_same(dest, payload)
+    selected_record = {
+        "label": label, "project": dest.relative_to(package_root).as_posix(),
+        "portable_project_sha256": sha256(payload),
+        "authored_project": original_rel, "authored_project_sha256": sha256((package_root / original_rel).read_bytes()),
+        "curated_genome": genome_rel, "curated_genome_encoded_sha256": sha256(genome_path.read_bytes()),
+        "native_png": png_rel, "native_png_encoded_sha256": WINNER_PNG_SHA256,
+        "native_decoded_rgba8_identity_from_windows_verification": WINNER_CANONICAL_RGBA8_ID,
+        "source_normalized_identity_from_project": authored["source"]["identity"],
+        "descendant_index": 65, "selected_genome_identity_from_lineage": selected_id,
+        "canonical_authority": False,
+    }
     readme = ("FAULTMINE FOUR-FAMILY REVIEW PROJECTS — PORTABLE COPIES\n\n"
               "From the extracted package root double-click Run FAULTMINE.cmd.\n"
               "In FAULTMINE press Ctrl+Shift+O and open a .fmproj from this folder.\n"
@@ -103,14 +161,17 @@ def create(package_root):
               "Source identities, genomes, root seeds, lineage and canonical pixels\n"
               "were not recalculated. A relink prompt means physical GUI acceptance\n"
               "is still needed; never accept different-content source pixels.\n"
-              "Shearwing opens a batch lineage, NOT automatically descendant #65.\n"
+              "04-shearwing.fmproj opens the full batch lineage at #0.\n"
+              "04-shearwing-WINNER-65.fmproj opens curated descendant #65 directly,\n"
+              "retaining the complete authored batch lineage. Use it for owner review.\n"
               "Native CLI replay does not qualify GUI export/cancellation.\n")
     write_new_or_same(output / "START-HERE.txt", readme.encode("utf-8"))
     manifest = {"format_version": 1, "kind": "portable-review-project-path-overlays",
-                "canonical_authority": False, "works": records}
+                "canonical_authority": False, "works": records,
+                "selected_review_project": selected_record}
     write_new_or_same(output / "provenance.json",
                       (json.dumps(manifest, indent=2, ensure_ascii=False) + "\n").encode("utf-8"))
-    print(f"PASS: {len(records)} portable project copies; authored source/genome/lineage unchanged")
+    print(f"PASS: {len(records)} portable project copies + verified winner #65; authored source/genome/lineage unchanged")
     for row in records:
         print(row["label"], row["portable_project_sha256"], row["source_normalized_identity_from_project"])
 
