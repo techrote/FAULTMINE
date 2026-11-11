@@ -160,7 +160,7 @@ def review_page(output, result, originals):
                f"#24 vs #81: {result['changed_rgb_percent']['24-81']}% changed RGB pixels; "
                f"#65 vs #24: {result['changed_rgb_percent']['65-24']}%. "
                "Pixel difference is not an aesthetic score.")
-    page = '<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>FAULTMINE native Shearwing admission</title>'
+    page = '<!doctype html><html lang="en"><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src \'none\'; img-src data:; style-src \'unsafe-inline\'; base-uri \'none\'; form-action \'none\'"><meta name="viewport" content="width=device-width, initial-scale=1"><title>FAULTMINE native Shearwing admission</title>'
     page += '<style>body{margin:auto;padding:1.2rem;max-width:1150px;background:#12151b;color:#e2e9e8;font:16px/1.5 system-ui}header{margin-bottom:2rem}main{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:1rem}figure{margin:0;border:1px solid #454b52;padding:.6rem;background:#1b2029}img{display:block;width:100%;height:auto;image-rendering:pixelated}figcaption{padding:.5rem 0}p{max-width:72ch}small{color:#b7c5ca}</style>'
     page += '<header><h1>Shearwing — native admission comparison</h1><p>'+html.escape(message)+'</p><small>Embedded byte-identical archived Windows CPU canonical PNGs, frame 0, 384×256. Static read-only review, not an admitted gallery, new render, or physical GUI acceptance.</small></header><main>'+cards+'</main></html>'
     output.write_text(page, encoding='utf-8')
