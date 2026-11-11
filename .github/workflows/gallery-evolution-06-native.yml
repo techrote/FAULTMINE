@@ -1,0 +1,75 @@
+name: Evolution 06 - Seismic Debt native canonical quarry
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'gallery/evolution/06-seismic-debt/**'
+      - '.github/workflows/gallery-evolution-06-native.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  seismic-debt-native:
+    runs-on: windows-latest
+    timeout-minutes: 55
+    steps:
+      - name: Prevent conversion of canonical genome line endings
+        shell: pwsh
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify source reconstruction, repository provenance, and syntax
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          python -m py_compile gallery/evolution/06-seismic-debt/make_source.py
+          if($LASTEXITCODE -ne 0){throw 'Syntax failure'}
+          python gallery/evolution/06-seismic-debt/make_source.py --write
+          if($LASTEXITCODE -ne 0){throw 'Source materialization failure'}
+          python gallery/evolution/06-seismic-debt/make_source.py --verify
+          if($LASTEXITCODE -ne 0){throw 'Authored image/identity changed'}
+          $expected='64b0756262db458e276861dad84edbd964571558'
+          $actual=(& git hash-object examples/fm005-addressing-genome.json).Trim()
+          if($LASTEXITCODE -ne 0 -or $actual -cne $expected){throw "Immutable accepted parent changed: $actual"}
+          New-Item -ItemType Directory -Force evidence | Out-Null
+          (& git rev-parse HEAD).Trim() | Out-File evidence/exact-head.txt -Encoding ascii
+      - name: Execute native MSVC Debug and Release deterministic contracts
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          .\scripts\configure.ps1
+          if($LASTEXITCODE -ne 0){throw 'CMake configure failed'}
+          foreach($c in @('Debug','Release')){
+            .\scripts\build.ps1 -Configuration $c
+            if($LASTEXITCODE -ne 0){throw "$c build failed"}
+            .\scripts\test.ps1 -Configuration $c
+            if($LASTEXITCODE -ne 0){throw "$c CTest failure"}
+            .\scripts\test-render-verify.ps1 -Configuration $c
+            if($LASTEXITCODE -ne 0){throw "$c canonical CLI negative/golden failure"}
+            & ".\build\$c\FAULTMINE.exe" --smoke-test
+            if($LASTEXITCODE -ne 0){throw "$c native GUI smoke failure"}
+          }
+      - name: Mine exact 128-candidate CPU quarry and independently replay full-size stills
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $out=Join-Path $env:GITHUB_WORKSPACE 'evidence\seismic-debt-06'
+          .\gallery\evolution\06-seismic-debt\mine.ps1 -OutputDirectory $out -Threads 4
+          if($LASTEXITCODE -ne 0){throw 'Native FM-014 quarry failed'}
+          $a=Get-Content -LiteralPath (Join-Path $out 'audit.json') -Raw | ConvertFrom-Json
+          if($a.completed -ne 128 -or $a.failed -ne 0 -or $a.unique_pixels -lt 24 -or
+             $a.near_representatives -lt 6 -or $a.debug_release_readonly_replays -lt 12){
+            throw 'Incomplete or insufficient actual native search'
+          }
+      - name: Always archive truthful completed or partial search
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: seismic-debt-06-native-quarry
+          path: evidence/
+          if-no-files-found: warn
+          retention-days: 30
