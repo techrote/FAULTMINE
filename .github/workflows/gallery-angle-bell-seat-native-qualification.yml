@@ -21,6 +21,10 @@ jobs:
 
       - uses: actions/checkout@v4
         with:
+          path: integration-tooling
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
           repository: techrote/FAULTMINE
           ref: 140f41cda3be46b54e283b92744c4d8263184864
           path: engine
@@ -60,6 +64,9 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Unit test portable gallery project path overlays
+        shell: pwsh
+        run: python -m unittest discover -s integration-tooling/tests -p 'test_prepare_gallery_review_projects.py' -v
       - name: Check pinned source heads and stage only unaccepted gallery directories
         shell: pwsh
         run: |
@@ -269,14 +276,18 @@ jobs:
           if (-not (Test-Path (Join-Path $proof 'shearwing-05\batch.fmproj'))) {
             throw 'Shearwing source/reproduction project absent'
           }
+          python .\integration-tooling\scripts\prepare-gallery-review-projects.py --package-root $app
+          if ($LASTEXITCODE -ne 0) { throw 'Portable gallery review project staging failed' }
           Get-ChildItem -LiteralPath (Join-Path $app 'gallery') -Filter __pycache__ -Directory -Recurse |
             Remove-Item -Force -Recurse
           $guide = @'
           FAULTMINE / ANGLE + BELL + SEAT + SHEARWING — CANDIDATE REVIEW
           Windows x64. Extract the ZIP and run Run FAULTMINE.cmd.
-          Ctrl+Shift+O opens the original or temporal .fmproj in gallery\.
-          Shearwing: Ctrl+Shift+O opens CANONICAL-REVIEW-EVIDENCE\shearwing-05\batch.fmproj.
-          Relink to gallery\evolution\05-shearwing-telemetry\source.bmp if prompted.
+          Ctrl+Shift+O opens REVIEW-PROJECTS\01-angle.fmproj, 02-bell.fmproj,
+          03-seat.fmproj or 04-shearwing.fmproj (source-path-only portable copies).
+          Originals in gallery\ and the Shearwing CI batch project remain unchanged.
+          See REVIEW-PROJECTS\provenance.json for encoded source hashes and identities.
+          A relink prompt means physical GUI acceptance remains open; never force changed pixels.
           The exact archived winning descendant #65 is under gallery\evolution\05-shearwing-telemetry\curated\.
           Eight native selected stills, authentic contact sheet and complete batch provenance
           are under CANONICAL-REVIEW-EVIDENCE\shearwing-05.
