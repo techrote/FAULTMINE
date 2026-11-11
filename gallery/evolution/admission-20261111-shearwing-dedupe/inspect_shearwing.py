@@ -11,7 +11,15 @@ import struct
 import zipfile
 import zlib
 
-ARCHIVE_SHA = '5135f36d2cfca6baa91b27d7b84e0eefea689e95a38232bb112a73f1bb655b8d'
+ARCHIVE_SHAS = {
+    # Source-exact Integration package (286 original entries).
+    '5135f36d2cfca6baa91b27d7b84e0eefea689e95a38232bb112a73f1bb655b8d',
+    # Same 286 entries preserved, with three extra noncanonical owner audit files.
+    '323c81905c675f55ed12e1274ed6faa6a5212cacc90b0a2e6cd09841ec82f1eb',
+}
+PROJECT_SHA = '06e6d8f3a14ee17f7b314fa9d591dfa8c5f4e1714b1bba2a13b9e50c9c20049f'
+CONTACT_SHA = '70f7f437e263072ad37b1537e0d839c03cdf801a2b9efe9865fed6db48d97c0d'
+CONTACT_MANIFEST_SHA = 'd003ead4cc1d02d612f71a3cd53d3bc7b36463ec71cdca8463981b0cf60c9745'
 BATCH_SHA = '20c1a2a55064127311872552129f9854a677d3577904d60aeff280ed4eb21033'
 SOURCE_SHA = '4d62b0c7e04f169110928e602af16b58370c0c26eddd313962beadaf02d1c59c'
 SOURCE_ID = '31c65bdb62b16ce1c890ac5f4beeca7910dc26e5ad2509b6ca186d1faa34ca1b'
@@ -85,10 +93,14 @@ def diff_rgb(a, b):
 
 
 def audit(path):
-    assert sha(path.read_bytes()) == ARCHIVE_SHA, 'not pinned current-main ZIP; do not mix source heads'
+    archive_sha = sha(path.read_bytes())
+    assert archive_sha in ARCHIVE_SHAS, 'not either pinned qualified Integration ZIP; do not mix source heads'
     with zipfile.ZipFile(path) as z:
         member = lambda name: z.read(PREFIX + name)
         assert sha(member('batch.fmbatch.json')) == BATCH_SHA, 'native batch receipt drift'
+        assert sha(member('batch.fmproj')) == PROJECT_SHA, 'native GUI import project drift'
+        assert sha(member('selected-contact-sheet.png')) == CONTACT_SHA, 'native contact sheet drift'
+        assert sha(member('selected-contact-sheet.png.fmmanifest.json')) == CONTACT_MANIFEST_SHA, 'native contact manifest drift'
         assert sha(z.read('FAULTMINE-1.0.0-win64/gallery/evolution/05-shearwing-telemetry/source.bmp')) == SOURCE_SHA, 'authored source drift'
         batch = json.loads(member('batch.fmbatch.json'))
         assert (batch['complete'], batch['cancelled'], len(batch['failures']),
@@ -119,7 +131,7 @@ def audit(path):
             assert l1(c['descriptor'],entries[rep]['descriptor']) <= 8192, 'bad near clustering'
             assert entries[rep]['near_representative_index'] == rep, 'indirect near representative'
             groups[rep] += 1
-            if i in (24,35,65,71,81):
+            if i in (0,2,8,24,35,46,65,71,74,81):
                 decoded[i] = pixels
                 originals[i] = data
             if i in SELECTED:
@@ -140,7 +152,9 @@ def audit(path):
                  (65,81): diff_rgb(decoded[65],decoded[81]),
                  (65,35): diff_rgb(decoded[65],decoded[35]),
                  (65,71): diff_rgb(decoded[65],decoded[71])}
-        result = {'requested':96,'completed':96,'failed':0,'unique_genomes':len(genomes),
+        result = {'archive_sha256': archive_sha, 'native_project_sha256': PROJECT_SHA,
+                  'native_contact_sha256': CONTACT_SHA,
+                  'requested':96,'completed':96,'failed':0,'unique_genomes':len(genomes),
                   'unique_decoded_images':len(pixel_ids),'near_representatives':len(groups),
                   'near_redundant_unique_images':26,'multi_member_groups':10,
                   'largest_near_group':max(groups.values()),'selected':65,
@@ -150,9 +164,17 @@ def audit(path):
 
 
 def review_page(output, result, originals):
-    info = [('24','alternative, large wing'),('81','near-duplicate of 24'),
-            ('65','curated winner, separated passage'),('35','alternative, dense variation'),
-            ('71','alternative, diffuse wing')]
+    # All eight authentic FM-014 novelty picks, then one near-identical pair for rejection.
+    info = [('0','novelty pick, interrupted telemetry'),
+            ('2','novelty pick, fractured pale wing'),
+            ('8','novelty pick, saturated rainbow raster; reject for lost silhouette'),
+            ('35','novelty pick, dense twin-wing'),
+            ('46','novelty pick, solid red saturation; reject for lost silhouette'),
+            ('65','author-curated winner; two legible separated wing ribbons'),
+            ('71','novelty pick, dispersed wing fragments'),
+            ('74','novelty pick, spare partial echo'),
+            ('24','non-selected wing alternative'),
+            ('81','non-selected near duplicate of 24; reject')]
     cards = '\n'.join('<figure><img alt="Native canonical specimen #'+i+'" src="data:image/png;base64,'+
                       base64.b64encode(originals[int(i)]).decode('ascii')+'"><figcaption><b>#'+i+'</b> — '+html.escape(label)+'</figcaption></figure>' for i,label in info)
     message = (f"96/96 completed; 0 failures; 96 distinct decoded images; 70 near representatives; "
@@ -178,7 +200,7 @@ def main():
         if args.html:
             review_page(args.html, result, originals)
         print(json.dumps(result, indent=2))
-        print('PASS: pinned native canonical archive and exact-output indices')
+        print('PASS: pinned native canonical archive, project, contact sheet and exact-output indices')
     except (AssertionError,KeyError,ValueError,OSError,zipfile.BadZipFile,zlib.error) as exc:
         parser.exit(1, 'FAIL: '+str(exc)+'\n')
 
