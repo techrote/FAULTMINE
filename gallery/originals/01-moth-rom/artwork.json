@@ -1,0 +1,28 @@
+{
+  "artwork_manifest_version": 1,
+  "title": "MOTH ROM / 07 — Chitin Memory",
+  "created_date": "2026-11-11",
+  "rights": "Original programmatically drawn source; no third-party image or font assets used.",
+  "artwork_kind": "canonical-still-candidate",
+  "source_file": "source.bmp",
+  "source_dimensions": [
+    384,
+    256
+  ],
+  "source_encoding": "BMP v3, 24-bit BGR, bottom-up, opaque",
+  "source_encoding_sha256": "41a2be8d45d83c4b15e09ce9d1846256cb89f71d48551f592d1e78f772670e48",
+  "source_identity": "49aca43e0330c82dec3d579f42f6cca3728603e5155cec434bf0ee81303fff4e",
+  "genome_file": "genome.json",
+  "genome_identity": "fa4fda19e0701619a57b2c3eb0ee422ebf8f9f6911537ccc9ee912c125bf72e4",
+  "project_file": "moth-rom.fmproj",
+  "genome_schema_version": 1,
+  "engine_contract_version": 1,
+  "project_version": 2,
+  "root_seed": "0d07c1cada55e7a1",
+  "explicit_frame": 0,
+  "native_render_status": "pending-windows-execution",
+  "canonical_output_identity": null,
+  "canonical_output_file": null,
+  "planned_native_output": "native-render/moth-rom-canonical.png",
+  "note": "This is an authoring identity inventory, not an FM-012 canonical export manifest. No output hash or PNG identity is claimed before actual Windows execution."
+}
