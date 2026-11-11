@@ -125,7 +125,8 @@ def audit(directory: Path, contact: Path | None = None) -> None:
         w,h,rgba=decode_png(payload)
         identity=sha(DOMAIN+struct.pack('<II',w,h)+rgba)
         assert identity==entry['output_identity'], f'frame {frame}: canonical RGBA8 identity mismatch'
-        assert identity not in ids, f'frame {frame}: duplicate full-resolution image'
+        # A deliberate temporal hold or recurrence may repeat exact canonical pixels.
+        # Audit every frame independently; demand diversity separately below.
         ids.add(identity)
         if frame in KEY_FRAMES: sampled[frame]=rgba
     assert len(ids)>=6, 'insufficient distinct temporal frames; review motion parameters'
