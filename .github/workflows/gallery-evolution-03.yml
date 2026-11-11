@@ -1,0 +1,65 @@
+name: Evolutionary Quarry 03 - native punched-glyph mine
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'gallery/evolution/03-punched-glass-index/**'
+      - '.github/workflows/gallery-evolution-03.yml'
+permissions:
+  contents: read
+jobs:
+  native-punched-index:
+    runs-on: windows-latest
+    timeout-minutes: 50
+    steps:
+      - name: Preserve authored bytes at checkout
+        shell: pwsh
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check source and immutable parent
+        shell: pwsh
+        run: |
+          node gallery/evolution/03-punched-glass-index/make-source.mjs --verify
+          if ($LASTEXITCODE -ne 0) { throw 'Authored BMP drift' }
+          $parent = (& git hash-object examples/fm003-starter-genome.json).Trim()
+          if ($parent -cne '40e2d690078c62d6c80c40a550165672a2a1f997') { throw "Accepted parent changed: $parent" }
+      - name: Build and test MSVC Debug and Release
+        shell: pwsh
+        run: |
+          .\scripts\configure.ps1
+          if ($LASTEXITCODE -ne 0) { throw 'Configure failed' }
+          .\scripts\build.ps1 -Configuration Debug
+          if ($LASTEXITCODE -ne 0) { throw 'Debug build failed' }
+          .\scripts\test.ps1 -Configuration Debug
+          if ($LASTEXITCODE -ne 0) { throw 'Debug tests failed' }
+          .\scripts\test-render-verify.ps1 -Configuration Debug
+          if ($LASTEXITCODE -ne 0) { throw 'Debug replay golden failed' }
+          .\scripts\build.ps1 -Configuration Release
+          if ($LASTEXITCODE -ne 0) { throw 'Release build failed' }
+          .\scripts\test.ps1 -Configuration Release
+          if ($LASTEXITCODE -ne 0) { throw 'Release tests failed' }
+          .\scripts\test-render-verify.ps1 -Configuration Release
+          if ($LASTEXITCODE -ne 0) { throw 'Release replay golden failed' }
+      - name: Mine native 192-index canonical search, independent one-thread resume
+        shell: pwsh
+        run: |
+          .\gallery\evolution\03-punched-glass-index\mine.ps1 -OutputDirectory (Join-Path $PWD 'evidence\quarry03')
+          if ($LASTEXITCODE -ne 0) { throw 'Native driver failed' }
+      - name: Preserve real Windows native evidence regardless of failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FAULTMINE-evolution-03-native-evidence
+          path: |
+            gallery/evolution/03-punched-glass-index/source.bmp
+            gallery/evolution/03-punched-glass-index/make-source.mjs
+            gallery/evolution/03-punched-glass-index/mine.ps1
+            examples/fm003-starter-genome.json
+            evidence/quarry03/
+          if-no-files-found: warn
+          retention-days: 30
