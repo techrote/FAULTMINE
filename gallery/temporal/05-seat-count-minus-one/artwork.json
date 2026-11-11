@@ -1,0 +1,32 @@
+{
+  "artwork_manifest_version": 1,
+  "title": "Seat Count: Minus One — The Parliament of Absence",
+  "created_date": "2026-11-11",
+  "source_file": "source.bmp",
+  "source_encoding_sha256": "efbb9b9f7fc73af41b5c10b6330424c5bd2f47794ab7a964318d149df613e4d0",
+  "source_identity": "cb8df081f6f79c6ec75e974dc0f20cb227aa79e97c17dcaeadf554b311eda342",
+  "genome_file": "genome.json",
+  "genome_identity": "e8f70bc1b738b5557d2c0e20beb8d1af49b4c1c0894c4d8bbe1758a11acc3850",
+  "project_file": "seat-count-minus-one.fmproj",
+  "genome_schema_version": 1,
+  "engine_contract_version": 1,
+  "project_version": 2,
+  "root_seed": "9a5d7e63c204b811",
+  "frame_begin": 0,
+  "frame_end_exclusive": 32,
+  "rate_num": 10,
+  "rate_den": 1,
+  "recommended_key_frames": [
+    0,
+    4,
+    8,
+    12,
+    16,
+    20,
+    24,
+    28,
+    31
+  ],
+  "canonical_frame_status": "pending-native-windows-cpu-render",
+  "note": "Original 336x224 source independently rendered and inspected; no native post-fault pixels are claimed."
+}
