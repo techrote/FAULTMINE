@@ -1,6 +1,6 @@
 # Punched Glass Index — Faulted Glyph Procession
 
-**ART-EVOL-003, Draft.** Independent FM-014 quarry candidate. It is not yet an admitted artwork or a declared visual winner.
+**ART-EVOL-003, Draft.** Windows-native search and read-only curation now complete; **specimen #147** is selected for owner/Integration review, not yet accepted. See [curated/SELECTION.md](curated/SELECTION.md).
 
 ## Intent and distinction
 
@@ -27,7 +27,7 @@ Build with the repository's standard MSVC x64 Debug and Release configurations, 
 
 The driver refuses an existing destination, checks pinned source and immutable accepted parent, executes the real native batch miner and preserves full evidence in the specified directory. The separate path-scoped Windows workflow performs both regression suites and uploads original inputs, all candidate caches, selected stills, FM-012 provenance, semantic batch project/manifest, contact sheet and the native audit as an Actions artifact.
 
-## Honest gate and subsequent curation
+## Initial authoring gates (superseded by curated/SELECTION.md)
 
 1. Check that Windows Actions actually completed; read real requested/completed/failure/unique/near metrics and output identities from the emitted native batch manifest. Do not report intended 192 as completed 192 before execution.
 2. Open the true native contact sheet and multiple full-size selected images; reject exact/near duplicates, trivial recolours, unhelpful novelty extremes. Select the strongest differentiated output, with explicit alternatives rejected.
