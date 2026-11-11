@@ -2,6 +2,10 @@
 """Independent, stdlib-only preflight of ART-ORIG-005; no proxy rendering."""
 import argparse,hashlib,json,struct,zlib
 from pathlib import Path
+# Assertions enforce every pinned byte/pixel/lineage invariant below. Under -O
+# Python removes them; never report a false PASS in an optimized interpreter.
+if not __debug__:
+    raise SystemExit('STOP: optimized Python bypasses verifier assertions; rerun without -O/-OO')
 D=Path(__file__).resolve().parent
 SI='db8754258a9a788d36f4ac466fc538b021725c0cbc7d293c13f8b4c4a005a108'
 GI='f3493de53d45a4013c64488f16fb9b3d1e666f66113b2e996aca2068b4525da4'
@@ -167,7 +171,12 @@ def negative():
     try:json.loads('{"schema_version":1,"schema_version":2}',object_pairs_hook=strict_pairs)
     except ValueError:pass
     else:raise AssertionError('duplicate JSON unexpectedly accepted')
-    print('PASS: deliberate damaged PNG and duplicate JSON keys rejected')
+    # Regression for PYTHONOPTIMIZE/-O: the verifier must fail instead of
+    # silently skipping all asserts and printing a false acceptance.
+    import subprocess,sys
+    optimized=subprocess.run([sys.executable,'-O',str(Path(__file__).resolve()),'--self-test'],capture_output=True,text=True,check=False)
+    assert optimized.returncode!=0 and 'optimized Python bypasses verifier assertions' in (optimized.stdout+optimized.stderr), 'optimized Python must fail closed'
+    print('PASS: deliberate damaged PNG, duplicate JSON keys and optimized interpreter rejected')
 if __name__=='__main__':
     ap=argparse.ArgumentParser();ap.add_argument('--self-test',action='store_true');ap.add_argument('--canonical');args=ap.parse_args()
     verify(args.canonical)
