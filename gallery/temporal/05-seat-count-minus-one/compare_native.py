@@ -34,6 +34,8 @@ SPECS = (
          replay=[31, 0, 18, 5, 24]),
 )
 SEAT_STUDY = (0,1,2,4,6,8,9,11,14,15,18,19,20,21,23,24,29,30,31)
+SEAT_STUDY_EXPOSURES = tuple(500 if i == 0 else 545 if i == 31 else 155 if i < 9 else 115 for i in SEAT_STUDY)
+assert len(SEAT_STUDY) == len(SEAT_STUDY_EXPOSURES) and sum(SEAT_STUDY_EXPOSURES) == 3200
 PNG_MAGIC = b'\x89PNG\r\n\x1a\n'
 
 
@@ -155,7 +157,8 @@ def build(archive: Path, output: Path) -> dict:
         images = {spec['key']:read_family(z,spec) for spec in SPECS}
     payload = json.dumps(images, separators=(',',':'))
     page = (HTML.replace('/*__NATIVE_IMAGES__*/', 'const images = '+payload+';')
-            .replace('/*__EDITORIAL_CUT__*/', json.dumps(list(SEAT_STUDY), separators=(',',':'))))
+            .replace('/*__EDITORIAL_CUT__*/', json.dumps(list(SEAT_STUDY), separators=(',',':')))
+            .replace('/*__EDITORIAL_EXPOSURES__*/', json.dumps(list(SEAT_STUDY_EXPOSURES), separators=(',',':'))))
     with output.open('x', encoding='utf-8', newline='\n') as f:
         f.write(page)
     result = {'sha256':sha(page.encode()), 'angle_frames':len(images['angle']),
@@ -198,7 +201,7 @@ const play=document.getElementById('play'),seek=document.getElementById('seek'),
 let ms=0, handle=null, origin=0;
 const seatCadence=document.getElementById('seatCadence');
 const seatStudy=/*__EDITORIAL_CUT__*/;
-const seatStudyMs=seatStudy.map(i=>i===0?500:i===31?545:i<9?155:115);
+const seatStudyMs=/*__EDITORIAL_EXPOSURES__*/;
 function seatAt(t){if(seatCadence.value==='authored')return Math.min(31,Math.floor(t/100));let remaining=t;for(let i=0;i<seatStudy.length;i++){if(remaining<seatStudyMs[i])return seatStudy[i];remaining-=seatStudyMs[i]}return 31;}
 function frameAt(type,t){return type==='seat'?seatAt(t):Math.min(totals[type]-1,Math.floor(t*rates[type]/1000));}
 // Time-aligned contact frames reveal how the optional editorial cadence changes

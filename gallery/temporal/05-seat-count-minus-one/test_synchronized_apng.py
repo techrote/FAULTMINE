@@ -6,6 +6,8 @@ The APNG is an offline 3-pane presentation, NOT a FAULTMINE engine export.
 from __future__ import annotations
 import base64
 import hashlib
+import json
+import re
 from pathlib import Path
 import struct
 import sys
@@ -80,6 +82,18 @@ def verify(archive: Path) -> None:
         assert hashlib.sha256(data).hexdigest()==result['sha256']
         assert result['frames']==64 and result['angle_native_frames']==36 and result['seat_native_frames']==32
         assert tuple(result['editorial_native_indices'])==auth.SEAT_STUDY
+        html=Path(dirname)/'review.html'
+        auth.build(archive,html)
+        emitted=re.search(r'const seatStudyMs=(\[[0-9,]+\]);', html.read_text('utf-8'))
+        assert emitted, 'Missing generated browser exposure table'
+        exposures=json.loads(emitted.group(1))
+        assert exposures==list(auth.SEAT_STUDY_EXPOSURES)
+        def from_browser_table(ms: int) -> int:
+            for index, exposure in zip(auth.SEAT_STUDY, exposures):
+                if ms < exposure:return index
+                ms -= exposure
+            return 31
+        assert all(player.seat_study_at(t)==from_browser_table(t) for t in (*player.TIMES, 3200)), 'Browser and APNG native frame schedules diverged'
         pixels=read_apng(data)
         with ZipFile(archive) as z:
             inputs={spec['key']:[auth.decode_rgba(base64.b64decode(frame['url'].split(',',1)[1]),spec['width'],spec['height']) for frame in auth.read_family(z,spec)] for spec in auth.SPECS}

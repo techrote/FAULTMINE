@@ -49,6 +49,9 @@ def run(source: Path) -> None:
         assert len(set(cut)) == len(cut) and cut == sorted(cut)
         exposure = [500 if n == 0 else 545 if n == 31 else
                     155 if n < 9 else 115 for n in cut]
+        assert exposure == list(subject.SEAT_STUDY_EXPOSURES)
+        exposed = re.search(r'const seatStudyMs=(\[[0-9,]+\]);', page)
+        assert exposed and json.loads(exposed.group(1)) == exposure, 'Browser editorial exposure differs from native APNG'
         assert sum(exposure) == 3200, 'Editorial timing no longer synchronized'
         assert '<option value="authored">Authored 32 frames · 10 fps' in page
         assert "seatCadence.onchange=()=>{drawContacts();select(ms)}" in page

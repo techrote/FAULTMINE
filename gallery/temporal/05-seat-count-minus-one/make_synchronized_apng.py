@@ -15,7 +15,7 @@ import struct
 import zlib
 from zipfile import ZipFile
 
-from compare_native import SPECS, SEAT_STUDY, read_family, decode_rgba
+from compare_native import SPECS, SEAT_STUDY, SEAT_STUDY_EXPOSURES, read_family, decode_rgba
 
 PNG_MAGIC = b'\x89PNG\r\n\x1a\n'
 # Native panels in order: Angle at 12/1, Seat at 10/1, proposed Seat study.
@@ -77,8 +77,7 @@ def png_chunk(kind: bytes, payload: bytes) -> bytes:
 
 def seat_study_at(t: int) -> int:
     remaining = t
-    for index in SEAT_STUDY:
-        exposure = 500 if index == 0 else 545 if index == 31 else 155 if index < 9 else 115
+    for index, exposure in zip(SEAT_STUDY, SEAT_STUDY_EXPOSURES):
         if remaining < exposure:
             return index
         remaining -= exposure
