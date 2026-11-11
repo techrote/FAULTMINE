@@ -25,7 +25,15 @@ python gallery/temporal/06-the-rain-inside-glass/verify_artwork.py
 ./gallery/temporal/06-the-rain-inside-glass/render-sequence-win.ps1 -Configuration Debug -OutputDirectory ./artifacts/rain-glass-debug
 ```
 
-Each run refuses reused evidence directories, emits 24 actual `FAULTMINE-render.exe` full-resolution PNGs, records output and PNG byte identities, and runs six read-only replay checks in deliberately nonchronological order. Independently compare Debug/Release decoded RGBA identities; inspect frames at the nine designated key indices and assemble a *clearly labelled presentation-only* montage from the genuine PNGs. Do not re-encode source assets or infer canonical pixels from a D3D/proxy preview. Import the bundled project into native Win32 and verify the source relink, then exercise FM-012 sequence complete/cancel paths separately.
+Each run refuses reused evidence directories, emits 24 actual `FAULTMINE-render.exe` full-resolution PNGs, records output and PNG byte identities, and runs six read-only replay checks in deliberately nonchronological order.
+
+When Pillow is installed, independently check all 24 PNG transport hashes and assemble a *presentation-only* 3×3 contact sheet from nine actual native keyframes:
+
+```powershell
+python gallery/temporal/06-the-rain-inside-glass/make_contact_sheet.py ./artifacts/rain-glass-release --contact ./artifacts/rain-glass-PRESENTATION.png
+```
+
+The contact assembler reads the completed native audit and refuses missing frames or modified PNG transport bytes. The contact sheet itself is not canonical evidence; the 24 original PNGs and their replay receipts remain authoritative. Independently compare Debug/Release decoded RGBA identities; inspect frames at the nine designated key indices and assemble a *clearly labelled presentation-only* montage from the genuine PNGs. Do not re-encode source assets or infer canonical pixels from a D3D/proxy preview. Import the bundled project into native Win32 and verify the source relink, then exercise FM-012 sequence complete/cancel paths separately.
 
 ## Current gate
 
