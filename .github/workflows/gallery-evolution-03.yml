@@ -1,0 +1,98 @@
+name: Evolutionary Quarry 03 - native punched-glyph mine
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'gallery/evolution/03-punched-glass-index/**'
+      - '.github/workflows/gallery-evolution-03.yml'
+permissions:
+  contents: read
+jobs:
+  native-punched-index:
+    runs-on: windows-latest
+    timeout-minutes: 50
+    steps:
+      - name: Preserve authored bytes at checkout
+        shell: pwsh
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check source and immutable parent
+        shell: pwsh
+        run: |
+          node gallery/evolution/03-punched-glass-index/make-source.mjs --verify
+          if ($LASTEXITCODE -ne 0) { throw 'Authored BMP drift' }
+          $parent = (& git hash-object examples/fm003-starter-genome.json).Trim()
+          if ($parent -cne '40e2d690078c62d6c80c40a550165672a2a1f997') { throw "Accepted parent changed: $parent" }
+      - name: Build and test MSVC Debug and Release
+        shell: pwsh
+        run: |
+          .\scripts\configure.ps1
+          if ($LASTEXITCODE -ne 0) { throw 'Configure failed' }
+          .\scripts\build.ps1 -Configuration Debug
+          if ($LASTEXITCODE -ne 0) { throw 'Debug build failed' }
+          .\scripts\test.ps1 -Configuration Debug
+          if ($LASTEXITCODE -ne 0) { throw 'Debug tests failed' }
+          .\scripts\test-render-verify.ps1 -Configuration Debug
+          if ($LASTEXITCODE -ne 0) { throw 'Debug replay golden failed' }
+          .\scripts\build.ps1 -Configuration Release
+          if ($LASTEXITCODE -ne 0) { throw 'Release build failed' }
+          .\scripts\test.ps1 -Configuration Release
+          if ($LASTEXITCODE -ne 0) { throw 'Release tests failed' }
+          .\scripts\test-render-verify.ps1 -Configuration Release
+          if ($LASTEXITCODE -ne 0) { throw 'Release replay golden failed' }
+      - name: Mine native 192-index canonical search, independent one-thread resume
+        shell: pwsh
+        run: |
+          .\gallery\evolution\03-punched-glass-index\mine.ps1 -OutputDirectory (Join-Path $PWD 'evidence\quarry03')
+          if ($LASTEXITCODE -ne 0) { throw 'Native driver failed' }
+      - name: Independently qualify newly committed curated native specimen
+        shell: pwsh
+        run: |
+          python gallery/evolution/03-punched-glass-index/curated/verify_selection.py --native-dir evidence/quarry03
+          if ($LASTEXITCODE -ne 0) { throw 'Canonical PNG/genome/FM-012 evidence mismatch' }
+          $source = 'gallery/evolution/03-punched-glass-index/source.bmp'
+          $genome = 'gallery/evolution/03-punched-glass-index/curated/punched-glass-147.genome.json'
+          $image = 'gallery/evolution/03-punched-glass-index/curated/punched-glass-147.png'
+          & .\\build\\Release\\FAULTMINE-render.exe --verify --frame 0 $source $genome $image
+          if ($LASTEXITCODE -ne 0) { throw 'Release selected native replay failed' }
+          & .\\build\\Debug\\FAULTMINE-render.exe --verify --frame 0 $source $genome $image
+          if ($LASTEXITCODE -ne 0) { throw 'Debug selected native replay failed' }
+      - name: Publish selected native specimen 147 byte-exact handoff in logs
+        shell: pwsh
+        run: |
+          $root = Join-Path $PWD 'evidence\quarry03'
+          $png = Join-Path $root 'selected\candidate_00000000000000000147.png'
+          $manifestPath = Join-Path $root 'batch.fmbatch.json'
+          if (-not (Test-Path -LiteralPath $png)) { throw 'Editorial index 147 not novelty selected; fail instead of fabricating handoff' }
+          $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+          $candidate = @($manifest.candidates | Where-Object { $_.descendant_index -eq 147 -and $_.selected })
+          if ($candidate.Count -ne 1) { throw 'Editorial index 147 is not a unique selected result' }
+          $sidecar = $png + '.fmmanifest.json'
+          if (-not (Test-Path -LiteralPath $sidecar)) { throw 'Missing native FM-012 selected sidecar' }
+          Write-Host 'FM_EVOL03_147_PNG_BEGIN'
+          Write-Host ([Convert]::ToBase64String([IO.File]::ReadAllBytes($png)))
+          Write-Host 'FM_EVOL03_147_PNG_END'
+          Write-Host 'FM_EVOL03_147_GENOME_BEGIN'
+          Write-Host ([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes([string]$candidate[0].canonical_genome)))
+          Write-Host 'FM_EVOL03_147_GENOME_END'
+          Write-Host 'FM_EVOL03_147_SIDECAR_BEGIN'
+          Write-Host ([Convert]::ToBase64String([IO.File]::ReadAllBytes($sidecar)))
+          Write-Host 'FM_EVOL03_147_SIDECAR_END'
+      - name: Preserve real Windows native evidence regardless of failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FAULTMINE-evolution-03-native-evidence
+          path: |
+            gallery/evolution/03-punched-glass-index/source.bmp
+            gallery/evolution/03-punched-glass-index/make-source.mjs
+            gallery/evolution/03-punched-glass-index/mine.ps1
+            examples/fm003-starter-genome.json
+            evidence/quarry03/
+          if-no-files-found: warn
+          retention-days: 30
