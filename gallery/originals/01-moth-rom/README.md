@@ -36,4 +36,16 @@ The runner invokes **the repository's actual `FAULTMINE-render.exe`** on accepte
 
 **Current acceptance:** structural and source/model identity can be checked independently, but the updated native runner has **not yet executed** on this branch. Its presence is not evidence of a canonical post-fault PNG, native decoded output identity, Debug/Release equivalence or visual quality. Integration PR #40 separately qualifies pinned original inputs on actual Windows CI; once canonical output is available, visually inspect it, compare strict replay and evaluate the GUI project/relink and genuine FM-012 export. Never treat the untouched source as final post-fault art; do not merge on generic CI alone.
 
+## Verified native output — first author review
+
+Integration's [Windows gallery workflow run 42939377682](https://github.com/techrote/FAULTMINE/actions/runs/42939377682) rendered the original author commit `4fcf670ff13fe9669e31d5535f767d6def3750e9` on real MSVC/WIC/CPU, and its **original-art lane passed** exact decoded RGBA8 replay with both Release and Debug. The full multi-artwork workflow was red because the separate temporal driver had a PowerShell parser error; that failure must not be presented as a failure of the moth's canonical pixels.
+
+- Native full-resolution canonical PNG: `original/moth-rom-canonical.png` in [artifact 13820331534](https://github.com/techrote/FAULTMINE/actions/runs/42939377682/artifacts/13820331534).
+- Raw decoded canonical output identity: `171e395bac997e35d740f400cbbce3e9fdb556056f5be7fd45eef5d158536c7c`.
+- Encoded PNG transport SHA-256: `70f8ed386a18f8cdb76212ddf7ec0799b8dfba8ab19f2b3d24f0e511ff0f8b81`.
+- Explicit semantic frame `0`; dimensions `384×256`; source and genome match this package exactly.
+- `native-qualification.json` preserves the native audit and exact source/engine/CI association; it is an **author receipt, not an FM-012 export manifest**.
+
+The actual native PNG was downloaded and visually inspected alongside the authored BMP. The moth remains strongly recognizable: two large wing fields and the central segmented body survive, while cyan/red contour splits, interrupted lettering, horizontal scars and granular interference create a coherent damaged-specimen aesthetic. A fair limitation is that upper specimen labels lose legibility under the selected full-stack faults. An independent artistic acceptance, GUI project/relink operation and native FM-012 export have **not** yet been performed. The actual PNG currently lives in the cited CI artifact and evaluation ZIP, **not in this Git tree**; do not substitute the untouched source BMP or an unauthoritative proxy.
+
 **Artist's intention:** the image should survive its own corruption as a readable biological diagram. The space between wing veins, along with the asymmetric damaged rectangular cells, is as important as the colour. Reject the preset or revise a new branch if native visual inspection yields incoherent noise rather than damaged structure.
