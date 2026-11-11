@@ -17,6 +17,8 @@ foreach($path in @($source,$parent,$batch,$debug,$release)){
 if(-not(Get-Command git -ErrorAction SilentlyContinue)){throw 'Git is required to verify the immutable original source and parent blobs'}
 $sourceBlob=(& git -C $root hash-object -- $source).Trim()
 if($LASTEXITCODE -ne 0 -or $sourceBlob -cne '7186d6dc03dc60032ca64e891ad4a6d5e50786db'){throw "Source Git blob mismatch: $sourceBlob"}
+$sourceSha=(Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash.ToLowerInvariant()
+if($sourceSha -cne '6fdf39e9d9f6b211d6b9ef69aa1eb725f9a53e058ab2621e68550dbd3943b4c5'){throw "Source file SHA-256 mismatch: $sourceSha"}
 $parentBlob=(& git -C $root hash-object -- $parent).Trim()
 if($LASTEXITCODE -ne 0 -or $parentBlob -cne '40e2d690078c62d6c80c40a550165672a2a1f997'){throw "Accepted immutable parent changed: $parentBlob"}
 if(Test-Path -LiteralPath $out){throw "Refusing existing output directory (including partials); preserve old evidence: $out"}
@@ -31,6 +33,9 @@ if($exit -ne 0){throw "Native canonical miner failed ($exit). Partial evidence p
 $manifestPath=Join-Path $out 'batch.fmbatch.json'
 if(-not(Test-Path -LiteralPath $manifestPath)){throw 'No semantic native batch manifest'}
 $m=Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+if($m.source_identity -cne '861f3393c8c0029a7d68d03ad8b495b5d3a678e877bb995b9defc08e8ccf5046' -or $m.parent_genome_identity -cne '7c671de28cad6136aeeadf1c2bc113608448536ea2f1b22ca49e8908d86f0ffa'){
+  throw 'Native WIC normalized-source or accepted parent canonical genome identity mismatch'
+}
 $results=@($m.candidates);$failures=@($m.failures)
 if($m.manifest_version -ne 1 -or $m.descriptor_version -ne 1 -or
   $m.mutation_policy_version -ne 1 -or $m.mutation_seed -cne '8a7c1940e6db2f53' -or
