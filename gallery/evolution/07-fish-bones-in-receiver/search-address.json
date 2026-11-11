@@ -1,0 +1,41 @@
+{
+  "record_version": 1,
+  "kind": "unexecuted-canonical-batch-candidate",
+  "artwork_id": "ART-EVOL-007",
+  "title": "Fish Bones in the Receiver",
+  "accepted_main": "827f03c3cb761336a3e3c91e822bb9f03b2a451f",
+  "accepted_parent_path": "examples/fm005-addressing-genome.json",
+  "parent_git_blob": "64b0756262db458e276861dad84edbd964571558",
+  "local_parent": "parent-genome.json",
+  "parent_genome_schema": 1,
+  "parent_engine_contract": 1,
+  "parent_root_seed": "0123456789abcdef",
+  "source_constructor": "make_source.py",
+  "source_dimensions": [
+    384,
+    256
+  ],
+  "source_bmp_sha256": "ca6883cd3fc73526abdcba96671acf83f130005ed2b17d2f87e48c35b693f6cc",
+  "canonical_source_rgba8_identity": "76352a4b6b859a3605568e8b3a9a7f09caeab66bda1418c290d075d54026e6af",
+  "batch": {
+    "mutation_policy": 1,
+    "seed": "7e41a9c3d2b8065f",
+    "radius": "high",
+    "begin": 0,
+    "count": 96,
+    "threads": 4,
+    "frame": 0,
+    "mode": "canonical",
+    "descriptor_version": 1,
+    "near_threshold_inclusive": 8192,
+    "requested_selections": 10,
+    "selected_full_resolution_stills": true,
+    "verified_resume_threads": 1
+  },
+  "actual_native_candidates_completed": 0,
+  "actual_canonical_specimen_identities": [],
+  "selected_artwork": null,
+  "native_run_status": "not_run_environment_missing_windows_runner",
+  "visual_status": "unfaulted_source_inspected_only",
+  "canonical_evidence_status": "pending_native_batch_and_visual_curation"
+}
