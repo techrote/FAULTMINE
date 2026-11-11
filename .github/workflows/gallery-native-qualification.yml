@@ -99,35 +99,90 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Packaging failed' }
           .\scripts\verify-package.ps1 -ArchivePath .\artifacts\FAULTMINE-1.0.0-win64.zip
           if ($LASTEXITCODE -ne 0) { throw 'Extracted portable qualification failed' }
-      - name: Temporal — all 32 exact canonical frames, shuffled replay, Debug equality
+      - name: Temporal — independent 32-frame CPU replay and cross-configuration proof
         id: temporal
         continue-on-error: true
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $false
           $root = $env:GITHUB_WORKSPACE
           $folder = Join-Path $root 'candidate-temporal\gallery\temporal\01-signal-mausoleum'
           $out = Join-Path $root 'evidence\temporal'
+          if (Test-Path -LiteralPath $out) { throw 'Temporal evidence destination must be new; no overwrites' }
+          New-Item -ItemType Directory -Force $out | Out-Null
           $release = Join-Path $root 'engine\build\Release\FAULTMINE-render.exe'
           $debug = Join-Path $root 'engine\build\Debug\FAULTMINE-render.exe'
-          & (Join-Path $folder 'render-sequence-win.ps1') -RendererPath $release -OutputDirectory $out
-          if ($LASTEXITCODE -ne 0) { throw 'Author frame driver failed' }
-          $audit = Get-Content (Join-Path $out 'native-cli-replay-audit.json') -Raw | ConvertFrom-Json
-          if (-not $audit.complete -or $audit.frames.Count -ne 32 -or
-              (@($audit.verified_out_of_order) -join ',') -cne '31,0,24,8,16') {
-            throw 'Author replay is incomplete'
+          $source = Join-Path $folder 'source.bmp'
+          $genome = Join-Path $folder 'genome.json'
+          $sourceId = '03502053b9d752dd2db92329108c2d1ed1c769e00db8a08f6ce7b9331992dc75'
+          if ((Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash.ToLowerInvariant() -cne
+              'cbb58573b44b78a7a162289ede71eb541689d078b795960d0504888e3a8090de' -or
+              (Get-FileHash -LiteralPath $genome -Algorithm SHA256).Hash.ToLowerInvariant() -cne
+              'ac6651f58f3ee3b40d3852c6fa9a1435e5de2e6341cd7f5f894306d52695462c') {
+            throw 'Submitted temporal inputs do not match author source/genome identities'
           }
-          foreach ($frame in @(31,0,24,8,16)) {
-            $png = Join-Path $out ('residual-carrier_{0:D6}.png' -f $frame)
-            $lines = @(& $debug --verify --frame "$frame" (Join-Path $folder 'source.bmp') (Join-Path $folder 'genome.json') $png)
+          $records = @()
+          for ($frame = 0; $frame -lt 32; $frame++) {
+            $filename = ('residual-carrier_{0:D6}.png' -f $frame)
+            $png = Join-Path $out $filename
+            $lines = @(& $release --frame "$frame" $source $genome $png)
             $exit = $LASTEXITCODE
             $global:LASTEXITCODE = 0
-            if ($exit -ne 0 -or $lines -cnotcontains 'verification=passed' -or
-                $lines -cnotcontains "output_identity=$($audit.frames[$frame].canonical_decoded_output_identity)") {
-              throw "Debug/Release canonical image mismatch for frame $frame"
+            $ids = @($lines | Where-Object { $_ -cmatch '^output_identity=[0-9a-f]{64}$' })
+            if ($exit -ne 0 -or -not (Test-Path -LiteralPath $png) -or
+                $lines -cnotcontains "frame=$frame" -or
+                $lines -cnotcontains "source_identity=$sourceId" -or $ids.Count -ne 1) {
+              throw "Native canonical render failed or identities missing at explicit frame $frame"
+            }
+            $records += [ordered]@{
+              frame = $frame
+              file = $filename
+              canonical_output_identity = $ids[0].Substring(16)
+              encoded_png_sha256 = (Get-FileHash -LiteralPath $png -Algorithm SHA256).Hash.ToLowerInvariant()
+            }
+            Write-Host "Native canonical frame $frame identity $($ids[0])"
+          }
+          if ($records[0].canonical_output_identity -ceq $records[31].canonical_output_identity) {
+            throw 'Expected temporal variation missing: first and last frames are identical'
+          }
+          foreach ($frame in @(31,0,24,8,16)) {
+            $r = $records[$frame]
+            $png = Join-Path $out $r.file
+            foreach ($exe in @($release,$debug)) {
+              $lines = @(& $exe --verify --frame "$frame" $source $genome $png)
+              $exit = $LASTEXITCODE
+              $global:LASTEXITCODE = 0
+              if ($exit -ne 0 -or $lines -cnotcontains 'verification=passed' -or
+                  $lines -cnotcontains "frame=$frame" -or
+                  $lines -cnotcontains "output_identity=$($r.canonical_output_identity)") {
+                throw "Canonical decoded RGBA8 cross-configuration replay mismatch frame=$frame"
+              }
+            }
+            if ((Get-FileHash -LiteralPath $png -Algorithm SHA256).Hash.ToLowerInvariant() -cne $r.encoded_png_sha256) {
+              throw "Read-only native replay modified temporal PNG at frame $frame"
             }
           }
-          Write-Host 'PASS: 32 native temporal frames; five nonchronological Release and Debug exact decoded replays.'
+          $audit = [ordered]@{
+            audit_version = 1
+            kind = 'integration-independent-native-cli-replay'
+            fm012_gui_manifest = $false
+            complete = $true
+            candidate_head_sha = '65f4048f87121a2d36bef38d78518a04598f52eb'
+            source_identity = $sourceId
+            genome_identity = 'ac6651f58f3ee3b40d3852c6fa9a1435e5de2e6341cd7f5f894306d52695462c'
+            root_seed = 'a1b2c3d4e5f60718'
+            frame_begin = 0
+            frame_end_exclusive = 32
+            semantic_rate = '12/1'
+            frames = $records
+            verified_release_and_debug_out_of_order = @(31,0,24,8,16)
+            gui_sequence_export_and_cancel_pending = $true
+            human_visual_acceptance_pending = $true
+          }
+          [IO.File]::WriteAllText((Join-Path $out 'integration-native-cli-audit.json'),
+            ($audit | ConvertTo-Json -Depth 8) + [char]10, [Text.UTF8Encoding]::new($false))
+          Write-Host 'PASS: real 32-frame temporal CPU outputs and ten exact decoded Release/Debug replays.'
       - name: Original — canonical still and read-only Debug/Release replay
         id: original
         continue-on-error: true
