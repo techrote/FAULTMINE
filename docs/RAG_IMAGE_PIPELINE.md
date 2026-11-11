@@ -62,6 +62,14 @@ Canonical still export writes PNG through WIC one row at a time. Canonical FAULT
 
 The semantic contract is the decoded canonical pixel result, not byte-for-byte PNG container identity. WIC encoder implementation details or metadata may change encoded PNG bytes without changing the canonical pixels. Tests therefore export and decode again through the RGBA normalization path and compare canonical pixels/identity.
 
+## Canonical CLI replay and gallery admission
+
+The portable `FAULTMINE-render.exe` supports the existing `<input-image> <genome.json> <output.png>` render operation plus `--frame N` for explicit unsigned-decimal semantic frames. The `--verify [--frame N] <input-image> <genome.json> <expected-image>` mode is read-only: it parses the same strict genome, decodes the supplied original source through WIC, renders the full-resolution CPU canonical output for the requested frame, decodes the expected image through the same WIC RGBA8 normalization, and compares exact dimensions, canonical stride and every RGBA8 byte.
+
+This is an acceptance helper for independent gallery assets and temporal frames. It does not trust filenames, PNG compression, thumbnails, proxies, screenshots or manifest-declared identities as proof of equality. Successful verification prints the normalized `source_identity`, canonical `output_identity`, explicit `frame` and `verification=passed`; the expected image is never written. Regular three-argument rendering retains its existing output contract.
+
+For non-zero temporal frames, replay uses the accepted `render_pipeline_at_frame` authoritative entry point, not wall-clock time, the preview rate or an approximate proxy. The CLI rejects negative/non-decimal/overflowing frame arguments with usage exit code 2. Existing failure codes 3–8 are retained; verification additionally uses 9 for unreadable expected images and 10 for canonical dimension/pixel mismatch. Native Debug/Release CI uses `scripts/test-render-verify.ps1` to establish read-only success, nonzero-frame operation, deliberately mismatched decoded pixels, unsupported genome rejection and malformed frame rejection. This helper is one objective gate; artistic judgement, source licensing, project/lineage provenance and independent visual evaluation remain separate acceptance requirements.
+
 ## Serial CPU pipeline
 
 The canonical pipeline is an ordered serial transform over `ImageBuffer` values.
