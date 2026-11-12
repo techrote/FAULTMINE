@@ -3,6 +3,9 @@
 import hashlib, json, struct, zlib
 from pathlib import Path
 
+if not __debug__:
+    raise SystemExit("Optimized Python (-O/-OO) disables artwork assertions; verification refused.")
+
 HERE = Path(__file__).resolve().parent
 SRC = "229cf7c953ce5650aec86df9a606b8fa338d4b210085c0d6d938ff6b932f5021"
 SID = "8afaccd3d00d080b330397f9ab78674832e67ec52c7e65464542d5214d181bc5"
@@ -76,6 +79,12 @@ def png_rgba(b):
     return rgba
 
 def main():
+    if sha((HERE/"artwork.json").read_bytes()) != "cf9cee83bc76fc05ea7613c451a119037713d06b7d958258f767cec9b5bfd7ba":
+        raise ValueError("Complete artwork manifest SHA-256 changed")
+    if sha((HERE/"spore-ledger.fmproj").read_bytes()) != "065615737bc1b59d25bfff03a0c55b99977957c7fe4232cd060a23efbe0717c5":
+        raise ValueError("Authored project bytes changed")
+    if sha((HERE/"canonical-evidence/native-replay-receipt.json").read_bytes()) != "e7b4335168d4a908d9e20bbc1abfeaad5470dbc42cc27f4522b3aeb0fe967d7c":
+        raise ValueError("Native replay receipt bytes changed")
     b=(HERE/"source.png").read_bytes()
     assert sha(b)==SRC, "source encoding changed"
     rgba=png_rgba(b)

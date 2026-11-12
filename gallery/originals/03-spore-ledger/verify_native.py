@@ -3,6 +3,9 @@
 import hashlib, json, struct, zlib
 from pathlib import Path
 
+if not __debug__:
+    raise SystemExit("Optimized Python (-O/-OO) disables native evidence assertions; verification refused.")
+
 ROOT=Path(__file__).resolve().parent
 SOURCE="8afaccd3d00d080b330397f9ab78674832e67ec52c7e65464542d5214d181bc5"
 GENOME="bd645afc85a5f8200a03b273ae2e6c1b5f975384cbe5152ebd9d8620eb206fec"
@@ -65,6 +68,10 @@ def validate(png,receipt,art):
 
 def main():
     proof=ROOT/"canonical-evidence"
+    if sha((ROOT/"artwork.json").read_bytes()) != "cf9cee83bc76fc05ea7613c451a119037713d06b7d958258f767cec9b5bfd7ba":
+        raise ValueError("Complete manifest SHA-256 changed")
+    if sha((proof/"native-replay-receipt.json").read_bytes()) != "e7b4335168d4a908d9e20bbc1abfeaad5470dbc42cc27f4522b3aeb0fe967d7c":
+        raise ValueError("Native receipt SHA-256 changed")
     png=(proof/"spore-ledger-canonical.png").read_bytes()
     receipt=json.loads((proof/"native-replay-receipt.json").read_text(encoding="utf-8"))
     art=json.loads((ROOT/"artwork.json").read_text(encoding="utf-8"))
