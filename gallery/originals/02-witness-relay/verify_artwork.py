@@ -111,16 +111,18 @@ def main():
     node=pr["lineage"]["specimens"][0]
     assert node["genome_identity"]==GID and node["source_identity"]==SID and node["genome"]==g
     assert node["derivation"]==dict(kind="manual-root",parents=[],policy_version=0,seed=None,descendant_index=None,radius=None)
-    assert sha((HERE/"artwork.json").read_bytes())=="09a0743debc70d3b947ba08a6cc4efb9d3d974674c82d4e62379eb860d5e7827", "original manifest bytes changed"
+    assert sha((HERE/"artwork.json").read_bytes())=="415faafe7d8a04cec05580c712851a61af84bc2c7b1a517b356e5a6eaec18907", "original manifest bytes changed"
     art=json.loads((HERE/"artwork.json").read_text(encoding="utf8"))
     assert art["source_encoding_sha256"]==SRC and art["source_identity"]==SID
     assert art["genome_identity"]==GID and art["root_seed"]==SEED and art["explicit_frame"]==0
-    assert art["native_render_status"]=="pending-supported-Windows-native-render"
-    assert art["canonical_output_identity"] is None and art["canonical_output_file"] is None
+    assert art["native_render_status"]=="verified-windows-native-cpu-release-debug"
+    assert art["canonical_output_identity"]=="34009717b2be5aec243ce405d608c5bda001933b8f898cedf4e153caf2ba728c" and art["canonical_output_file"]=="canonical-evidence/witness-relay-canonical.png"
+    assert art["canonical_png_encoding_sha256"]=="e132120a1515a8a70f5e504a6993788ff500ce8aa60f85d531c5eee0d9a1c67a" and art["native_receipt_file"]=="canonical-evidence/native-replay-receipt.json"
     print("PASS: 384x256 indexed source PNG CRC, decoded RGBA8 source identity, canonical genome, typed stack and project-v2 lineage")
     evidence=HERE/"canonical-evidence"
     receipt=evidence/"native-replay-receipt.json"
     canonical_png=evidence/"witness-relay-canonical.png"
+    assert receipt.is_file() and canonical_png.is_file(), "committed Windows native PNG and receipt are required"
     if receipt.is_file():
         assert sha(receipt.read_bytes())=="78a1a41e9ba73ecace073a7f8b2fbfb2b4e0a603b5598a17e0374e7d07ccc841", "Windows receipt changed"
         r=json.loads(receipt.read_text(encoding="utf-8"))

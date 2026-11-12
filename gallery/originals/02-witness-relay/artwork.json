@@ -20,8 +20,10 @@
   "project_version": 2,
   "root_seed": "a17e08c4d3ad1e02",
   "explicit_frame": 0,
-  "native_render_status": "pending-supported-Windows-native-render",
-  "canonical_output_identity": null,
-  "canonical_output_file": null,
-  "note": "source.png is authored source, not native canonical output. No CPU-rendered pixels or visual quality claim exists until FAULTMINE-render.exe runs on supported Windows and output is independently inspected."
+  "native_render_status": "verified-windows-native-cpu-release-debug",
+  "canonical_output_identity": "34009717b2be5aec243ce405d608c5bda001933b8f898cedf4e153caf2ba728c",
+  "canonical_output_file": "canonical-evidence/witness-relay-canonical.png",
+  "note": "Authentic frame-zero Windows CPU/WIC PNG and Debug/Release read-only replay receipt are committed. Physical Win32 GUI project/export/cancellation and owner artistic acceptance remain pending; the source PNG is not canonical output.",
+  "canonical_png_encoding_sha256": "e132120a1515a8a70f5e504a6993788ff500ce8aa60f85d531c5eee0d9a1c67a",
+  "native_receipt_file": "canonical-evidence/native-replay-receipt.json"
 }

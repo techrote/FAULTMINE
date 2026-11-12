@@ -17,7 +17,7 @@ try {
     Require-Sha $source 'b20301c86bbaf0bb1f886fce9fe4f70017286bc0f13b734e261d3a982f049435'
     Require-Sha $genome '58f440d271d56e81e94de2f395931de1774af8a92d64627dad9514a41722e313'
     Require-Sha $project '2a38f533e45e4169e9cf8bf2618c77fa683b58f8e58e2645639f32bf38aa66ee'
-    Require-Sha (Join-Path $art 'artwork.json') '09a0743debc70d3b947ba08a6cc4efb9d3d974674c82d4e62379eb860d5e7827'
+    Require-Sha (Join-Path $art 'artwork.json') '415faafe7d8a04cec05580c712851a61af84bc2c7b1a517b356e5a6eaec18907'
     Require-Sha $canonical 'e132120a1515a8a70f5e504a6993788ff500ce8aa60f85d531c5eee0d9a1c67a'
     Require-Sha $receipt '78a1a41e9ba73ecace073a7f8b2fbfb2b4e0a603b5598a17e0374e7d07ccc841'
     $p = Get-Content -LiteralPath $project -Raw | ConvertFrom-Json
