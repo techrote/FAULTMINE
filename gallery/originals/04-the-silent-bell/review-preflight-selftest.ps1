@@ -39,11 +39,31 @@ try {
     if (-not (Invoke-Probe)) { throw "Restored $name was rejected." }
     Write-Host "[PASS] Reject modified $name; pass after exact restoration."
   }
+  # Negative controls for the repaired native-pair selection. Empty placeholders
+  # cannot run the renderer; every rejection must happen before execution.
+  $release = Join-Path $tempRoot 'build\Release'
+  New-Item -ItemType Directory -Force -Path $release | Out-Null
+  [IO.File]::WriteAllBytes((Join-Path $tempRoot 'FAULTMINE-render.exe'), [byte[]]@(1))
+  [IO.File]::WriteAllBytes((Join-Path $release 'FAULTMINE.exe'), [byte[]]@(1))
+  & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File (Join-Path $probe 'review-preflight.ps1') -AllowHashOnly *> $null
+  if ($LASTEXITCODE -eq 0) { throw 'Mismatched root renderer and Release GUI were accepted.' }
+  Write-Host '[PASS] Cross-directory renderer/GUI mismatch is not accepted.'
+  [IO.File]::WriteAllBytes((Join-Path $tempRoot 'FAULTMINE.exe'), [byte[]]@(1))
+  & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File (Join-Path $probe 'review-preflight.ps1') -AllowHashOnly -NativeBinDirectory $release *> $null
+  if ($LASTEXITCODE -eq 0) { throw 'Explicit selection of incomplete Release pair was accepted.' }
+  Write-Host '[PASS] Explicit selected directory cannot borrow the root renderer.'
+  & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File (Join-Path $probe 'review-preflight.ps1') -AllowHashOnly -NativeBinDirectory (Join-Path $tempRoot 'elsewhere') *> $null
+  if ($LASTEXITCODE -eq 0) { throw 'Unsupported native path was accepted.' }
+  Write-Host '[PASS] Native path outside the supported portable/build layouts rejected.'
+  Remove-Item -LiteralPath (Join-Path $tempRoot 'FAULTMINE.exe') -Force
+  Remove-Item -LiteralPath (Join-Path $tempRoot 'FAULTMINE-render.exe') -Force
+  Remove-Item -LiteralPath $release -Recurse -Force
+
   # A portable project can be intact but referenced source missing at launch.
   Remove-Item -LiteralPath (Join-Path $probe 'source.png') -Force
   if (Invoke-Probe) { throw 'Missing portable source was accepted.' }
   Write-Host '[PASS] Missing project-bound source rejected.'
-  Write-Host '[PASS] Native-required rejection, 6 tamper cases, 6 restores and one missing-input case.'
+  Write-Host '[PASS] Native-required rejection, 6 tamper cases, 6 restores, 3 native-pair/path rejects and missing source.'
   Write-Host '[NOTE] Test uses the hash-only temporary copy; native CLI replay and physical GUI require independent Windows qualification.'
   exit 0
 } finally {
