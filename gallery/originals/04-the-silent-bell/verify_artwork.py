@@ -2,11 +2,17 @@
 """Independent read-only ART-ORIG-004 input/provenance audit. Never renders canonical faults."""
 import argparse, hashlib, json, struct, zlib
 from pathlib import Path
+# Assertion checks enforce every frozen byte/pixel/provenance invariant below.
+# Optimized Python removes those checks; never print a false PASS.
+if not __debug__:
+    raise SystemExit("STOP: optimized Python disables verifier assertions; rerun without -O/-OO")
 D=Path(__file__).resolve().parent
 S='be6f9c19e0b24544e1fc8883f55a041e06fd309c52bea5771c0bbff8b730da04'
 SI='275bc5c264376ac81442ca3d5b399cff01b33449c21906be2dc140fe8085e747'
 G='dc0340692b48259ed77fbf751ed692360c0345945bbb3b50f975ec0c3d8bde61'
 SEED='9f6b31ca0d42e857'
+MANIFEST_SHA='61e438b87aab18d48046c04df1fa6af565d4f4a8fdf66dd3b9a7ed72fe347760'
+RECEIPT_SHA='b1e1659ea62eaefe77db686856cdd33864f67acc2cbcf421b9646b89a8630a5c'
 P='gallery/originals/04-the-silent-bell/source.png'
 def sha(b):return hashlib.sha256(b).hexdigest()
 def strict(pairs):
@@ -108,7 +114,9 @@ def decode_native_rgba(raw):
 
 def audit_native_evidence(manifest, supplied_path):
     path=D/'native-replay-receipt.json'
-    receipt=json.loads(path.read_bytes(),object_pairs_hook=strict)
+    receipt_bytes=path.read_bytes()
+    assert sha(receipt_bytes)==RECEIPT_SHA,'Native replay receipt bytes changed'
+    receipt=json.loads(receipt_bytes,object_pairs_hook=strict)
     expected={'audit_version':1,'kind':'author-cli-replay-not-FM012','engine_contract_version':1,
               'source_identity':SI,'genome_identity':G,'root_seed':SEED,'frame':0,
               'output_identity':'d1778bc3d688e5fa5694485954c268cce88c54cc033a6933d3edf2311cf35b8e',
@@ -149,7 +157,8 @@ def main():
     ln=pr['lineage'];assert ln['active_genome_identity']==G and len(ln['specimens'])==1
     one=ln['specimens'][0];assert (one['genome_identity'],one['source_identity'],one['genome'])==(G,SI,genome)
     assert one['derivation']=={'kind':'manual-root','parents':[],'policy_version':0,'seed':None,'descendant_index':None,'radius':None}
-    manifest,_=compact('artwork.json')
+    manifest,manifest_bytes=compact('artwork.json')
+    assert sha(manifest_bytes)==MANIFEST_SHA,'Authored manifest bytes changed'
     assert (manifest['source_encoding_sha256'],manifest['source_identity'],manifest['genome_identity'],manifest['root_seed'],manifest['explicit_frame'])==(S,SI,G,SEED,0)
     cli=argparse.ArgumentParser(description='Read-only FAULTMINE original 04 audit')
     cli.add_argument('--canonical',type=Path,help='Extracted Windows-native canonical PNG, unchanged')
