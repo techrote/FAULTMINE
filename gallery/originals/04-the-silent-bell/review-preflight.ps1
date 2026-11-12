@@ -1,7 +1,7 @@
 # ART-ORIG-004 read-only Windows preflight. No files are rewritten.
 # -AllowHashOnly is reserved for the disposable regression test; review requires native replay.
 [CmdletBinding()]
-param([switch]$AllowHashOnly)
+param([switch]$AllowHashOnly, [string]$NativeBinDirectory)
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 $art = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -43,19 +43,47 @@ try {
   Write-Host '[PASS] Original source, genome, project, native PNG, receipt and manifest: 6/6 SHA256 matches.'
   Write-Host '[PASS] Portable v2 project source path resolves from the application root.'
 
-  $renderers = @(
-    (Join-Path $root 'FAULTMINE-render.exe'),
-    (Join-Path $root 'build\Release\FAULTMINE-render.exe'),
-    (Join-Path $root 'build\Debug\FAULTMINE-render.exe')
+  # Require a GUI/renderer pair from one directory; never replay with one build and
+  # subsequently open another. The launcher passes the exact directory it selected.
+  $validDirs = @(
+    $root,
+    (Join-Path $root 'build\Release'),
+    (Join-Path $root 'build\Debug')
   )
-  $renderer = $renderers | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } | Select-Object -First 1
-  if ($null -eq $renderer) {
-    if ($AllowHashOnly) {
+  $chosenDir = $null
+  if (-not [string]::IsNullOrWhiteSpace($NativeBinDirectory)) {
+    $candidateDir = [IO.Path]::GetFullPath($NativeBinDirectory)
+    foreach ($dir in $validDirs) {
+      if ([string]::Equals($candidateDir.TrimEnd('\'), ([IO.Path]::GetFullPath($dir)).TrimEnd('\'),
+          [StringComparison]::OrdinalIgnoreCase)) {
+        $chosenDir = $candidateDir
+        break
+      }
+    }
+    if ($null -eq $chosenDir) { throw 'Selected native binary directory is outside supported portable/build layouts.' }
+  } else {
+    foreach ($dir in $validDirs) {
+      if ((Test-Path -LiteralPath (Join-Path $dir 'FAULTMINE.exe') -PathType Leaf) -and
+          (Test-Path -LiteralPath (Join-Path $dir 'FAULTMINE-render.exe') -PathType Leaf)) {
+        $chosenDir = $dir
+        break
+      }
+    }
+  }
+  if ($null -eq $chosenDir) {
+    if ($AllowHashOnly -and [string]::IsNullOrWhiteSpace($NativeBinDirectory)) {
       Write-Host '[NOTE] Disposable regression only: hash checks passed; native CPU replay deliberately skipped.'
       exit 0
     }
-    throw 'Missing FAULTMINE-render.exe: restore the complete portable Windows package or build the renderer before review.'
+    throw 'Missing matching FAULTMINE.exe and FAULTMINE-render.exe pair; restore a complete native build.'
   }
+  $gui = Join-Path $chosenDir 'FAULTMINE.exe'
+  $renderer = Join-Path $chosenDir 'FAULTMINE-render.exe'
+  if (-not ((Test-Path -LiteralPath $gui -PathType Leaf) -and
+             (Test-Path -LiteralPath $renderer -PathType Leaf))) {
+    throw 'Selected native directory lacks a matching GUI/renderer pair.'
+  }
+  Write-Host "[PASS] Matching GUI/renderer native pair: $chosenDir"
   $sourceIdentity = '275bc5c264376ac81442ca3d5b399cff01b33449c21906be2dc140fe8085e747'
   $outputIdentity = 'd1778bc3d688e5fa5694485954c268cce88c54cc033a6933d3edf2311cf35b8e'
   $lines = @(& $renderer --verify --frame 0 (Join-Path $art 'source.png') (Join-Path $art 'genome.json') (Join-Path $art 'silent-bell-canonical.png') 2>&1 | ForEach-Object { "$_" })
