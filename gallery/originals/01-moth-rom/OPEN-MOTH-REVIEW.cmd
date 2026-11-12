@@ -10,11 +10,14 @@ if errorlevel 1 (
   pause
   exit /b 1
 )
-set "GUI=%ROOT%\FAULTMINE.exe"
-if not exist "%GUI%" set "GUI=%ROOT%\build\Release\FAULTMINE.exe"
-if not exist "%GUI%" set "GUI=%ROOT%\build\Debug\FAULTMINE.exe"
-if not exist "%GUI%" (
-  echo FAIL: Native preflight passed but GUI executable disappeared.
+rem Mirror review-preflight.ps1's root / Release / Debug selection exactly.
+rem Never open a root-only GUI while the CPU replay used a different build.
+set "GUI="
+if exist "%ROOT%\FAULTMINE.exe" if exist "%ROOT%\FAULTMINE-render.exe" set "GUI=%ROOT%\FAULTMINE.exe"
+if not defined GUI if exist "%ROOT%\build\Release\FAULTMINE.exe" if exist "%ROOT%\build\Release\FAULTMINE-render.exe" set "GUI=%ROOT%\build\Release\FAULTMINE.exe"
+if not defined GUI if exist "%ROOT%\build\Debug\FAULTMINE.exe" if exist "%ROOT%\build\Debug\FAULTMINE-render.exe" set "GUI=%ROOT%\build\Debug\FAULTMINE.exe"
+if not defined GUI (
+  echo FAIL: Matching native GUI/renderer pair vanished after preflight.
   pause
   exit /b 1
 )
