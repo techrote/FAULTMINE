@@ -1,0 +1,84 @@
+name: Evolutionary Quarry 02 — native canonical run
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'gallery/evolution/02-estuary-moraine/**'
+      - '.github/workflows/gallery-evolution-02.yml'
+permissions:
+  contents: read
+jobs:
+  native-estuary:
+    runs-on: windows-latest
+    timeout-minutes: 50
+    steps:
+      - name: Preserve exact LF source identities
+        shell: pwsh
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Author source and standalone validator checks
+        shell: pwsh
+        run: |
+          node gallery/evolution/02-estuary-moraine/make-source.mjs --verify
+          if ($LASTEXITCODE -ne 0) { throw 'Authored source differs from committed BMP' }
+          python -m py_compile gallery/evolution/02-estuary-moraine/verify_native.py
+          if ($LASTEXITCODE -ne 0) { throw 'Independent verifier does not compile' }
+      - name: Configure and run Debug and Release regression suites
+        shell: pwsh
+        run: |
+          .\scripts\configure.ps1
+          if ($LASTEXITCODE -ne 0) { throw 'Configuration failed' }
+          .\scripts\build.ps1 -Configuration Debug
+          if ($LASTEXITCODE -ne 0) { throw 'Debug build failed' }
+          .\scripts\test.ps1 -Configuration Debug
+          if ($LASTEXITCODE -ne 0) { throw 'Debug tests failed' }
+          .\scripts\build.ps1 -Configuration Release
+          if ($LASTEXITCODE -ne 0) { throw 'Release build failed' }
+          .\scripts\test.ps1 -Configuration Release
+          if ($LASTEXITCODE -ne 0) { throw 'Release tests failed' }
+      - name: Mine 256 real Windows CPU canonical candidates and check complete provenance
+        shell: pwsh
+        run: |
+          $out = Join-Path $env:GITHUB_WORKSPACE 'evidence/estuary-moraine'
+          .\gallery\evolution\02-estuary-moraine\mine.ps1 -BinaryPath (Join-Path $env:GITHUB_WORKSPACE 'build/Release/FAULTMINE-batch.exe') -OutDir $out -Threads 4
+          if ($LASTEXITCODE -ne 0) { throw 'Native canonical batch failed' }
+          python gallery/evolution/02-estuary-moraine/verify_native.py $out --all | Tee-Object -FilePath (Join-Path $out 'independent-audit.json')
+          if ($LASTEXITCODE -ne 0) { throw 'Independent decoded RGBA8 audit failed' }
+          $before = (Get-FileHash -LiteralPath (Join-Path $out 'batch.fmbatch.json') -Algorithm SHA256).Hash
+          .\gallery\evolution\02-estuary-moraine\mine.ps1 -BinaryPath (Join-Path $env:GITHUB_WORKSPACE 'build/Release/FAULTMINE-batch.exe') -OutDir $out -Threads 1 -Resume
+          if ($LASTEXITCODE -ne 0) { throw 'Alternate-thread native resume failed' }
+          $after = (Get-FileHash -LiteralPath (Join-Path $out 'batch.fmbatch.json') -Algorithm SHA256).Hash
+          if ($before -cne $after) { throw 'Native semantic manifest changed under resume/threads=1' }
+          $m = Get-Content (Join-Path $out 'batch.fmbatch.json') -Raw | ConvertFrom-Json
+          $s = @($m.candidates | Where-Object selected)
+          foreach ($candidate in $s) {
+            $index = [long]$candidate.descendant_index
+            $tmpGenome = Join-Path $out ('replay-{0:D20}.json' -f $index)
+            [IO.File]::WriteAllText($tmpGenome,$candidate.canonical_genome,[Text.UTF8Encoding]::new($false))
+            $png = Join-Path $out ('selected/candidate_{0:D20}.png' -f $index)
+            foreach ($config in @('Release','Debug')) {
+              $exe = Join-Path $env:GITHUB_WORKSPACE "build/$config/FAULTMINE-render.exe"
+              $check = @(& $exe --verify --frame 0 'gallery/evolution/02-estuary-moraine/source.bmp' $tmpGenome $png)
+              if ($LASTEXITCODE -ne 0 -or $check -cnotcontains 'verification=passed' -or
+                  $check -cnotcontains "output_identity=$($candidate.pixel_identity)") {
+                throw "Native $config read-only replay mismatch at index $index"
+              }
+            }
+          }
+          Write-Host "PASS: 256 canonical full-resolution candidates; all selected stills independently replayed with both builds; byte-exact resume."
+      - name: Upload actual native outputs even when a gate fails
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FAULTMINE-estuary-moraine-native-evidence
+          path: evidence/
+          if-no-files-found: warn
+          retention-days: 30

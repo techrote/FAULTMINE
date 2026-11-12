@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "kind": "curatorial-native-qualification",
+  "status": "native-batch-qualified-artistic-acceptance-pending",
+  "workflow_run_url": "https://github.com/techrote/FAULTMINE/actions/runs/42948340940",
+  "workflow_artifact_id": 13823499050,
+  "source_git_blob": "6696a6f2ff112fef59bb79190da983c319302088",
+  "source_rgba_identity": "514c5df462ea80cec207e13bdaf7bc1b0f1ed5850ce1ffa21eea5da3629381e3",
+  "parent_genome_identity": "991658b21de1a8336b9284e82b9fe5233e8e0267fdb74498fca3a1563914a55e",
+  "mutation_seed": "e2a7f04c6bd59183",
+  "radius": "high",
+  "frame": 0,
+  "render_mode": "canonical",
+  "near_threshold": 8192,
+  "requested": 256,
+  "completed": 256,
+  "failed": 0,
+  "unique_genomes": 256,
+  "unique_pixel_outputs": 230,
+  "near_groups": 139,
+  "selected_count": 12,
+  "curated_index": 128,
+  "candidate_identity": "e4732e540f64e1f8637c15cc5472e59142810cafbf145de67234977fb40c6db3",
+  "genome_identity": "eb90c23ad17b012b040cb9d3b5972b460c27768d3924aaef1e3bffa0c0bbe559",
+  "output_identity": "f033af4ec06ada69b3c85c23e8f8450dbfe57822af34db060439f918d18569d3",
+  "native_dimensions": [
+    384,
+    240
+  ],
+  "native_images_inspected": true,
+  "alternative_thread_resume_semantic_manifest_equal": true,
+  "independent_pngs_verified": 268,
+  "release_debug_replays_in_first_run": [
+    0,
+    1,
+    7
+  ],
+  "png_in_branch": false,
+  "human_aesthetic_accepted": false
+}
