@@ -1,0 +1,14 @@
+{
+  "audit_version": 1,
+  "kind": "author-cli-replay-not-FM012",
+  "source_identity": "8afaccd3d00d080b330397f9ab78674832e67ec52c7e65464542d5214d181bc5",
+  "genome_identity": "bd645afc85a5f8200a03b273ae2e6c1b5f975384cbe5152ebd9d8620eb206fec",
+  "root_seed": "c6e15af039bd2471",
+  "frame": 0,
+  "engine_contract_version": 1,
+  "output_identity": "8cf910493a00d66eb57970e23d3fc374fa9f581707546038692de2699eb0ed23",
+  "encoded_png_sha256": "a6fec5a377f00c2b0517f1f1c9411c94817a6abc11500fafee14563798f08959",
+  "release_verify": "passed",
+  "debug_verify": "passed",
+  "output_file": "spore-ledger-canonical.png"
+}
