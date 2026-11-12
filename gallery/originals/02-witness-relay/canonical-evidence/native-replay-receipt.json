@@ -1,0 +1,14 @@
+{
+  "audit_version": 1,
+  "kind": "author-cli-replay-not-FM012",
+  "source_identity": "05ec476c708b7b569ce4c192b1d32d5270d5fb057619c238dc3d46c40a713b69",
+  "genome_identity": "58f440d271d56e81e94de2f395931de1774af8a92d64627dad9514a41722e313",
+  "root_seed": "a17e08c4d3ad1e02",
+  "frame": 0,
+  "engine_contract_version": 1,
+  "output_identity": "34009717b2be5aec243ce405d608c5bda001933b8f898cedf4e153caf2ba728c",
+  "encoded_png_sha256": "e132120a1515a8a70f5e504a6993788ff500ce8aa60f85d531c5eee0d9a1c67a",
+  "release_verify": "passed",
+  "debug_verify": "passed",
+  "output_file": "witness-relay-canonical.png"
+}
