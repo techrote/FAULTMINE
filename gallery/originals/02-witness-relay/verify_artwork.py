@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Read-only source/genome/project verifier. Does not claim a native render."""
-import hashlib, json, struct, zlib
+import hashlib, json, struct, zlib, sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -76,6 +76,8 @@ def png_rgba(b):
     return rgba
 
 def main():
+    if sys.flags.optimize:
+        raise SystemExit('STOP: optimized Python disables assertion checks; run without -O/-OO')
     b=(HERE/"source.png").read_bytes()
     assert sha(b)==SRC, "source encoding changed"
     rgba=png_rgba(b)
@@ -109,12 +111,26 @@ def main():
     node=pr["lineage"]["specimens"][0]
     assert node["genome_identity"]==GID and node["source_identity"]==SID and node["genome"]==g
     assert node["derivation"]==dict(kind="manual-root",parents=[],policy_version=0,seed=None,descendant_index=None,radius=None)
+    assert sha((HERE/"artwork.json").read_bytes())=="09a0743debc70d3b947ba08a6cc4efb9d3d974674c82d4e62379eb860d5e7827", "original manifest bytes changed"
     art=json.loads((HERE/"artwork.json").read_text(encoding="utf8"))
     assert art["source_encoding_sha256"]==SRC and art["source_identity"]==SID
     assert art["genome_identity"]==GID and art["root_seed"]==SEED and art["explicit_frame"]==0
     assert art["native_render_status"]=="pending-supported-Windows-native-render"
     assert art["canonical_output_identity"] is None and art["canonical_output_file"] is None
     print("PASS: 384x256 indexed source PNG CRC, decoded RGBA8 source identity, canonical genome, typed stack and project-v2 lineage")
-    print("PENDING: real Windows CPU canonical output, read-only replay, GUI/FM-012 export and visual acceptance")
+    evidence=HERE/"canonical-evidence"
+    receipt=evidence/"native-replay-receipt.json"
+    canonical_png=evidence/"witness-relay-canonical.png"
+    if receipt.is_file():
+        assert sha(receipt.read_bytes())=="78a1a41e9ba73ecace073a7f8b2fbfb2b4e0a603b5598a17e0374e7d07ccc841", "Windows receipt changed"
+        r=json.loads(receipt.read_text(encoding="utf-8"))
+        assert (r["frame"],r["root_seed"],r["source_identity"],r["genome_identity"],r["output_identity"],r["encoded_png_sha256"],r["release_verify"],r["debug_verify"]) == (0,SEED,SID,GID,"34009717b2be5aec243ce405d608c5bda001933b8f898cedf4e153caf2ba728c","e132120a1515a8a70f5e504a6993788ff500ce8aa60f85d531c5eee0d9a1c67a","passed","passed"), "archived native evidence differs"
+        if canonical_png.is_file():
+            assert sha(canonical_png.read_bytes())=="e132120a1515a8a70f5e504a6993788ff500ce8aa60f85d531c5eee0d9a1c67a", "archived native PNG changed"
+            print("PASS: byte-exact archived Windows canonical PNG/receipt; physical GUI/FM-012 and aesthetic acceptance still pending")
+        else:
+            print("PENDING: native PNG not in author branch; use the full owner review ZIP for actual pixel verification")
+    else:
+        print("PENDING: native evidence absent; Windows and GUI/artistic verification needed")
 
 if __name__=="__main__": main()
