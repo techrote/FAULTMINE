@@ -1,4 +1,7 @@
 # ART-ORIG-005 portable read-only Windows preflight. No authored file is rewritten.
+# NativeBinDirectory is the exact executable directory selected by the launcher.
+[CmdletBinding()]
+param([string]$NativeBinDirectory)
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 $art = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -35,12 +38,24 @@ try {
     throw 'The canonical output record differs from the native Windows proof.'
   }
   Write-Host '[PASS] Six original SHA-256 identities and portable project source path.'
-  $renderers = @(
-    (Join-Path $root 'FAULTMINE-render.exe'),
-    (Join-Path $root 'build\Release\FAULTMINE-render.exe'),
-    (Join-Path $root 'build\Debug\FAULTMINE-render.exe')
-  )
-  $renderer = $renderers | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } | Select-Object -First 1
+  $nativeDir = $null
+  foreach ($candidate in @($root, (Join-Path $root 'build\Release'), (Join-Path $root 'build\Debug'))) {
+    if ((Test-Path -LiteralPath (Join-Path $candidate 'FAULTMINE.exe') -PathType Leaf) -and
+        (Test-Path -LiteralPath (Join-Path $candidate 'FAULTMINE-render.exe') -PathType Leaf)) {
+      $nativeDir = $candidate
+      break
+    }
+  }
+  if ($null -eq $nativeDir) {
+    throw 'No matching native GUI and renderer in the same build directory.'
+  }
+  if (-not [string]::IsNullOrWhiteSpace($NativeBinDirectory) -and
+      -not [string]::Equals([IO.Path]::GetFullPath($NativeBinDirectory),
+                            [IO.Path]::GetFullPath($nativeDir),
+                            [StringComparison]::OrdinalIgnoreCase)) {
+    throw 'Launcher-selected GUI directory differs from native replay directory.'
+  }
+  $renderer = Join-Path $nativeDir 'FAULTMINE-render.exe'
   if ($null -ne $renderer) {
     $lines = @(& $renderer --verify --frame 0 (Join-Path $art 'source.png') (Join-Path $art 'genome.json') (Join-Path $art 'unclaimed-gesture-canonical.png') 2>&1 | ForEach-Object { "$_" })
     $exitCode = $LASTEXITCODE
@@ -51,8 +66,6 @@ try {
       throw "Read-only native canonical replay failed ($exitCode): $($lines -join '; ')"
     }
     Write-Host '[PASS] Windows CPU canonical frame-0 read-only replay.'
-  } else {
-    throw 'Missing FAULTMINE-render.exe: cannot qualify this portable review without native CPU replay. Restore the complete Windows package or build the renderer first.'
   }
   exit 0
 } catch {

@@ -3,28 +3,28 @@ setlocal DisableDelayedExpansion
 set "ART=%~dp0"
 for %%I in ("%ART%..\..\..") do set "ROOT=%%~fI"
 
-rem Verify immutable authored evidence before showing any artwork or launching a GUI.
-powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "%ART%review-preflight.ps1"
+rem Require a GUI and renderer from the same build; never qualify with one and open the other.
+set "BIN="
+if exist "%ROOT%\FAULTMINE.exe" if exist "%ROOT%\FAULTMINE-render.exe" set "BIN=%ROOT%"
+if not defined BIN if exist "%ROOT%\build\Release\FAULTMINE.exe" if exist "%ROOT%\build\Release\FAULTMINE-render.exe" set "BIN=%ROOT%\build\Release"
+if not defined BIN if exist "%ROOT%\build\Debug\FAULTMINE.exe" if exist "%ROOT%\build\Debug\FAULTMINE-render.exe" set "BIN=%ROOT%\build\Debug"
+if not defined BIN (
+  echo [STOP] No matching GUI/renderer pair. Restore a complete native Windows build.
+  pause
+  exit /b 1
+)
+rem Replay must use the exact binary directory chosen for the GUI; this also rejects races.
+powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "%ART%review-preflight.ps1" -NativeBinDirectory "%BIN%"
 if errorlevel 1 (
   echo.
   echo [STOP] Original 05 review integrity or native replay failed.
   pause
   exit /b 1
 )
-rem Do not present this as a runnable native review if the GUI executable is absent.
-set "APP="
-if exist "%ROOT%\FAULTMINE.exe" set "APP=%ROOT%\FAULTMINE.exe"
-if not defined APP if exist "%ROOT%\build\Release\FAULTMINE.exe" set "APP=%ROOT%\build\Release\FAULTMINE.exe"
-if not defined APP if exist "%ROOT%\build\Debug\FAULTMINE.exe" set "APP=%ROOT%\build\Debug\FAULTMINE.exe"
-if not defined APP (
-  echo [STOP] Native FAULTMINE.exe is missing. Restore the complete Windows package or build the GUI first.
-  pause
-  exit /b 1
-)
 echo [INFO] Opening original source and authentic Windows CPU canonical pixels.
 start "" "%ART%source.png"
 start "" "%ART%unclaimed-gesture-canonical.png"
-start "" /D "%ROOT%" "%APP%"
+start "" /D "%ROOT%" "%BIN%\FAULTMINE.exe"
 echo.
 echo ART-ORIG-005: The Unclaimed Gesture. DRAFT, not admitted.
 echo In FAULTMINE press Ctrl+Shift+O; load:
