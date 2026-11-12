@@ -15,7 +15,7 @@ function Assert-GitBlob {
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "Missing authored file: $Name" }
     [byte[]]$data = [IO.File]::ReadAllBytes($path)
     if ($NormalizeText) {
-        $utf8 = New-Object System.Text.UTF8Encoding($false, $true)
+        $utf8 = [Text.UTF8Encoding]::new($false, $true)
         $value = $utf8.GetString($data)
         $cr = [string][char]13
         $nl = [string][char]10
@@ -25,7 +25,7 @@ function Assert-GitBlob {
         $data = $utf8.GetBytes($value.Replace(($cr + $nl), $nl))
     }
     $prefix = [Text.Encoding]::ASCII.GetBytes(('blob ' + $data.Length + [char]0))
-    [byte[]]$joined = New-Object byte[] ($prefix.Length + $data.Length)
+    [byte[]]$joined = [byte[]]::new($prefix.Length + $data.Length)
     [Array]::Copy($prefix, 0, $joined, 0, $prefix.Length)
     [Array]::Copy($data, 0, $joined, $prefix.Length, $data.Length)
     $sha1 = [Security.Cryptography.SHA1]::Create()
