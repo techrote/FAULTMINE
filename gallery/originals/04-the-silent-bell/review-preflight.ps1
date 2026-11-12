@@ -71,8 +71,18 @@ try {
     }
   }
   if ($null -eq $chosenDir) {
-    if ($AllowHashOnly -and [string]::IsNullOrWhiteSpace($NativeBinDirectory)) {
-      Write-Host '[NOTE] Disposable regression only: hash checks passed; native CPU replay deliberately skipped.'
+    # Hash-only mode is strictly for an asset-only disposable test copy.
+    # A partial/mismatched installation must not be accepted as hash-only.
+    $hasAnyNative = $false
+    foreach ($dir in $validDirs) {
+      if ((Test-Path -LiteralPath (Join-Path $dir 'FAULTMINE.exe') -PathType Leaf) -or
+          (Test-Path -LiteralPath (Join-Path $dir 'FAULTMINE-render.exe') -PathType Leaf)) {
+        $hasAnyNative = $true
+        break
+      }
+    }
+    if ($AllowHashOnly -and [string]::IsNullOrWhiteSpace($NativeBinDirectory) -and -not $hasAnyNative) {
+      Write-Host '[NOTE] Disposable asset-only regression: native CPU replay deliberately skipped.'
       exit 0
     }
     throw 'Missing matching FAULTMINE.exe and FAULTMINE-render.exe pair; restore a complete native build.'
