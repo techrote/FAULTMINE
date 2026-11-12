@@ -34,10 +34,18 @@ try {
         $r.root_seed -cne 'c6e15af039bd2471' -or
         $r.output_identity -cne '8cf910493a00d66eb57970e23d3fc374fa9f581707546038692de2699eb0ed23' -or
         $r.release_verify -cne 'passed' -or $r.debug_verify -cne 'passed') { throw 'Archived Windows replay receipt is inconsistent.' }
-    $renderer = @((Join-Path $root 'FAULTMINE-render.exe'),(Join-Path $root 'build\Release\FAULTMINE-render.exe'),(Join-Path $root 'build\Debug\FAULTMINE-render.exe')) | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } | Select-Object -First 1
-    $gui = @((Join-Path $root 'FAULTMINE.exe'),(Join-Path $root 'build\Release\FAULTMINE.exe'),(Join-Path $root 'build\Debug\FAULTMINE.exe')) | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } | Select-Object -First 1
-    if (-not $renderer) { throw 'Native FAULTMINE-render.exe is missing. Hash-only proof is insufficient.' }
-    if (-not $gui) { throw 'Native FAULTMINE.exe is missing; cannot deliver owner GUI review.' }
+    # Never pair a renderer from one build with a GUI from another.
+    $bin = $null
+    foreach ($candidate in @($root, (Join-Path $root 'build\Release'), (Join-Path $root 'build\Debug'))) {
+        if ((Test-Path -LiteralPath (Join-Path $candidate 'FAULTMINE-render.exe') -PathType Leaf) -and
+            (Test-Path -LiteralPath (Join-Path $candidate 'FAULTMINE.exe') -PathType Leaf)) {
+            $bin = $candidate
+            break
+        }
+    }
+    if (-not $bin) { throw 'Native FAULTMINE.exe and FAULTMINE-render.exe must coexist in the portable root or the same build configuration.' }
+    $renderer = Join-Path $bin 'FAULTMINE-render.exe'
+    $gui = Join-Path $bin 'FAULTMINE.exe'
     $originalHash = (Get-FileHash -LiteralPath $canonical -Algorithm SHA256).Hash.ToLowerInvariant()
     $lines = @(& $renderer --verify --frame 0 $source $genome $canonical 2>&1 | ForEach-Object { "$_" })
     $exitCode = $LASTEXITCODE

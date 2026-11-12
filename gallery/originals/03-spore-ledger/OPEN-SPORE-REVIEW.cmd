@@ -13,8 +13,13 @@ if errorlevel 1 (
   pause
   exit /b 1
 )
-if not exist "%ROOT%\FAULTMINE.exe" (
-  echo [STOP] No portable FAULTMINE.exe alongside gallery root.
+rem Choose the same paired-native build as the PowerShell preflight.
+set "BIN="
+if exist "%ROOT%\FAULTMINE.exe" if exist "%ROOT%\FAULTMINE-render.exe" set "BIN=%ROOT%"
+if not defined BIN if exist "%ROOT%\build\Release\FAULTMINE.exe" if exist "%ROOT%\build\Release\FAULTMINE-render.exe" set "BIN=%ROOT%\build\Release"
+if not defined BIN if exist "%ROOT%\build\Debug\FAULTMINE.exe" if exist "%ROOT%\build\Debug\FAULTMINE-render.exe" set "BIN=%ROOT%\build\Debug"
+if not defined BIN (
+  echo [STOP] No matching FAULTMINE.exe and FAULTMINE-render.exe pair in a single native build.
   pause
   exit /b 1
 )
@@ -23,7 +28,7 @@ echo Opening genuine archived canonical still and FAULTMINE GUI.
 echo Once open: Ctrl+Shift+O and choose gallery\originals\03-spore-ledger\spore-ledger.fmproj.
 echo Compare to archived still. Test Ctrl+E export, cancellation, and decide ADMIT/REVISE/REJECT.
 start "" "%ART%canonical-evidence\spore-ledger-canonical.png"
-start "" /D "%ROOT%" "%ROOT%\FAULTMINE.exe"
+start "" /D "%BIN%" "%BIN%\FAULTMINE.exe"
 if errorlevel 1 (
   echo [STOP] Windows reported a launch error. Physical GUI acceptance is not established.
   pause
