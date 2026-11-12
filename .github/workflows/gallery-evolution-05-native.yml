@@ -1,0 +1,71 @@
+name: Evolution 05 — Shearwing native canonical quarry
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'gallery/evolution/05-shearwing-telemetry/**'
+      - '.github/workflows/gallery-evolution-05-native.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native-shearwing:
+    runs-on: windows-latest
+    timeout-minutes: 55
+    steps:
+      - name: Preserve LF-only canonical genome bytes
+        shell: pwsh
+        run: git config --global core.autocrlf false
+      - name: Checkout exact author head, not GitHub synthetic merge tree
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Validate deterministic original source and immutable accepted parent
+        shell: pwsh
+        run: |
+          python gallery/evolution/05-shearwing-telemetry/make_source.py --verify
+          if ($LASTEXITCODE -ne 0) { throw 'Original BMP generator verification failed' }
+          New-Item -ItemType Directory -Force evidence | Out-Null
+          Copy-Item gallery/evolution/05-shearwing-telemetry/source.bmp evidence/source.bmp
+          $head=(& git rev-parse HEAD).Trim()
+          $head | Out-File evidence/author-head.txt -Encoding ascii
+      - name: Native MSVC Debug and Release, strict deterministic suites
+        shell: pwsh
+        run: |
+          .\scripts\configure.ps1
+          if ($LASTEXITCODE -ne 0) { throw 'Configure failed' }
+          foreach($cfg in @('Debug','Release')){
+            .\scripts\build.ps1 -Configuration $cfg
+            if ($LASTEXITCODE -ne 0) { throw "$cfg build failed" }
+            .\scripts\test.ps1 -Configuration $cfg
+            if ($LASTEXITCODE -ne 0) { throw "$cfg tests failed" }
+            .\scripts\test-render-verify.ps1 -Configuration $cfg
+            if ($LASTEXITCODE -ne 0) { throw "$cfg golden/negative render tests failed" }
+            & ".\build\$cfg\FAULTMINE.exe" --smoke-test
+            if ($LASTEXITCODE -ne 0) { throw "$cfg native smoke failed" }
+          }
+      - name: Run real canonical FM-014 search and independent per-selection replay
+        shell: pwsh
+        run: |
+          .\gallery\evolution\05-shearwing-telemetry\mine.ps1 -OutputDirectory .\evidence\quarry-05 -Threads 4
+          if ($LASTEXITCODE -ne 0) { throw 'Windows native indexed quarry failed' }
+          $audit=Get-Content -Raw evidence/quarry-05/audit.json | ConvertFrom-Json
+          if ($audit.completed -ne 96 -or $audit.failed -ne 0 -or
+              $audit.debug_release_readonly_replays -lt 12 -or
+              $audit.aesthetic_selection_pending -ne $true) {
+            throw 'Native audit missing expected completion/replay/curation state'
+          }
+      - name: Verify committed winner, native pixels and FM-012 lineage independently
+        shell: pwsh
+        run: |
+          python gallery/evolution/05-shearwing-telemetry/curated/verify_selection.py --native-dir evidence/quarry-05
+          if ($LASTEXITCODE -ne 0) { throw 'Archived chosen image/genome/manifest does not match real native batch' }
+      - name: Archive authentic CPU results and all reproducible search evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: shearwing-05-windows-native-evidence
+          path: evidence/
+          if-no-files-found: warn
+          retention-days: 30
