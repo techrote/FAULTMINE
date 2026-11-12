@@ -15,7 +15,15 @@ SPEC = {
 }
 PREFIX='FAULTMINE-1.0.0-win64/CANONICAL-REVIEW-EVIDENCE/shearwing-05/'
 SEISMIC_PREFIX='seismic-debt-06/'
-SEISMIC_RUN_HEAD='bb2bc1e81bb04df376fa19e06260c3b6da4c6007'
+# Genuine native artifact: run 42973963152, exact-head.txt = 0d91cea9...
+# NOT the later #57 authored PR head bb2bc1e8...; do not relabel provenance.
+SEISMIC_RUN_HEAD='0d91cea9a74a5db786b27a0bdc1a2fb1cc6ed0c4'
+
+def check_seismic_run_head(native_archive):
+ head=native_archive.read('exact-head.txt').decode('ascii').strip()
+ check(head==SEISMIC_RUN_HEAD, f'Seismic Windows artifact run head mismatch: {head}')
+ return head
+
 def check(ok, message):
  if not ok: raise ValueError(message)
 def digest(b): return hashlib.sha256(b).hexdigest()
@@ -165,8 +173,7 @@ def verify(four,review,seismic_native=None):
     png=desk.read('seismic-winner.png')
     if seismic_native is not None:
      with zipfile.ZipFile(seismic_native) as seismic:
-      head=seismic.read('exact-head.txt').decode('ascii').strip()
-      check(head==SEISMIC_RUN_HEAD, f'Seismic Windows run head mismatch: {head}')
+      check_seismic_run_head(seismic)
       check(seismic.read(SEISMIC_PREFIX+'batch.fmbatch.json')==blob,
             'Seismic native semantic manifest transport mismatch')
       for row in doc['candidates']:
