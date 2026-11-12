@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Read-only structural and identity verification; does not claim native canonical pixels."""
 from pathlib import Path
+
+if not __debug__:
+    raise SystemExit("Refusing optimized Python: artwork identity assertions must execute")
 import hashlib
 import json
 import struct

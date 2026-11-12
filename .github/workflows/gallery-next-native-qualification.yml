@@ -1,0 +1,260 @@
+name: Current-head gallery Windows canonical proof
+on:
+  pull_request:
+    branches: [main]
+    paths: ['.github/workflows/gallery-next-native-qualification.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native-gallery-four:
+    runs-on: windows-latest
+    timeout-minutes: 55
+    steps:
+      - name: Preserve exact source and genome LF bytes
+        shell: pwsh
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@v4
+        with:
+          repository: techrote/FAULTMINE
+          ref: 52f1496015d8638ab0221d7c7b1f2c1d086d8979
+          path: engine
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: techrote/FAULTMINE
+          ref: fb1eb7024d4ff07e90c639f34f1fe57be2b5ecb2
+          path: candidate-temporal-02
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: techrote/FAULTMINE
+          ref: 5507613a24daaa8e7a5a13026cc9b9f301732996
+          path: candidate-original-02
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: techrote/FAULTMINE
+          ref: d9cea49cf3c2c0b85a8563bf28c29907599d22db
+          path: candidate-evolution-03
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: techrote/FAULTMINE
+          ref: 6591689276d4e1ee1174094596a2d255fe0e849f
+          path: candidate-original-03
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify every pinned head; stage only independent authored additions
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $pins = [ordered]@{
+            'engine' = '52f1496015d8638ab0221d7c7b1f2c1d086d8979'
+            'candidate-temporal-02' = 'fb1eb7024d4ff07e90c639f34f1fe57be2b5ecb2'
+            'candidate-original-02' = '5507613a24daaa8e7a5a13026cc9b9f301732996'
+            'candidate-evolution-03' = 'd9cea49cf3c2c0b85a8563bf28c29907599d22db'
+            'candidate-original-03' = '6591689276d4e1ee1174094596a2d255fe0e849f'
+          }
+          foreach ($key in $pins.Keys) {
+            $sha = (& git -C $key rev-parse HEAD).Trim()
+            if ($LASTEXITCODE -ne 0 -or $sha -cne $pins[$key]) {
+              throw "Pinned source mismatch: $key expected $($pins[$key]) got $sha"
+            }
+          }
+          $pairs = @(
+            @('candidate-temporal-02','gallery\temporal\02-the-lift-that-forgot-floors'),
+            @('candidate-original-02','gallery\originals\02-witness-relay'),
+            @('candidate-evolution-03','gallery\evolution\03-punched-glass-index'),
+            @('candidate-original-03','gallery\originals\03-spore-ledger')
+          )
+          foreach ($pair in $pairs) {
+            $from = Join-Path $pair[0] $pair[1]
+            $to = Join-Path 'engine' $pair[1]
+            if (-not (Test-Path -LiteralPath $from -PathType Container) -or
+                (Test-Path -LiteralPath $to)) { throw "Missing input or collision: $from" }
+            New-Item -ItemType Directory -Force (Split-Path $to) | Out-Null
+            Copy-Item -LiteralPath $from -Destination $to -Recurse
+          }
+          New-Item -ItemType Directory -Force evidence | Out-Null
+          $pins | ConvertTo-Json | Set-Content -LiteralPath evidence\exact-heads.json -Encoding utf8
+      - name: Independently check source/genome/project/committed evolution PNG
+        shell: pwsh
+        working-directory: engine
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $scripts = @(
+            'gallery\temporal\02-the-lift-that-forgot-floors\verify_artwork.py',
+            'gallery\originals\02-witness-relay\verify_artwork.py',
+            'gallery\originals\03-spore-ledger\verify_artwork.py',
+            'gallery\evolution\03-punched-glass-index\curated\verify_selection.py'
+          )
+          foreach ($script in $scripts) {
+            python $script
+            if ($LASTEXITCODE -ne 0) { throw "Independent source/asset check failed: $script" }
+          }
+      - name: Build, test, and exercise deterministic CLI in both MSVC configurations
+        shell: pwsh
+        working-directory: engine
+        run: |
+          $ErrorActionPreference = 'Stop'
+          .\scripts\configure.ps1
+          if ($LASTEXITCODE -ne 0) { throw 'Configure failed' }
+          foreach ($config in @('Debug','Release')) {
+            .\scripts\build.ps1 -Configuration $config
+            if ($LASTEXITCODE -ne 0) { throw "$config build failed" }
+            .\scripts\test.ps1 -Configuration $config
+            if ($LASTEXITCODE -ne 0) { throw "$config test suite failed" }
+            .\scripts\test-render-verify.ps1 -Configuration $config
+            if ($LASTEXITCODE -ne 0) { throw "$config canonical golden/negative CLI failed" }
+            & ".\build\$config\FAULTMINE.exe" --smoke-test
+            if ($LASTEXITCODE -ne 0) { throw "$config native GUI smoke failed" }
+          }
+      - name: Qualify new originals with native Release rendering and Debug read-only replay
+        shell: pwsh
+        working-directory: engine
+        run: |
+          $ErrorActionPreference = 'Stop'
+          .\gallery\originals\02-witness-relay\render-win.ps1 -OutputDirectory (Join-Path $env:GITHUB_WORKSPACE 'evidence\original-02') -CrossCheckDebug
+          if ($LASTEXITCODE -ne 0) { throw 'Original #44 author driver failed' }
+          .\gallery\originals\03-spore-ledger\render-win.ps1 -OutputDirectory (Join-Path $env:GITHUB_WORKSPACE 'evidence\original-03') -CrossCheckDebug
+          if ($LASTEXITCODE -ne 0) { throw 'Original #46 author driver failed' }
+          foreach ($name in @('original-02','original-03')) {
+            $path = Join-Path $env:GITHUB_WORKSPACE "evidence\$name\native-replay-receipt.json"
+            $receipt = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
+            if ($receipt.debug_verify -cne 'passed' -or $receipt.release_verify -cne 'passed' -or
+                $receipt.frame -ne 0 -or $receipt.output_identity -notmatch '^[0-9a-f]{64}$') {
+              throw "Incomplete Debug/Release native still proof: $name"
+            }
+          }
+      - name: Qualify new temporal sequence in native Release and independently replay with Debug
+        shell: pwsh
+        working-directory: engine
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $out = Join-Path $env:GITHUB_WORKSPACE 'evidence\temporal-02'
+          .\gallery\temporal\02-the-lift-that-forgot-floors\render-sequence-win.ps1 -Configuration Release -RendererPath (Join-Path $PWD 'build\Release\FAULTMINE-render.exe') -OutputDirectory $out
+          if ($LASTEXITCODE -ne 0) { throw 'Temporal author driver failed' }
+          $audit = Get-Content -LiteralPath (Join-Path $out 'native-cli-replay-audit.json') -Raw | ConvertFrom-Json
+          if ($audit.complete -ne $true -or $audit.frames.Count -ne 24 -or
+              $audit.frame_end_exclusive -ne 24 -or $audit.out_of_order_replay.Count -ne 5) {
+            throw 'Temporal audit incomplete'
+          }
+          $source = '.\gallery\temporal\02-the-lift-that-forgot-floors\source.bmp'
+          $genome = '.\gallery\temporal\02-the-lift-that-forgot-floors\genome.json'
+          foreach ($frame in @(23,0,18,6,12)) {
+            $record = @($audit.frames | Where-Object { $_.frame -eq $frame })
+            if ($record.Count -ne 1) { throw "Missing unique temporal frame $frame" }
+            $png = Join-Path $out $record[0].file
+            $shaBefore = (Get-FileHash -LiteralPath $png -Algorithm SHA256).Hash.ToLowerInvariant()
+            $lines = @(& .\build\Debug\FAULTMINE-render.exe --verify --frame "$frame" $source $genome $png)
+            $status = $LASTEXITCODE
+            $global:LASTEXITCODE = 0
+            if ($status -ne 0 -or $lines -cnotcontains 'verification=passed' -or
+                $lines -cnotcontains "output_identity=$($record[0].output_identity)" -or
+                $lines -cnotcontains "source_identity=$($audit.source_identity)" -or
+                $shaBefore -cne (Get-FileHash -LiteralPath $png -Algorithm SHA256).Hash.ToLowerInvariant()) {
+              throw "Debug read-only decoded RGBA8 replay mismatch at temporal frame $frame"
+            }
+          }
+          if ($audit.frames[0].output_identity -ceq $audit.frames[23].output_identity) {
+            throw 'Temporal variation absent: identical first/last frames'
+          }
+      - name: Independently verify committed evolutionary winner #147 in Debug and Release
+        shell: pwsh
+        working-directory: engine
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $source = 'gallery\evolution\03-punched-glass-index\source.bmp'
+          $genome = 'gallery\evolution\03-punched-glass-index\curated\punched-glass-147.genome.json'
+          $png = 'gallery\evolution\03-punched-glass-index\curated\punched-glass-147.png'
+          $before = (Get-FileHash -LiteralPath $png -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($before -cne 'b96d3031d751fda3e012856889da718ababea40774f596c7dd5a3b99da6cdbf6') {
+            throw 'Native quarry authored PNG drift'
+          }
+          foreach ($config in @('Debug','Release')) {
+            $lines = @(& ".\build\$config\FAULTMINE-render.exe" --verify --frame 0 $source $genome $png)
+            $exit = $LASTEXITCODE
+            $global:LASTEXITCODE = 0
+            if ($exit -ne 0 -or $lines -cnotcontains 'verification=passed' -or
+                $lines -cnotcontains 'output_identity=410e2f936fee7bd17fe678aa472c7578791f46d3644ec6d24c9c398b92736c14') {
+              throw "Committed evolution #147 not reproducible in $config"
+            }
+          }
+          if ($before -cne (Get-FileHash -LiteralPath $png -Algorithm SHA256).Hash.ToLowerInvariant()) {
+            throw 'Read-only evolution verification mutated committed specimen'
+          }
+          Copy-Item -LiteralPath $png -Destination (Join-Path $env:GITHUB_WORKSPACE 'evidence\punched-glass-147-canonical.png')
+          Copy-Item -LiteralPath 'gallery\evolution\03-punched-glass-index\curated\punched-glass-147.fmmanifest.json' -Destination (Join-Path $env:GITHUB_WORKSPACE 'evidence\punched-glass-147.fmmanifest.json')
+      - name: Measure release performance; produce and exercise clean Windows portable package
+        shell: pwsh
+        working-directory: engine
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Force artifacts | Out-Null
+          & .\build\Release\FAULTMINE-perf.exe | Tee-Object -FilePath .\artifacts\performance.json
+          if ($LASTEXITCODE -ne 0) { throw 'Release native performance ceiling exceeded' }
+          .\scripts\package.ps1 -Configuration Release -OutputDir artifacts
+          if ($LASTEXITCODE -ne 0) { throw 'Release packaging failed' }
+          .\scripts\verify-package.ps1 -ArchivePath .\artifacts\FAULTMINE-1.0.0-win64.zip
+          if ($LASTEXITCODE -ne 0) { throw 'Extracted native portable self-test failed' }
+      - name: Build native owner-evaluation ZIP including genuine canonical art evidence
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $stage = Join-Path $env:GITHUB_WORKSPACE 'review-stage'
+          Expand-Archive -LiteralPath 'engine\artifacts\FAULTMINE-1.0.0-win64.zip' -DestinationPath $stage
+          $app = Join-Path $stage 'FAULTMINE-1.0.0-win64'
+          if (-not (Test-Path -LiteralPath (Join-Path $app 'FAULTMINE.exe'))) {
+            throw 'Extracted native application missing'
+          }
+          $works = @(
+            @('temporal\02-the-lift-that-forgot-floors','temporal-02'),
+            @('originals\02-witness-relay','original-02'),
+            @('originals\03-spore-ledger','original-03'),
+            @('evolution\03-punched-glass-index','')
+          )
+          foreach ($work in $works) {
+            $from = Join-Path 'engine\gallery' $work[0]
+            $to = Join-Path (Join-Path $app 'gallery') $work[0]
+            New-Item -ItemType Directory -Force (Split-Path $to) | Out-Null
+            Copy-Item -LiteralPath $from -Destination $to -Recurse
+            if ($work[1]) {
+              Copy-Item -LiteralPath (Join-Path 'evidence' $work[1]) -Destination (Join-Path $to 'canonical-evidence') -Recurse
+            }
+          }
+          Get-ChildItem -LiteralPath (Join-Path $app 'gallery') -Directory -Recurse -Filter __pycache__ | Remove-Item -Force -Recurse
+          $guide = @'
+          FAULTMINE -- FOUR CURRENT-HEAD ARTWORK CANDIDATES
+          Windows x64. Extract everything. Double-click Run FAULTMINE.cmd.
+          Ctrl+Shift+O opens an authored .fmproj (original-02, original-03,
+          temporal-02); Ctrl+O opens an original source image; use the
+          native viewer/editor to inspect and export. The evolutionary #147
+          candidate includes canonical image, typed genome and FM-012 manifest.
+          See each gallery/*/canonical-evidence for actual Windows CPU PNGs.
+          Do not mistake authored source images or noncanonical previews for
+          final fault treatment. No GUI relink, FM-012 sequence cancellation,
+          or artistic approval is claimed by this automated qualification.
+          Pins: main 52f1496015d8638ab0221d7c7b1f2c1d086d8979
+          PR43 fb1eb7024d4ff07e90c639f34f1fe57be2b5ecb2
+          PR44 5507613a24daaa8e7a5a13026cc9b9f301732996
+          PR45 d9cea49cf3c2c0b85a8563bf28c29907599d22db
+          PR46 6591689276d4e1ee1174094596a2d255fe0e849f
+          '@
+          [IO.File]::WriteAllText((Join-Path $app 'GALLERY-START-HERE.txt'),$guide,[Text.UTF8Encoding]::new($false))
+          Compress-Archive -LiteralPath $app -DestinationPath 'evidence\FAULTMINE-four-current-heads-review-win64.zip' -CompressionLevel Optimal
+          $zip = 'evidence\FAULTMINE-four-current-heads-review-win64.zip'
+          if (-not (Test-Path $zip) -or (Get-Item $zip).Length -lt 1000000) {
+            throw 'Native evaluation ZIP missing or implausibly small'
+          }
+          Write-Host "Review ZIP SHA256 $((Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant())"
+      - name: Upload independently reproducible canonical evidence and evaluation ZIP
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FAULTMINE-next-four-native-gallery-review
+          path: evidence/
+          if-no-files-found: warn
+          retention-days: 30

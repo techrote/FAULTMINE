@@ -7,6 +7,9 @@ non-interlaced, filter-0 scanlines, CRC-checked chunks. The authoritative
 FAULTMINE-render.exe --verify must independently compare it on Windows.
 """
 import hashlib
+
+if not __debug__:
+    raise SystemExit("Refusing optimized Python: PNG integrity assertions must execute")
 from pathlib import Path
 import struct
 import zlib

@@ -107,6 +107,12 @@ Every pull request and push to `main` runs the Windows x64 release gate:
 
 The separate `Release` workflow repeats the gated Debug/Release/test/performance/package verification path for manual candidates and tags. Only a tag whose commit is reachable from `main` is eligible for automatic GitHub Release publication; building alone never publishes an unstable commit.
 
+## Artwork replay verification (post-v1 integration gate)
+
+The accepted v1 engine/export formats remain unchanged. The renderer CLI can additionally replay an explicitly requested frame and verify a supplied canonical artwork by comparing decoded WIC-normalized RGBA8 image dimensions and pixels to a fresh CPU render. `FAULTMINE-render --verify [--frame N] source genome expected` is read-only: a mismatched decoded image returns 10; expected-image decoding failure returns 9. Successful execution reports source/output identities and `verification=passed`. This is compatible with compressed PNG encoding differences and avoids treating thumbnail/proxy similarity as canonical proof.
+
+Native CI executes the added gallery replay acceptance script independently in Debug and Release. Its tiny deterministic locally generated BMP and empty valid genome exercise ordinary render, frame-addressed render, read-only verification, a different decoded-pixel fixture, nonexistent references, schema rejection and invalid frame values. The verifier does not replace the existing packaged-workflow self-test, rich export-manifest tests, actual artistic selection or a genuine interactive Windows playtest.
+
 ## Reproducibility release gate
 
 The existing deterministic tests remain authoritative. In particular, FM-015 does not intentionally revise any known-answer entropy/serialization vectors, canonical output hashes, headless-vs-session equivalence, temporal frame identities or historical project migration semantics. A future change to any of those requires an explicit versioned contract decision rather than mechanically updating a golden.

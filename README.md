@@ -110,7 +110,16 @@ Canonical single render:
 .\build\Release\FAULTMINE-render.exe input.png genome.json output.png
 ```
 
-It validates the genome, normalizes the source through WIC, executes the canonical CPU stack at frame 0, writes PNG and prints source/output identities.
+It validates the genome, normalizes the source through WIC, executes the canonical CPU stack at frame 0, writes PNG and prints source/output identities. For a deliberately selected temporal frame, pass `--frame N` before the three positional paths.
+
+Artworks and gallery submissions can be verified **without modifying their recorded images**:
+
+```powershell
+.\build\Release\FAULTMINE-render.exe --verify .\source.png .\genome.json .\canonical.png
+.\build\Release\FAULTMINE-render.exe --verify --frame 12 .\source.png .\genome.json .\frame-12.png
+```
+
+Verification decodes the expected image through WIC and compares dimensions and the complete normalized RGBA8 pixel buffer against a fresh CPU replay. It does **not** compare PNG container bytes and never rewrites the expected file. Success prints `source_identity`, `output_identity`, `frame` and `verification=passed`. A mismatch returns exit code 10; unreadable expected images return 9. Existing three-argument rendering syntax and its two identity output lines remain unchanged. In a developer checkout, `.\scripts\test-render-verify.ps1 -Configuration Release` runs positive and negative CLI acceptance cases.
 
 Contained laboratory experiments use `FAULTMINE-lab.exe`; the helper worker `FAULTMINE-lab-worker.exe` is an implementation boundary rather than a normal interactive entry point.
 

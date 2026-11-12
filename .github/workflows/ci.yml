@@ -20,6 +20,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Verify archived Seismic Windows run-head provenance
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Test native archive run-head guard
+        shell: pwsh
+        run: |
+          python -m unittest discover -s tests -p test_seismic_archive_run_head.py -v
+          if ($LASTEXITCODE -ne 0) { throw 'Seismic archive provenance regression failed' }
+
       - name: Configure
         shell: pwsh
         run: .\scripts\configure.ps1
@@ -31,6 +42,10 @@ jobs:
       - name: Test Debug
         shell: pwsh
         run: .\scripts\test.ps1 -Configuration Debug
+
+      - name: Verify canonical render CLI Debug
+        shell: pwsh
+        run: .\scripts\test-render-verify.ps1 -Configuration Debug
 
       - name: Smoke Debug window lifecycle
         shell: pwsh
@@ -47,6 +62,10 @@ jobs:
       - name: Test Release
         shell: pwsh
         run: .\scripts\test.ps1 -Configuration Release
+
+      - name: Verify canonical render CLI Release
+        shell: pwsh
+        run: .\scripts\test-render-verify.ps1 -Configuration Release
 
       - name: Smoke Release window lifecycle
         shell: pwsh

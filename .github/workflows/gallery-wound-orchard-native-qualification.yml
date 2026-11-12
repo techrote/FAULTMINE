@@ -1,0 +1,216 @@
+name: Wound and Orchard - Windows canonical qualification
+on:
+  pull_request:
+    branches: [main]
+    paths: ['.github/workflows/gallery-wound-orchard-native-qualification.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native-gallery:
+    runs-on: windows-latest
+    timeout-minutes: 70
+    steps:
+      - name: Preserve source and canonical genome LF bytes
+        shell: pwsh
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@v4
+        with:
+          repository: techrote/FAULTMINE
+          ref: 8d706fbd58fa6db2fc10cd3b9208917273674705
+          path: engine
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: techrote/FAULTMINE
+          ref: 7c7e2f6858d359d35891f112c684f945d31caa7d
+          path: temporal-candidate
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: techrote/FAULTMINE
+          ref: ee8e1afd99a55b6e63049b8e0def1cae4d9665b6
+          path: evolution-candidate
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify exact heads; stage only new, unaccepted art
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $pins = [ordered]@{
+            engine = '8d706fbd58fa6db2fc10cd3b9208917273674705'
+            'temporal-candidate' = '7c7e2f6858d359d35891f112c684f945d31caa7d'
+            'evolution-candidate' = 'ee8e1afd99a55b6e63049b8e0def1cae4d9665b6'
+          }
+          foreach ($key in $pins.Keys) {
+            $head = (& git -C $key rev-parse HEAD).Trim()
+            if ($LASTEXITCODE -ne 0 -or $head -cne $pins[$key]) { throw "Pinned checkout mismatch for $key" }
+          }
+          $dirs = @(
+            @('temporal-candidate','gallery\temporal\03-the-wound-that-counts-backwards'),
+            @('evolution-candidate','gallery\evolution\04-hanging-orchard')
+          )
+          foreach ($item in $dirs) {
+            $from = Join-Path $item[0] $item[1]
+            $to = Join-Path 'engine' $item[1]
+            if (-not (Test-Path -LiteralPath $from -PathType Container) -or
+                (Test-Path -LiteralPath $to)) { throw "Missing author source or historical gallery collision: $to" }
+            New-Item -Force -ItemType Directory (Split-Path $to) | Out-Null
+            Copy-Item -LiteralPath $from -Destination $to -Recurse
+          }
+          New-Item -Force -ItemType Directory evidence | Out-Null
+          [IO.File]::WriteAllText('evidence\exact-heads.json',
+            (($pins | ConvertTo-Json -Depth 4) + [char]10), [Text.UTF8Encoding]::new($false))
+      - name: Check authored original pixels, genome and project
+        shell: pwsh
+        working-directory: engine
+        run: |
+          $ErrorActionPreference = 'Stop'
+          python .\gallery\temporal\03-the-wound-that-counts-backwards\verify_artwork.py
+          if ($LASTEXITCODE -ne 0) { throw 'Temporal input identity failed' }
+          node .\gallery\evolution\04-hanging-orchard\make-source.mjs --verify
+          if ($LASTEXITCODE -ne 0) { throw 'Evolutionary source reproduction failed' }
+      - name: Build and test Debug and Release native engine with unchanged goldens
+        shell: pwsh
+        working-directory: engine
+        run: |
+          $ErrorActionPreference = 'Stop'
+          .\scripts\configure.ps1
+          if ($LASTEXITCODE -ne 0) { throw 'Configure failed' }
+          foreach ($config in @('Debug','Release')) {
+            .\scripts\build.ps1 -Configuration $config
+            if ($LASTEXITCODE -ne 0) { throw "$config MSVC build failed" }
+            .\scripts\test.ps1 -Configuration $config
+            if ($LASTEXITCODE -ne 0) { throw "$config deterministic test suite failed" }
+            .\scripts\test-render-verify.ps1 -Configuration $config
+            if ($LASTEXITCODE -ne 0) { throw "$config canonical verification tests failed" }
+            & ".\build\$config\FAULTMINE.exe" --smoke-test
+            if ($LASTEXITCODE -ne 0) { throw "$config GUI smoke failed" }
+          }
+      - name: Execute and independently audit all 30 temporal frames in both configurations
+        shell: pwsh
+        working-directory: engine
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $dir = '.\gallery\temporal\03-the-wound-that-counts-backwards'
+          $root = Join-Path $env:GITHUB_WORKSPACE 'evidence'
+          foreach ($config in @('Release','Debug')) {
+            $out = Join-Path $root ("temporal-03-" + $config.ToLowerInvariant())
+            & "$dir\render-sequence-win.ps1" -Configuration $config -OutputDirectory $out
+            if ($LASTEXITCODE -ne 0) { throw "$config temporal render failed" }
+            if ($config -eq 'Release') {
+              python "$dir\verify_native_frames.py" $out --contact (Join-Path $root 'temporal-03-contact-PRESENTATION.png')
+            } else {
+              python "$dir\verify_native_frames.py" $out
+            }
+            if ($LASTEXITCODE -ne 0) { throw "$config independent PNG/RGBA8 audit failed" }
+          }
+          $releaseDir = Join-Path $root 'temporal-03-release'
+          $release = Get-Content -LiteralPath (Join-Path $releaseDir 'native-cli-replay-audit.json') -Raw | ConvertFrom-Json
+          $debug = Get-Content -LiteralPath (Join-Path $root 'temporal-03-debug\native-cli-replay-audit.json') -Raw | ConvertFrom-Json
+          if ($release.complete -ne $true -or $debug.complete -ne $true -or
+              $release.frames.Count -ne 30 -or $debug.frames.Count -ne 30) { throw 'Temporal frames incomplete' }
+          for ($frame = 0; $frame -lt 30; $frame++) {
+            if ($release.frames[$frame].output_identity -cne $debug.frames[$frame].output_identity) {
+              throw "Debug/Release canonical divergence at frame $frame"
+            }
+          }
+          $source = Join-Path $dir 'source.bmp'
+          $genome = Join-Path $dir 'genome.json'
+          foreach ($frame in @(29,0,17,6,24)) {
+            $png = Join-Path $releaseDir $release.frames[$frame].file
+            $sha = (Get-FileHash -LiteralPath $png -Algorithm SHA256).Hash
+            $lines = @(& .\build\Debug\FAULTMINE-render.exe --verify --frame "$frame" $source $genome $png)
+            $exit = $LASTEXITCODE
+            $global:LASTEXITCODE = 0
+            if ($exit -ne 0 -or $lines -cnotcontains 'verification=passed' -or
+                $lines -cnotcontains "output_identity=$($release.frames[$frame].output_identity)" -or
+                $sha -cne (Get-FileHash -LiteralPath $png -Algorithm SHA256).Hash) {
+              throw "Read-only cross replay failed at frame $frame"
+            }
+          }
+          $ids = @($release.frames | ForEach-Object { $_.output_identity })
+          [IO.File]::WriteAllText((Join-Path $root 'temporal-03-identities.json'),
+            (([ordered]@{frames=$ids;debug_release_exact=$true;source_identity=$release.source_identity;
+              genome_identity=$release.genome_identity;native_cpu=$true;
+              gui_fm012_pending=$true;human_acceptance_pending=$true} |
+              ConvertTo-Json -Depth 6) + [char]10),[Text.UTF8Encoding]::new($false))
+      - name: Execute bounded 144-candidate full-resolution canonical quarry
+        shell: pwsh
+        working-directory: engine
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $out = Join-Path $env:GITHUB_WORKSPACE 'evidence\orchard-04'
+          .\gallery\evolution\04-hanging-orchard\mine.ps1 -OutputDirectory $out -Threads 4
+          if ($LASTEXITCODE -ne 0) { throw 'Orchard native mining failed' }
+          $audit = Get-Content -LiteralPath (Join-Path $out 'audit.json') -Raw | ConvertFrom-Json
+          if ($audit.completed -ne 144 -or $audit.failed -ne 0 -or
+              $audit.selected_count -lt 6 -or $audit.native_debug_release_replays -lt 12 -or
+              $audit.canonical -ne $true) { throw 'Orchard canonical search/replay evidence incomplete' }
+          if (-not (Test-Path (Join-Path $out 'selected-contact-sheet.png'))) {
+            throw 'Native selected presentation contact sheet missing'
+          }
+          Write-Host "PASS: completed $($audit.completed), unique pixels $($audit.unique_pixels), selected $($audit.selected_count)"
+      - name: Qualify extracted native portable package and performance
+        shell: pwsh
+        working-directory: engine
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -Force -ItemType Directory artifacts | Out-Null
+          & .\build\Release\FAULTMINE-perf.exe | Tee-Object -FilePath .\artifacts\performance.json
+          if ($LASTEXITCODE -ne 0) { throw 'Performance regression' }
+          .\scripts\package.ps1 -Configuration Release -OutputDir artifacts
+          if ($LASTEXITCODE -ne 0) { throw 'Packaging failed' }
+          .\scripts\verify-package.ps1 -ArchivePath .\artifacts\FAULTMINE-1.0.0-win64.zip
+          if ($LASTEXITCODE -ne 0) { throw 'Extracted package smoke/workflow test failed' }
+          Copy-Item -LiteralPath .\artifacts\performance.json -Destination (Join-Path $env:GITHUB_WORKSPACE 'evidence\performance.json')
+      - name: Deliver real portable Windows review with source and native canonical evidence
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Expand-Archive -LiteralPath 'engine\artifacts\FAULTMINE-1.0.0-win64.zip' -DestinationPath review-stage
+          $app = 'review-stage\FAULTMINE-1.0.0-win64'
+          if (-not (Test-Path (Join-Path $app 'FAULTMINE.exe'))) { throw 'Portable executable missing' }
+          foreach ($name in @('temporal\03-the-wound-that-counts-backwards','evolution\04-hanging-orchard')) {
+            $from = Join-Path 'engine\gallery' $name
+            $to = Join-Path (Join-Path $app 'gallery') $name
+            New-Item -Force -ItemType Directory (Split-Path $to) | Out-Null
+            Copy-Item -LiteralPath $from -Destination $to -Recurse
+          }
+          $proof = Join-Path $app 'CANONICAL-REVIEW-EVIDENCE'
+          New-Item -Force -ItemType Directory $proof | Out-Null
+          foreach ($name in @('temporal-03-release','orchard-04')) {
+            Copy-Item -LiteralPath (Join-Path 'evidence' $name) -Destination (Join-Path $proof $name) -Recurse
+          }
+          Copy-Item -LiteralPath 'evidence\temporal-03-contact-PRESENTATION.png' -Destination $proof
+          $guide = @'
+          FAULTMINE - WOUND / ORCHARD OWNER REVIEW
+          Windows x64: extract and launch Run FAULTMINE.cmd.
+          Ctrl+Shift+O opens the temporal .fmproj in gallery\temporal\03-.
+          Relink source.bmp if requested, respecting source content identity.
+          Actual temporal PNGs: CANONICAL-REVIEW-EVIDENCE\temporal-03-release\
+          Actual 144-candidate orchard proof: CANONICAL-REVIEW-EVIDENCE\orchard-04\
+          The contact sheets are presentation-only, not canonical specimen pixels.
+          Both works remain candidate art; artist/physical GUI admission pending.
+          Engine main: 8d706fbd58fa6db2fc10cd3b9208917273674705
+          Temporal PR48: 7c7e2f6858d359d35891f112c684f945d31caa7d
+          Orchard PR49: ee8e1afd99a55b6e63049b8e0def1cae4d9665b6
+          '@
+          [IO.File]::WriteAllText((Join-Path $app 'GALLERY-START-HERE.txt'),$guide,[Text.UTF8Encoding]::new($false))
+          $zip = 'evidence\FAULTMINE-wound-orchard-review-win64.zip'
+          Compress-Archive -LiteralPath $app -DestinationPath $zip -CompressionLevel Optimal
+          if ((Get-Item -LiteralPath $zip).Length -lt 1000000) { throw 'Portable evaluation ZIP implausibly small' }
+          Write-Host "Evaluation ZIP SHA256 $((Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant())"
+      - name: Preserve complete or partial native evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FAULTMINE-wound-orchard-native-evidence
+          path: evidence/
+          if-no-files-found: warn
+          retention-days: 30
