@@ -31,7 +31,7 @@ The **actual original unfaulted source** was rendered and visually inspected loc
 | Farthest-point novelty selections | up to 8 |
 | Export | Selected canonical PNGs + FM-012 manifests, genuine native contact sheet, GUI-loadable batch.fmproj |
 
-The real batch completed 96/96 with 96 unique genome and pixel identities, 10 descriptor near-duplicate groups and 8 diversity selections. Chosen descendant **65** is archived under `curated/` with its original CPU/WIC PNG, normalized genome, FM-012 receipt and read-only verifier. The native output directory contains full-search evidence and remains outside version control.
+The real batch completed 96/96 with 96 unique genome and pixel identities, 70 descriptor-near representatives, 26 additional near-redundant unique images (27.08% of 96), and 8 novelty selections. The previously reported figure of 10 was an error: the original failed-post-export run and the later successful Windows-native archive have byte-identical FM-014 manifests recording 70 representatives. Chosen descendant **65** is archived under `curated/` with its original CPU/WIC PNG, normalized genome, FM-012 receipt and read-only verifier. The native output directory contains full-search evidence and remains outside version control.
 
 ## Windows reproduction (native)
 
