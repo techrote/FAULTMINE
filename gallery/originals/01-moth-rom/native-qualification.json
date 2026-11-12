@@ -1,0 +1,44 @@
+{
+  "qualification_version": 1,
+  "artwork_id": "MOTH-ROM-07",
+  "qualification_scope": "native-cpu-cli-evidence-not-fm012-export",
+  "source_author_commit": "4fcf670ff13fe9669e31d5535f767d6def3750e9",
+  "source_file": "source.bmp",
+  "source_encoding_sha256": "41a2be8d45d83c4b15e09ce9d1846256cb89f71d48551f592d1e78f772670e48",
+  "normalized_source_identity": "49aca43e0330c82dec3d579f42f6cca3728603e5155cec434bf0ee81303fff4e",
+  "genome_file": "genome.json",
+  "genome_identity": "fa4fda19e0701619a57b2c3eb0ee422ebf8f9f6911537ccc9ee912c125bf72e4",
+  "root_seed": "0d07c1cada55e7a1",
+  "engine_contract_version": 1,
+  "explicit_frame": 0,
+  "dimensions": [
+    384,
+    256
+  ],
+  "decoded_format": "straight-RGBA8",
+  "native_output_identity": "171e395bac997e35d740f400cbbce3e9fdb556056f5be7fd45eef5d158536c7c",
+  "native_encoded_png_sha256": "70f8ed386a18f8cdb76212ddf7ec0799b8dfba8ab19f2b3d24f0e511ff0f8b81",
+  "native_replay_verified_with": [
+    "Release",
+    "Debug"
+  ],
+  "evidence": {
+    "qualification_pr": "https://github.com/techrote/FAULTMINE/pull/40",
+    "workflow_run": "https://github.com/techrote/FAULTMINE/actions/runs/42939377682",
+    "artifact_id": 13820331534,
+    "archive_path": "original/moth-rom-canonical.png",
+    "native_audit_path": "original/native-canonical-audit.json",
+    "authorship_vs_qualification": "CI checkout pinned to unchanged original source/genome at 4fcf670, before later author script/docs improvements.",
+    "status": "original native qualification step succeeded; overall workflow failed for independent temporal worker script PowerShell parser error"
+  },
+  "inspection": {
+    "method": "Downloaded actual native output PNG and compared with original source; independent decoded RGBA8 hash recalculated.",
+    "observed": "Moth remains recognizable with approximately bilateral wings, interrupted registration lettering, cyan/red channel-edge displacements, horizontal tears and damaged cellular texture.",
+    "resolution": "384x256",
+    "unique_rgba_colours": 265,
+    "changed_pixels_from_source": 98304,
+    "total_pixels": 98304,
+    "aesthetic_gate": "Author inspection only; independent artistic selection, GUI project/relink and FM-012 export acceptance not claimed."
+  },
+  "file_status": "Canonical PNG lives in cited CI artifact; not falsely represented as committed to this artwork branch."
+}

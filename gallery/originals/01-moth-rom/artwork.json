@@ -1,0 +1,32 @@
+{
+  "artwork_manifest_version": 1,
+  "title": "MOTH ROM / 07 — Chitin Memory",
+  "created_date": "2026-11-11",
+  "rights": "Original programmatically drawn source; no third-party image or font assets used.",
+  "artwork_kind": "canonical-still-candidate",
+  "source_file": "source.bmp",
+  "source_dimensions": [
+    384,
+    256
+  ],
+  "source_encoding": "BMP v3, 24-bit BGR, bottom-up, opaque",
+  "source_encoding_sha256": "41a2be8d45d83c4b15e09ce9d1846256cb89f71d48551f592d1e78f772670e48",
+  "source_identity": "49aca43e0330c82dec3d579f42f6cca3728603e5155cec434bf0ee81303fff4e",
+  "genome_file": "genome.json",
+  "genome_identity": "fa4fda19e0701619a57b2c3eb0ee422ebf8f9f6911537ccc9ee912c125bf72e4",
+  "project_file": "moth-rom.fmproj",
+  "genome_schema_version": 1,
+  "engine_contract_version": 1,
+  "project_version": 2,
+  "root_seed": "0d07c1cada55e7a1",
+  "explicit_frame": 0,
+  "native_render_status": "windows-native-cpu-decoded-replay-verified",
+  "canonical_output_identity": "171e395bac997e35d740f400cbbce3e9fdb556056f5be7fd45eef5d158536c7c",
+  "canonical_output_file": "moth-rom-canonical.png",
+  "planned_native_output": "native-render/moth-rom-canonical.png",
+  "note": "This author record is not an FM-012 export manifest. The committed PNG is a lossless RGB8 recoding of independently verified Windows CPU RGBA8 pixels: decoded identity is unchanged, transport SHA differs from the native WIC PNG. GUI/FM-012, newly committed PNG exact-head Windows --verify, and independent artistic acceptance remain separate gates.",
+  "archived_png_encoded_sha256": "59488382c0ad776ee00dc1419d11ba1ddbf79871b161059037a6f4234af33088",
+  "native_png_encoded_sha256": "70f8ed386a18f8cdb76212ddf7ec0799b8dfba8ab19f2b3d24f0e511ff0f8b81",
+  "native_evidence_run": 42939377682,
+  "native_evidence_artifact": 13820331534
+}
