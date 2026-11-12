@@ -28,7 +28,8 @@ echo Opening genuine archived canonical still and FAULTMINE GUI.
 echo Once open: Ctrl+Shift+O and choose gallery\originals\03-spore-ledger\spore-ledger.fmproj.
 echo Compare to archived still. Test Ctrl+E export, cancellation, and decide ADMIT/REVISE/REJECT.
 start "" "%ART%canonical-evidence\spore-ledger-canonical.png"
-start "" /D "%BIN%" "%BIN%\FAULTMINE.exe"
+rem Project source paths are repository-root-relative; build/Release is not a valid working directory.
+start "" /D "%ROOT%" "%BIN%\FAULTMINE.exe"
 if errorlevel 1 (
   echo [STOP] Windows reported a launch error. Physical GUI acceptance is not established.
   pause
